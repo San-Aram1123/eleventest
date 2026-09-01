@@ -1,0 +1,13 @@
+{
+  "name": "kurdish-tts-dataset-tool",
+  "version": "1.0.0",
+  "description": "Kurdish TTS Dataset Generator & Comparison Tool for ElevenLabs",
+  "scripts": {
+    "dev": "node server/index.js",
+    "test:unicode": "node server/testUnicode.js",
+    "start": "node server/index.js"
+  },
+  "keywords": ["kurdish", "tts", "elevenlabs", "dataset", "unicode"],
+  "author": "",
+  "license": "MIT"
+}
