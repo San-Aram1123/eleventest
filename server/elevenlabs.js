@@ -1,23 +1,123 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import { ensureWavBuffer } from './wavUtils.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ENV_FILE_PATH = path.resolve(__dirname, '..', '.env');
+const KEYS_FILE_PATH = path.resolve(__dirname, '..', 'keys.json');
 
 const ELEVENLABS_BASE_URL = 'https://api.elevenlabs.io/v1';
 
 /**
- * Helper to get the active ElevenLabs API key.
- * Can be passed directly or read from process.env.ELEVENLABS_API_KEY.
+ * Reads all configured ElevenLabs API keys.
+ * Checks ELEVENLABS_API_KEYS, ELEVENLABS_API_KEY, and keys.json.
+ * @returns {string[]}
  */
-export function getApiKey(overrideKey) {
-  const key = (overrideKey || process.env.ELEVENLABS_API_KEY || '').trim();
-  return key;
+export function getKeyPool() {
+  const keys = new Set();
+
+  // 1. From process.env.ELEVENLABS_API_KEYS (comma separated)
+  if (process.env.ELEVENLABS_API_KEYS) {
+    const parts = process.env.ELEVENLABS_API_KEYS.split(',');
+    for (const p of parts) {
+      const trimmed = p.trim();
+      if (trimmed) keys.add(trimmed);
+    }
+  }
+
+  // 2. From process.env.ELEVENLABS_API_KEY (single fallback)
+  if (process.env.ELEVENLABS_API_KEY) {
+    const single = process.env.ELEVENLABS_API_KEY.trim();
+    if (single) keys.add(single);
+  }
+
+  // 3. From keys.json if exists
+  if (fs.existsSync(KEYS_FILE_PATH)) {
+    try {
+      const raw = fs.readFileSync(KEYS_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const k of parsed) {
+          if (typeof k === 'string' && k.trim()) {
+            keys.add(k.trim());
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read keys.json:', e.message);
+    }
+  }
+
+  return Array.from(keys);
 }
 
 /**
- * Validates the API key and fetches user subscription info.
+ * Saves updated key pool to .env and keys.json
+ * @param {string[]} keys
+ */
+export function saveKeyPool(keys) {
+  const uniqueKeys = Array.from(new Set(keys.map(k => k.trim()).filter(Boolean)));
+  
+  // Update process.env
+  process.env.ELEVENLABS_API_KEYS = uniqueKeys.join(',');
+  process.env.ELEVENLABS_API_KEY = uniqueKeys[0] || '';
+
+  // Save to keys.json
+  try {
+    fs.writeFileSync(KEYS_FILE_PATH, JSON.stringify(uniqueKeys, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Could not write keys.json:', e.message);
+  }
+
+  // Save to .env
+  try {
+    let envContent = '';
+    if (fs.existsSync(ENV_FILE_PATH)) {
+      envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+      
+      if (envContent.includes('ELEVENLABS_API_KEYS=')) {
+        envContent = envContent.replace(/ELEVENLABS_API_KEYS=.*/g, `ELEVENLABS_API_KEYS=${uniqueKeys.join(',')}`);
+      } else {
+        envContent += `\nELEVENLABS_API_KEYS=${uniqueKeys.join(',')}\n`;
+      }
+
+      if (envContent.includes('ELEVENLABS_API_KEY=')) {
+        envContent = envContent.replace(/ELEVENLABS_API_KEY=.*/g, `ELEVENLABS_API_KEY=${uniqueKeys[0] || ''}`);
+      } else {
+        envContent += `\nELEVENLABS_API_KEY=${uniqueKeys[0] || ''}\n`;
+      }
+    } else {
+      envContent = `ELEVENLABS_API_KEYS=${uniqueKeys.join(',')}\nELEVENLABS_API_KEY=${uniqueKeys[0] || ''}\nPORT=5000\nDATASET_DIR=dataset\n`;
+    }
+    fs.writeFileSync(ENV_FILE_PATH, envContent, 'utf8');
+  } catch (e) {
+    console.warn('Could not write .env:', e.message);
+  }
+
+  return uniqueKeys;
+}
+
+/**
+ * Helper to get the primary active ElevenLabs API key.
+ */
+export function getApiKey(overrideKey) {
+  if (overrideKey && overrideKey.trim()) {
+    return overrideKey.trim();
+  }
+  const pool = getKeyPool();
+  return pool[0] || '';
+}
+
+/**
+ * Validates an API key and fetches user subscription details.
+ * @param {string} apiKey
  */
 export async function validateApiKey(apiKey) {
-  const key = getApiKey(apiKey);
+  const key = (apiKey || getApiKey()).trim();
   if (!key) {
-    throw new Error('ElevenLabs API Key is not configured. Please set it in .env or Settings.');
+    throw new Error('ElevenLabs API Key is not provided.');
   }
 
   const response = await fetch(`${ELEVENLABS_BASE_URL}/user`, {
@@ -42,169 +142,225 @@ export async function validateApiKey(apiKey) {
 }
 
 /**
- * Fetch available voices from ElevenLabs.
+ * Adds a new API key to the key pool after validation.
+ * @param {string} newKey
  */
-export async function getVoices(apiKey) {
-  const key = getApiKey(apiKey);
-  if (!key) {
+export async function addKeyToPool(newKey) {
+  const trimmed = newKey.trim();
+  if (!trimmed) {
+    throw new Error('API key cannot be empty');
+  }
+
+  // Validate with ElevenLabs API
+  const userInfo = await validateApiKey(trimmed);
+
+  const currentPool = getKeyPool();
+  if (!currentPool.includes(trimmed)) {
+    currentPool.push(trimmed);
+    saveKeyPool(currentPool);
+  }
+
+  return {
+    success: true,
+    maskedKey: `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`,
+    userInfo,
+    poolSize: currentPool.length
+  };
+}
+
+/**
+ * Removes an API key by index or value.
+ * @param {number|string} indexOrKey
+ */
+export function removeKeyFromPool(indexOrKey) {
+  const pool = getKeyPool();
+  let updated = [];
+
+  if (typeof indexOrKey === 'number') {
+    updated = pool.filter((_, idx) => idx !== indexOrKey);
+  } else {
+    updated = pool.filter(k => k !== indexOrKey && !k.endsWith(indexOrKey.slice(-4)));
+  }
+
+  saveKeyPool(updated);
+  return {
+    success: true,
+    poolSize: updated.length
+  };
+}
+
+/**
+ * Inspects all keys in the pool and returns their individual quota & health status.
+ */
+export async function getKeyPoolDetails() {
+  const pool = getKeyPool();
+  if (pool.length === 0) {
+    return [];
+  }
+
+  const results = await Promise.all(
+    pool.map(async (key, idx) => {
+      const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
+      try {
+        const userInfo = await validateApiKey(key);
+        const sub = userInfo.subscription || {};
+        const charCount = sub.character_count || 0;
+        const charLimit = sub.character_limit || 10000;
+        const remaining = Math.max(0, charLimit - charCount);
+        const isExhausted = remaining <= 0;
+
+        return {
+          id: `key_${idx}`,
+          index: idx,
+          maskedKey: masked,
+          tier: sub.tier || 'free',
+          characterCount: charCount,
+          characterLimit: charLimit,
+          remainingCharacters: remaining,
+          status: isExhausted ? 'exhausted' : (sub.status === 'active' || !sub.status ? 'ready' : sub.status),
+          isValid: true,
+          error: null
+        };
+      } catch (err) {
+        return {
+          id: `key_${idx}`,
+          index: idx,
+          maskedKey: masked,
+          tier: 'unknown',
+          characterCount: 0,
+          characterLimit: 0,
+          remainingCharacters: 0,
+          status: 'invalid',
+          isValid: false,
+          error: err.message
+        };
+      }
+    })
+  );
+
+  return results;
+}
+
+/**
+ * Fetch available voices from ElevenLabs using the first working key.
+ */
+export async function getVoices(overrideKey) {
+  const pool = overrideKey ? [overrideKey] : getKeyPool();
+  if (pool.length === 0) {
     throw new Error('ElevenLabs API Key is required to fetch voices');
   }
 
-  const response = await fetch(`${ELEVENLABS_BASE_URL}/voices`, {
-    headers: {
-      'xi-api-key': key
-    }
-  });
+  let lastError = null;
+  for (const key of pool) {
+    try {
+      const response = await fetch(`${ELEVENLABS_BASE_URL}/voices`, {
+        headers: { 'xi-api-key': key }
+      });
 
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Failed to fetch voices: ${errorText}`);
+      if (response.ok) {
+        const data = await response.json();
+        return (data.voices || []).map(voice => ({
+          voice_id: voice.voice_id,
+          name: voice.name,
+          category: voice.category,
+          preview_url: voice.preview_url,
+          labels: voice.labels || {},
+          description: voice.description || ''
+        }));
+      }
+      lastError = new Error(await response.text());
+    } catch (err) {
+      lastError = err;
+    }
   }
 
-  const data = await response.json();
-  return (data.voices || []).map(voice => ({
-    voice_id: voice.voice_id,
-    name: voice.name,
-    category: voice.category,
-    preview_url: voice.preview_url,
-    labels: voice.labels || {},
-    description: voice.description || ''
-  }));
+  throw new Error(`Failed to fetch voices with key pool: ${lastError?.message}`);
 }
 
 /**
  * Fetch available models from ElevenLabs.
  */
-export async function getModels(apiKey) {
-  const key = getApiKey(apiKey);
-  if (!key) {
+export async function getModels(overrideKey) {
+  const pool = overrideKey ? [overrideKey] : getKeyPool();
+  if (pool.length === 0) {
     return getDefaultModels();
   }
 
-  try {
-    const response = await fetch(`${ELEVENLABS_BASE_URL}/models`, {
-      headers: {
-        'xi-api-key': key
-      }
-    });
+  for (const key of pool) {
+    try {
+      const response = await fetch(`${ELEVENLABS_BASE_URL}/models`, {
+        headers: { 'xi-api-key': key }
+      });
 
-    if (response.ok) {
-      const data = await response.json();
-      return (data || []).map(m => ({
-        model_id: m.model_id,
-        name: m.name,
-        description: m.description,
-        can_do_text_to_speech: m.can_do_text_to_speech,
-        can_do_voice_conversion: m.can_do_voice_conversion,
-        languages: m.languages || []
-      }));
+      if (response.ok) {
+        const data = await response.json();
+        return (data || []).map(m => ({
+          model_id: m.model_id,
+          name: m.name,
+          description: m.description,
+          can_do_text_to_speech: m.can_do_text_to_speech,
+          can_do_voice_conversion: m.can_do_voice_conversion,
+          languages: m.languages || []
+        }));
+      }
+    } catch (e) {
+      // Continue to next key
     }
-  } catch (err) {
-    console.warn('Failed to fetch remote models, using defaults:', err.message);
   }
 
   return getDefaultModels();
 }
 
-/**
- * Default fallback models.
- */
-export function getDefaultModels() {
+function getDefaultModels() {
   return [
     {
       model_id: 'eleven_v3',
-      name: 'ElevenLabs v3 (Audio Tags & Expressive)',
-      description: 'Latest v3 model with native emotional tag support like [laugh], [whisper], [sigh], [gasp], [crying].'
+      name: 'ElevenLabs v3',
+      description: 'Latest flagship model with emotional audio tags support ([laugh], [whisper], [sigh], [angry]).'
     },
     {
       model_id: 'eleven_multilingual_v3',
       name: 'Eleven Multilingual v3',
-      description: 'Advanced multilingual v3 speech synthesis.'
+      description: 'Multilingual v3 synthesis with rich expressive control.'
     },
     {
       model_id: 'eleven_turbo_v3',
       name: 'Eleven Turbo v3',
-      description: 'Ultra fast v3 conversational and emotional model.'
+      description: 'Ultra-fast low latency v3 synthesis.'
     },
     {
       model_id: 'eleven_multilingual_v2',
       name: 'Eleven Multilingual v2',
-      description: 'Multilingual model with emotional expression.'
+      description: 'Stable multilingual synthesis across 29 languages including Arabic & Kurdish script.'
     },
     {
       model_id: 'eleven_turbo_v2_5',
       name: 'Eleven Turbo v2.5',
-      description: 'Ultra-low latency model supporting 32 languages.'
+      description: 'Fast multilingual generation.'
     },
     {
       model_id: 'eleven_flash_v2_5',
       name: 'Eleven Flash v2.5',
-      description: 'Super fast multilingual model for interactive workflows.'
-    },
-    {
-      model_id: 'eleven_flash_v2',
-      name: 'Eleven Flash v2',
-      description: 'Fast, lightweight speech model.'
-    },
-    {
-      model_id: 'eleven_monolingual_v1',
-      name: 'Eleven English v1',
-      description: 'Standard English model.'
+      description: 'Ultra low latency 75ms response time.'
     }
   ];
 }
 
 /**
- * Generates speech with timestamps and alignment using ElevenLabs API.
- * 
- * @param {object} params
- * @param {string} params.text - The clean spoken Kurdish text.
- * @param {string} [params.emotionTag] - Audio tag or prompt to send to ElevenLabs (e.g. "[angry]").
- * @param {boolean} [params.includeTagInPrompt=true] - Whether to prepend the emotion tag to the API prompt.
- * @param {string} params.voiceId - ElevenLabs voice ID.
- * @param {string} [params.modelId='eleven_multilingual_v2'] - ElevenLabs model ID.
- * @param {object} [params.voiceSettings] - Stability, similarity_boost, style, speaker_boost.
- * @param {string} [params.apiKey] - Optional override API key.
- * @returns {Promise<{ audioBuffer: Buffer, alignment: object|null, characters: string[], generationId: string }>}
+ * Performs a single TTS request with a specific key.
  */
-export async function generateSpeech({
+async function callElevenLabsTTS({
+  apiKey,
   text,
-  emotionTag = '',
-  includeTagInPrompt = true,
   voiceId,
-  modelId = 'eleven_v3',
-  voiceSettings = {},
-  outputFormat = 'mp3_44100_128',
-  apiKey
+  modelId,
+  voiceSettings,
+  outputFormat
 }) {
-  const key = getApiKey(apiKey);
-  if (!key) {
-    throw new Error('ElevenLabs API Key is required for speech generation');
-  }
-
-  if (!text || !text.trim()) {
-    throw new Error('Kurdish text input cannot be empty');
-  }
-
-  if (!voiceId) {
-    throw new Error('Voice ID is required for speech generation');
-  }
-
-  // Construct prompt sent to ElevenLabs:
-  // If an emotion tag like "[angry]" or "[laugh]" is provided and requested, prepend it to prompt text.
-  // The original spoken transcript text is kept completely separate and clean in metadata.
-  let promptText = text.trim();
-  if (emotionTag && emotionTag.trim() && includeTagInPrompt) {
-    const cleanTag = emotionTag.trim();
-    promptText = `${cleanTag} ${promptText}`;
-  }
-
-  // First try: with-timestamps endpoint (which returns alignment metadata)
-  // Requesting output_format=mp3_44100_128 (available on all ElevenLabs tiers: Free, Starter, Creator, Pro)
   const urlWithTimestamps = `${ELEVENLABS_BASE_URL}/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps?output_format=${encodeURIComponent(outputFormat)}`;
 
   const requestBody = {
-    text: promptText,
+    text,
     model_id: modelId,
     voice_settings: {
       stability: voiceSettings.stability ?? 0.5,
@@ -214,19 +370,14 @@ export async function generateSpeech({
     }
   };
 
-  let response;
-  try {
-    response = await fetch(urlWithTimestamps, {
-      method: 'POST',
-      headers: {
-        'xi-api-key': key,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
-    });
-  } catch (netErr) {
-    throw new Error(`Network error contacting ElevenLabs API: ${netErr.message}`);
-  }
+  const response = await fetch(urlWithTimestamps, {
+    method: 'POST',
+    headers: {
+      'xi-api-key': apiKey,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(requestBody)
+  });
 
   const generationId = response.headers.get('history-item-id') || 
                        response.headers.get('request-id') || 
@@ -242,27 +393,40 @@ export async function generateSpeech({
     const rawBuffer = Buffer.from(rawAudioBase64, 'base64');
     const audioBuffer = ensureWavBuffer(rawBuffer, 44100);
 
-    const alignment = data.alignment || null;
-    const characters = alignment?.characters || [];
-
     return {
       audioBuffer,
-      alignment,
-      characters,
+      alignment: data.alignment || null,
+      characters: data.alignment?.characters || [],
       generationId
     };
   }
 
-  // If with-timestamps returned an error (for example, if a model or tier does not support with-timestamps),
-  // fallback to standard stream/binary endpoint
+  // Handle fallback to binary stream
   const errorText = await response.text();
-  console.warn(`with-timestamps endpoint returned status ${response.status}: ${errorText}. Attempting fallback to standard TTS endpoint...`);
+  let isQuotaError = response.status === 401 || response.status === 402 || response.status === 429;
+  let parsedMsg = errorText;
+  try {
+    const errJson = JSON.parse(errorText);
+    parsedMsg = errJson.detail?.message || errJson.message || errorText;
+    if (errJson.detail?.status === 'quota_exceeded' || parsedMsg.toLowerCase().includes('quota') || parsedMsg.toLowerCase().includes('credit') || parsedMsg.toLowerCase().includes('character limit')) {
+      isQuotaError = true;
+    }
+  } catch {}
 
+  // If quota / auth error, throw immediately with quota flag
+  if (isQuotaError) {
+    const quotaErr = new Error(`Key quota exhausted / auth error (${response.status}): ${parsedMsg}`);
+    quotaErr.isQuotaError = true;
+    quotaErr.statusCode = response.status;
+    throw quotaErr;
+  }
+
+  // Try standard endpoint fallback
   const fallbackUrl = `${ELEVENLABS_BASE_URL}/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${encodeURIComponent(outputFormat)}`;
   const fallbackResponse = await fetch(fallbackUrl, {
     method: 'POST',
     headers: {
-      'xi-api-key': key,
+      'xi-api-key': apiKey,
       'Content-Type': 'application/json',
       'Accept': 'audio/*'
     },
@@ -271,22 +435,99 @@ export async function generateSpeech({
 
   if (!fallbackResponse.ok) {
     const fallbackErr = await fallbackResponse.text();
-    let parsedMsg = fallbackErr;
+    let fbMsg = fallbackErr;
+    let fbIsQuota = fallbackResponse.status === 401 || fallbackResponse.status === 402 || fallbackResponse.status === 429;
     try {
       const errJson = JSON.parse(fallbackErr);
-      parsedMsg = errJson.detail?.message || errJson.message || fallbackErr;
+      fbMsg = errJson.detail?.message || errJson.message || fallbackErr;
+      if (errJson.detail?.status === 'quota_exceeded' || fbMsg.toLowerCase().includes('quota')) {
+        fbIsQuota = true;
+      }
     } catch {}
-    throw new Error(`ElevenLabs API generation failed (${fallbackResponse.status}): ${parsedMsg}`);
+    const err = new Error(`ElevenLabs API generation failed (${fallbackResponse.status}): ${fbMsg}`);
+    err.isQuotaError = fbIsQuota;
+    err.statusCode = fallbackResponse.status;
+    throw err;
   }
 
   const rawArrayBuffer = await fallbackResponse.arrayBuffer();
   const rawBuffer = Buffer.from(rawArrayBuffer);
-  const wavBuffer = ensureWavBuffer(rawBuffer, 44100);
+  const audioBuffer = ensureWavBuffer(rawBuffer, 44100);
 
   return {
-    audioBuffer: wavBuffer,
+    audioBuffer,
     alignment: null,
     characters: [],
     generationId: fallbackResponse.headers.get('history-item-id') || 'gen_' + Date.now()
   };
+}
+
+/**
+ * Generates speech with automatic multi-key pool failover.
+ * If Key #1 runs out of quota or hits rate limits, automatically falls back to Key #2, etc.
+ */
+export async function generateSpeech({
+  text,
+  emotionTag = '',
+  includeTagInPrompt = true,
+  voiceId,
+  modelId = 'eleven_v3',
+  voiceSettings = {},
+  outputFormat = 'mp3_44100_128',
+  apiKey
+}) {
+  const pool = apiKey ? [apiKey.trim()] : getKeyPool();
+  if (pool.length === 0) {
+    throw new Error('No ElevenLabs API keys configured. Please add one or more keys in Settings or Key Manager.');
+  }
+
+  if (!text || !text.trim()) {
+    throw new Error('Kurdish text input cannot be empty');
+  }
+
+  if (!voiceId) {
+    throw new Error('Voice ID is required for speech generation');
+  }
+
+  let promptText = text.trim();
+  if (emotionTag && emotionTag.trim() && includeTagInPrompt) {
+    promptText = `${emotionTag.trim()} ${promptText}`;
+  }
+
+  const errors = [];
+
+  for (let i = 0; i < pool.length; i++) {
+    const currentKey = pool[i];
+    const maskedKey = `${currentKey.slice(0, 4)}...${currentKey.slice(-4)}`;
+
+    try {
+      console.log(`[TTS Engine] Attempting synthesis with Key #${i + 1} (${maskedKey})...`);
+      const result = await callElevenLabsTTS({
+        apiKey: currentKey,
+        text: promptText,
+        voiceId,
+        modelId,
+        voiceSettings,
+        outputFormat
+      });
+
+      console.log(`[TTS Engine] Success with Key #${i + 1} (${maskedKey})!`);
+      return {
+        ...result,
+        keyUsedMasked: maskedKey,
+        keyIndex: i
+      };
+    } catch (err) {
+      console.warn(`[TTS Engine] Key #${i + 1} (${maskedKey}) failed: ${err.message}`);
+      errors.push(`Key #${i + 1} (${maskedKey}): ${err.message}`);
+
+      // If this is the last key, stop and throw
+      if (i === pool.length - 1) {
+        break;
+      }
+      console.log(`[TTS Engine] Automatically failing over to next API key in pool (Key #${i + 2})...`);
+    }
+  }
+
+  throw new Error(`All ${pool.length} ElevenLabs API keys in pool failed or ran out of quota:\n${errors.join('\n')}`);
 }

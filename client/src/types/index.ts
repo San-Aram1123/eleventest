@@ -82,10 +82,31 @@ export interface PendingSample {
   createdAt: string;
 }
 
+export interface KeyPoolItem {
+  id: string;
+  index: number;
+  maskedKey: string;
+  tier: string;
+  characterCount: number;
+  characterLimit: number;
+  remainingCharacters: number;
+  status: 'ready' | 'exhausted' | 'invalid' | string;
+  isValid: boolean;
+  error?: string | null;
+}
+
+export interface KeyPoolResponse {
+  keys: KeyPoolItem[];
+  totalKeys: number;
+  readyKeys: number;
+  totalRemainingCharacters: number;
+}
+
 export interface SystemConfig {
   status: string;
   isKeyConfigured: boolean;
   keyValid: boolean;
+  poolSize?: number;
   validationError?: string | null;
   maskedKey?: string | null;
   userInfo?: UserInfo | null;

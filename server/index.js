@@ -23,10 +23,14 @@ import {
   getVoices,
   getModels,
   generateSpeech,
-  getApiKey
+  getApiKey,
+  getKeyPool,
+  addKeyToPool,
+  removeKeyFromPool,
+  getKeyPoolDetails,
+  saveKeyPool
 } from './elevenlabs.js';
 
-import { pendingQueue } from './pendingQueue.js';
 import { ensureWavBuffer } from './wavUtils.js';
 
 dotenv.config();
@@ -37,12 +41,6 @@ const __dirname = path.dirname(__filename);
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Setup Multer for handling WAV uploads in memory
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: { fileSize: 50 * 1024 * 1024 } // 50MB max
-});
-
 app.use(cors());
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true }));
@@ -51,15 +49,15 @@ app.use(express.urlencoded({ extended: true }));
 ensureDatasetDir();
 
 // ==========================================
-// 1. CONFIG & SYSTEM ROUTES
+// 1. CONFIG & MULTI-API KEY POOL ROUTES
 // ==========================================
 
 /**
- * Check system status & API key configuration
+ * Check system status, key pool size, and primary key status
  */
 app.get('/api/config', async (req, res) => {
-  const currentKey = getApiKey();
-  const isKeyConfigured = Boolean(currentKey && currentKey.length > 5);
+  const pool = getKeyPool();
+  const isKeyConfigured = pool.length > 0;
 
   let userInfo = null;
   let keyValid = false;
@@ -67,7 +65,7 @@ app.get('/api/config', async (req, res) => {
 
   if (isKeyConfigured) {
     try {
-      userInfo = await validateApiKey(currentKey);
+      userInfo = await validateApiKey(pool[0]);
       keyValid = true;
     } catch (err) {
       validationError = err.message;
@@ -79,7 +77,8 @@ app.get('/api/config', async (req, res) => {
     isKeyConfigured,
     keyValid,
     validationError,
-    maskedKey: isKeyConfigured ? `${currentKey.slice(0, 4)}...${currentKey.slice(-4)}` : null,
+    poolSize: pool.length,
+    maskedKey: isKeyConfigured ? `${pool[0].slice(0, 4)}...${pool[0].slice(-4)}` : null,
     userInfo: userInfo ? {
       tier: userInfo.subscription?.tier,
       character_count: userInfo.subscription?.character_count,
@@ -91,7 +90,73 @@ app.get('/api/config', async (req, res) => {
 });
 
 /**
- * Save/update ElevenLabs API key dynamically
+ * Get detailed health, quota, and status for all keys in the pool
+ */
+app.get('/api/config/keys', async (req, res) => {
+  try {
+    const keys = await getKeyPoolDetails();
+    const readyCount = keys.filter(k => k.status === 'ready').length;
+    const totalRemaining = keys.reduce((acc, k) => acc + (k.remainingCharacters || 0), 0);
+
+    res.json({
+      keys,
+      totalKeys: keys.length,
+      readyKeys: readyCount,
+      totalRemainingCharacters: totalRemaining
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Add a new API key to the key pool
+ */
+app.post('/api/config/keys', async (req, res) => {
+  try {
+    const { apiKey } = req.body;
+    if (!apiKey || typeof apiKey !== 'string') {
+      return res.status(400).json({ error: 'API key string is required' });
+    }
+
+    const result = await addKeyToPool(apiKey);
+    const poolDetails = await getKeyPoolDetails();
+
+    res.json({
+      success: true,
+      message: `API Key (${result.maskedKey}) added to pool successfully`,
+      pool: poolDetails
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Delete a key from the key pool by index
+ */
+app.delete('/api/config/keys/:index', async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+    if (isNaN(index)) {
+      return res.status(400).json({ error: 'Invalid key index' });
+    }
+
+    const result = removeKeyFromPool(index);
+    const poolDetails = await getKeyPoolDetails();
+
+    res.json({
+      success: true,
+      message: 'API Key removed from pool',
+      pool: poolDetails
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Single key update / add
  */
 app.post('/api/config/key', async (req, res) => {
   try {
@@ -100,32 +165,15 @@ app.post('/api/config/key', async (req, res) => {
       return res.status(400).json({ error: 'API key string is required' });
     }
 
-    // Validate key with ElevenLabs
-    const userInfo = await validateApiKey(apiKey);
-
-    // Save to process.env and update .env file
-    process.env.ELEVENLABS_API_KEY = apiKey.trim();
-    const envPath = path.resolve(__dirname, '..', '.env');
-    let envContent = '';
-    if (fs.existsSync(envPath)) {
-      envContent = fs.readFileSync(envPath, 'utf8');
-      if (envContent.includes('ELEVENLABS_API_KEY=')) {
-        envContent = envContent.replace(/ELEVENLABS_API_KEY=.*/g, `ELEVENLABS_API_KEY=${apiKey.trim()}`);
-      } else {
-        envContent += `\nELEVENLABS_API_KEY=${apiKey.trim()}\n`;
-      }
-    } else {
-      envContent = `ELEVENLABS_API_KEY=${apiKey.trim()}\nPORT=${PORT}\nDATASET_DIR=dataset\n`;
-    }
-    fs.writeFileSync(envPath, envContent, 'utf8');
+    const result = await addKeyToPool(apiKey);
 
     res.json({
       success: true,
-      message: 'API Key updated and validated successfully',
+      message: `API Key (${result.maskedKey}) configured successfully`,
       userInfo: {
-        tier: userInfo.subscription?.tier,
-        character_count: userInfo.subscription?.character_count,
-        character_limit: userInfo.subscription?.character_limit
+        tier: result.userInfo.subscription?.tier,
+        character_count: result.userInfo.subscription?.character_count,
+        character_limit: result.userInfo.subscription?.character_limit
       }
     });
   } catch (err) {
@@ -255,109 +303,7 @@ app.post('/api/generate', async (req, res) => {
 });
 
 // ==========================================
-// 4. SECTION 2: NORMAL WEBSITE WORKFLOW
-// ==========================================
-
-/**
- * Prepare a sample before visiting ElevenLabs website.
- * Stores Kurdish text and emotion once.
- */
-app.post('/api/normal/prepare', (req, res) => {
-  try {
-    const { text, emotion = 'neutral', emotionTag = '', notes = '', voiceName = '' } = req.body;
-
-    if (!text || !text.trim()) {
-      return res.status(400).json({ error: 'Kurdish text is required' });
-    }
-
-    const item = pendingQueue.add({
-      text,
-      emotion,
-      emotionTag,
-      notes,
-      voiceName
-    });
-
-    res.json({
-      success: true,
-      pendingItem: item,
-      allPending: pendingQueue.getAll()
-    });
-  } catch (err) {
-    res.status(500).json({ error: err.message });
-  }
-});
-
-/**
- * Get all pending prepared samples
- */
-app.get('/api/normal/pending', (req, res) => {
-  res.json({ pending: pendingQueue.getAll() });
-});
-
-/**
- * Remove a pending item by ID
- */
-app.delete('/api/normal/pending/:pendingId', (req, res) => {
-  pendingQueue.remove(req.params.pendingId);
-  res.json({ success: true, pending: pendingQueue.getAll() });
-});
-
-/**
- * Upload WAV from ElevenLabs website and auto-pair with the prepared sample
- */
-app.post('/api/normal/upload', upload.single('audio'), (req, res) => {
-  try {
-    if (!req.file || !req.file.buffer) {
-      return res.status(400).json({ error: 'No audio file uploaded' });
-    }
-
-    const { pendingId, customId, voiceName, modelName, notes } = req.body;
-
-    // Retrieve and consume the matching pending sample
-    const pendingItem = pendingQueue.consume(pendingId);
-
-    if (!pendingItem && !req.body.text) {
-      return res.status(400).json({
-        error: 'No matching prepared sample found. Please click "Copy Text & Prepare Sample" first.'
-      });
-    }
-
-    const text = pendingItem ? pendingItem.text : req.body.text;
-    const emotion = pendingItem ? pendingItem.emotion : (req.body.emotion || 'neutral');
-    const emotionTag = pendingItem ? pendingItem.emotionTag : (req.body.emotionTag || '');
-    const combinedNotes = [pendingItem?.notes, notes].filter(Boolean).join('; ');
-
-    // Ensure uploaded audio is in valid WAV container
-    const wavBuffer = ensureWavBuffer(req.file.buffer);
-
-    // Save as normal_001.wav + normal_001.json (or next sequence)
-    const sample = saveSample({
-      id: customId || getNextSampleId('elevenlabs_web', true),
-      text,
-      emotion,
-      emotionTag,
-      method: 'elevenlabs_web',
-      voiceName: voiceName || pendingItem?.voiceName || 'ElevenLabs Website Voice',
-      modelId: modelName || 'ElevenLabs Website Model',
-      notes: combinedNotes,
-      audioBuffer: wavBuffer
-    });
-
-    res.json({
-      success: true,
-      message: 'WAV successfully matched and saved with preserved Kurdish text!',
-      sample,
-      remainingPending: pendingQueue.getAll()
-    });
-  } catch (err) {
-    console.error('Normal upload error:', err);
-    res.status(500).json({ error: err.message || 'Failed to process uploaded audio' });
-  }
-});
-
-// ==========================================
-// 5. DATASET MANAGER & EXPORT
+// 4. DATASET MANAGER & EXPORT
 // ==========================================
 
 /**

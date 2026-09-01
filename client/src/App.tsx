@@ -3,14 +3,13 @@ import { Navbar } from './components/Navbar';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { SettingsModal } from './pages/SettingsModal';
 import { ApiGenerationPage } from './pages/ApiGenerationPage';
-import { NormalWorkflowPage } from './pages/NormalWorkflowPage';
 import { DatasetManagerPage } from './pages/DatasetManagerPage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'normal' | 'dataset' | 'compare'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'dataset' | 'compare'>('api');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -44,7 +43,7 @@ export const App: React.FC = () => {
     }
   };
 
-  // Handle sample creation (from API or Normal workflow)
+  // Handle sample creation
   const handleSampleCreated = (newSample: Sample) => {
     setSamples((prev) => {
       const index = prev.findIndex((s) => s.id === newSample.id);
@@ -90,13 +89,6 @@ export const App: React.FC = () => {
           />
         )}
 
-        {activeTab === 'normal' && (
-          <NormalWorkflowPage
-            onSampleCreated={handleSampleCreated}
-            addToast={addToast}
-          />
-        )}
-
         {activeTab === 'dataset' && (
           <DatasetManagerPage
             samples={samples}
@@ -123,12 +115,12 @@ export const App: React.FC = () => {
             <span>Kurdish TTS Dataset Studio</span>
           </div>
           <div className="footer-info">
-            Strict UTF-8 Kurdish Sorani Unicode Preservation • ElevenLabs Audio Engine
+            Strict UTF-8 Kurdish Sorani Unicode Preservation • Multi-Key ElevenLabs Engine
           </div>
         </div>
       </footer>
 
-      {/* Settings Modal */}
+      {/* Multi-Key Pool & Settings Modal */}
       {isSettingsOpen && (
         <SettingsModal
           config={config}
@@ -139,50 +131,6 @@ export const App: React.FC = () => {
 
       {/* Toast Notifications */}
       <ToastContainer toasts={toasts} onDismiss={removeToast} />
-
-      <style>{`
-        .app-root {
-          min-height: 100vh;
-          display: flex;
-          flex-direction: column;
-        }
-
-        .app-footer {
-          border-top: 1px solid var(--border-subtle);
-          background: rgba(11, 15, 23, 0.9);
-          padding: 16px 24px;
-          margin-top: 40px;
-        }
-
-        .footer-content {
-          max-width: 1440px;
-          margin: 0 auto;
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          font-size: 0.8rem;
-          color: var(--text-dim);
-          flex-wrap: wrap;
-          gap: 12px;
-        }
-
-        .footer-brand {
-          display: flex;
-          align-items: center;
-          gap: 6px;
-          font-weight: 600;
-          color: var(--text-muted);
-        }
-
-        .footer-flag {
-          font-size: 1rem;
-        }
-
-        .footer-info {
-          font-family: var(--font-mono);
-          font-size: 0.75rem;
-        }
-      `}</style>
     </div>
   );
 };

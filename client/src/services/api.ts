@@ -4,7 +4,9 @@ import {
   Model, 
   SystemConfig, 
   PendingSample, 
-  EmotionType 
+  EmotionType,
+  KeyPoolResponse,
+  KeyPoolItem 
 } from '../types';
 
 const API_BASE = '/api';
@@ -13,6 +15,33 @@ export async function fetchConfig(): Promise<SystemConfig> {
   const res = await fetch(`${API_BASE}/config`);
   if (!res.ok) throw new Error('Failed to fetch system configuration');
   return await res.json();
+}
+
+export async function fetchKeyPool(): Promise<KeyPoolResponse> {
+  const res = await fetch(`${API_BASE}/config/keys`);
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to fetch key pool');
+  return data;
+}
+
+export async function addKeyToPool(apiKey: string): Promise<{ success: boolean; message: string; pool: KeyPoolItem[] }> {
+  const res = await fetch(`${API_BASE}/config/keys`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ apiKey })
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to add key to pool');
+  return data;
+}
+
+export async function deleteKeyFromPool(index: number): Promise<{ success: boolean; message: string; pool: KeyPoolItem[] }> {
+  const res = await fetch(`${API_BASE}/config/keys/${index}`, {
+    method: 'DELETE'
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || 'Failed to delete key');
+  return data;
 }
 
 export async function updateApiKey(apiKey: string): Promise<{ success: boolean; message: string; userInfo?: any }> {

@@ -32,9 +32,11 @@ import {
   fetchVoices, 
   fetchModels, 
   updateSample,
-  updateApiKey 
+  updateApiKey,
+  addKeyToPool,
+  fetchKeyPool 
 } from '../services/api';
-import { KeyRound, Save, Key, ExternalLink } from 'lucide-react';
+import { KeyRound, Save, Key, ExternalLink, Zap, Plus, Settings } from 'lucide-react';
 
 interface ApiGenerationPageProps {
   config: SystemConfig | null;
@@ -99,6 +101,8 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
 
   // Ref to result container for auto-scroll and center viewing
   const resultRef = useRef<HTMLDivElement | null>(null);
+
+  const poolCount = config?.poolSize || (config?.isKeyConfigured ? 1 : 0);
 
   // Load Voices & Models on Mount or when API Key updates
   useEffect(() => {
@@ -169,7 +173,7 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
     }
 
     if (!config?.keyValid) {
-      addToast({ type: 'error', title: 'API Key Missing', message: 'Please configure your ElevenLabs API Key in Settings.' });
+      addToast({ type: 'error', title: 'API Key Missing', message: 'Please add at least one ElevenLabs API Key in Settings.' });
       onOpenSettings();
       return;
     }
@@ -246,20 +250,20 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
     if (!inlineApiKey.trim()) return;
     setSavingApiKey(true);
     try {
-      const res = await updateApiKey(inlineApiKey.trim());
+      const res = await addKeyToPool(inlineApiKey.trim());
       addToast({
         type: 'success',
-        title: 'API Key Connected',
-        message: res.message || 'ElevenLabs API connected successfully.'
+        title: 'API Key Added to Pool',
+        message: res.message || 'Key validated and added to pool successfully.'
       });
       if (onConfigUpdated) {
         onConfigUpdated({
           status: 'ok',
           isKeyConfigured: true,
           keyValid: true,
+          poolSize: res.pool.length,
           validationError: null,
-          maskedKey: `${inlineApiKey.slice(0, 4)}...${inlineApiKey.slice(-4)}`,
-          userInfo: res.userInfo
+          maskedKey: `${inlineApiKey.slice(0, 4)}...${inlineApiKey.slice(-4)}`
         });
       }
       setInlineApiKey('');
@@ -268,7 +272,7 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
     } catch (err: any) {
       addToast({
         type: 'error',
-        title: 'Connection Failed',
+        title: 'Validation Failed',
         message: err.message || 'Invalid ElevenLabs API Key.'
       });
     } finally {
@@ -283,33 +287,40 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
         <div>
           <h1 className="page-title">
             <Sparkles size={24} className="text-cyan inline-icon" />
-            <span>ElevenLabs API Speech Generator</span>
+            <span>ElevenLabs Multi-Key Speech Generator</span>
           </h1>
           <p className="page-description">
-            Synthesize Kurdish emotional speech with ElevenLabs v3. Supports multiple inline tags (<code>[laugh]</code>, <code>[whisper]</code>, <code>[sigh]</code>) and full-audio persistent whispering while strictly preserving the clean Unicode transcript.
+            Synthesize Kurdish emotional speech with ElevenLabs v3. Supports multiple inline tags (<code>[laugh]</code>, <code>[whisper]</code>, <code>[sigh]</code>), full continuous whispering, and <strong>automatic multi-key quota failover</strong> while preserving exact clean Unicode transcripts.
           </p>
         </div>
       </div>
 
-      {/* Prominent API Connection & Key Configuration Banner */}
+      {/* Prominent Multi-Key Pool & Connection Banner */}
       <div className={`glass-card api-config-banner ${config?.keyValid ? 'config-connected' : 'config-missing'}`}>
         <div className="config-banner-left">
           <div className="config-icon-badge">
-            <KeyRound size={20} className={config?.keyValid ? 'text-emerald' : 'text-amber'} />
+            {config?.keyValid ? (
+              <Zap size={20} className="text-emerald" />
+            ) : (
+              <KeyRound size={20} className="text-amber" />
+            )}
           </div>
           <div className="config-info">
             <div className="config-status-title">
-              <span>ElevenLabs Engine Connection:</span>
+              <span>ElevenLabs Multi-Key Pool:</span>
               {config?.keyValid ? (
-                <span className="badge badge-emerald">Active ({config.userInfo?.tier?.toUpperCase() || 'Connected'})</span>
+                <>
+                  <span className="badge badge-emerald">{poolCount} Key{poolCount > 1 ? 's' : ''} Active</span>
+                  <span className="badge badge-purple">Auto-Failover On</span>
+                </>
               ) : (
-                <span className="badge badge-amber">API Key Required</span>
+                <span className="badge badge-amber">No Keys Configured</span>
               )}
             </div>
             <div className="config-status-desc">
               {config?.keyValid 
-                ? `Key configured (${config.maskedKey || '••••••••'}). ${config.userInfo?.character_count?.toLocaleString() || 0} / ${config.userInfo?.character_limit?.toLocaleString() || 10000} characters used.`
-                : 'Enter your ElevenLabs API Key (xi-api-key) below to enable direct speech synthesis with audio tags.'}
+                ? `Pool active with ${poolCount} account(s). If any key runs out of quota, generation automatically switches to the next available account.`
+                : 'Add one or more ElevenLabs API keys to enable synthesis. Multiple accounts will automatically failover.'}
             </div>
           </div>
         </div>
@@ -320,8 +331,17 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
             className="btn btn-secondary btn-sm"
             onClick={() => setShowInlineKeyEdit(!showInlineKeyEdit)}
           >
-            <KeyRound size={14} />
-            <span>{showInlineKeyEdit ? 'Hide Key Input' : (config?.keyValid ? 'Change API Key' : 'Enter API Key')}</span>
+            <Plus size={14} />
+            <span>{showInlineKeyEdit ? 'Cancel' : 'Quick Add Key'}</span>
+          </button>
+
+          <button 
+            type="button" 
+            className="btn btn-primary btn-sm"
+            onClick={onOpenSettings}
+          >
+            <Settings size={14} />
+            <span>Manage Key Pool</span>
           </button>
         </div>
       </div>
@@ -333,7 +353,7 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
             <input
               type="password"
               className="input-control"
-              placeholder="Paste xi-api-key here (e.g. sk_...)"
+              placeholder="Paste xi-api-key here to add to pool (e.g. sk_...)"
               value={inlineApiKey}
               onChange={(e) => setInlineApiKey(e.target.value)}
               id="inline-api-key-input"
@@ -343,12 +363,12 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
               className="btn btn-primary btn-sm"
               disabled={savingApiKey || !inlineApiKey.trim()}
             >
-              <Save size={14} />
-              <span>{savingApiKey ? 'Validating...' : 'Save & Connect'}</span>
+              <Plus size={14} />
+              <span>{savingApiKey ? 'Validating...' : 'Add to Pool'}</span>
             </button>
           </div>
           <div className="key-form-hint">
-            🔒 Saved directly to local backend environment (<code>.env</code>).
+            🔒 Key will be validated and added to the failover pool (<code>.env</code> & <code>keys.json</code>).
           </div>
         </form>
       )}

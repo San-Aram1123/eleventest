@@ -1,8 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
-import { X, ShieldCheck, CheckCircle2, AlertCircle, Save, ExternalLink } from 'lucide-react';
-import { SystemConfig } from '../types';
-import { updateApiKey } from '../services/api';
+import { 
+  X, 
+  KeyRound, 
+  CheckCircle2, 
+  AlertCircle, 
+  Plus, 
+  Trash2, 
+  RefreshCw, 
+  Zap, 
+  ExternalLink 
+} from 'lucide-react';
+import { SystemConfig, KeyPoolItem, KeyPoolResponse } from '../types';
+import { fetchKeyPool, addKeyToPool, deleteKeyFromPool, fetchConfig } from '../services/api';
 
 interface SettingsModalProps {
   config: SystemConfig | null;
@@ -15,51 +25,82 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   onClose,
   onConfigUpdated
 }) => {
-  const [apiKey, setApiKey] = useState('');
-  const [showKey, setShowKey] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [keyPool, setKeyPool] = useState<KeyPoolItem[]>([]);
+  const [poolSummary, setPoolSummary] = useState<KeyPoolResponse | null>(null);
+  const [newApiKey, setNewApiKey] = useState('');
+  const [loadingPool, setLoadingPool] = useState(true);
+  const [addingKey, setAddingKey] = useState(false);
+  const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleSaveKey = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!apiKey.trim()) return;
+  useEffect(() => {
+    loadKeys();
+  }, []);
 
-    setLoading(true);
-    setFeedback(null);
+  const loadKeys = async () => {
+    setLoadingPool(true);
     try {
-      const res = await updateApiKey(apiKey.trim());
-      setFeedback({ success: true, message: res.message || 'API Key saved and validated!' });
-      
-      // Update config object
-      onConfigUpdated({
-        status: 'ok',
-        isKeyConfigured: true,
-        keyValid: true,
-        validationError: null,
-        maskedKey: `${apiKey.slice(0, 4)}...${apiKey.slice(-4)}`,
-        userInfo: res.userInfo
-      });
-      setApiKey('');
+      const data = await fetchKeyPool();
+      setKeyPool(data.keys || []);
+      setPoolSummary(data);
+
+      const latestConfig = await fetchConfig().catch(() => null);
+      if (latestConfig) {
+        onConfigUpdated(latestConfig);
+      }
     } catch (err: any) {
-      setFeedback({ success: false, message: err.message || 'Invalid API key' });
+      console.warn('Failed to load key pool:', err.message);
     } finally {
-      setLoading(false);
+      setLoadingPool(false);
     }
   };
 
-  const charCount = config?.userInfo?.character_count ?? 0;
-  const charLimit = config?.userInfo?.character_limit ?? 10000;
-  const usagePercent = charLimit > 0 ? Math.min(100, Math.round((charCount / charLimit) * 100)) : 0;
+  const handleAddKey = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newApiKey.trim()) return;
+
+    setAddingKey(true);
+    setFeedback(null);
+    try {
+      const res = await addKeyToPool(newApiKey.trim());
+      setFeedback({ success: true, message: res.message || 'API key validated and added to pool!' });
+      setNewApiKey('');
+      await loadKeys();
+    } catch (err: any) {
+      setFeedback({ success: false, message: err.message || 'Invalid ElevenLabs API Key' });
+    } finally {
+      setAddingKey(false);
+    }
+  };
+
+  const handleDeleteKey = async (index: number) => {
+    setDeletingIndex(index);
+    setFeedback(null);
+    try {
+      await deleteKeyFromPool(index);
+      await loadKeys();
+    } catch (err: any) {
+      setFeedback({ success: false, message: err.message || 'Failed to remove key' });
+    } finally {
+      setDeletingIndex(null);
+    }
+  };
+
+  const totalCapacity = keyPool.reduce((sum, k) => sum + (k.characterLimit || 0), 0);
+  const totalUsed = keyPool.reduce((sum, k) => sum + (k.characterCount || 0), 0);
+  const totalRemaining = poolSummary?.totalRemainingCharacters ?? Math.max(0, totalCapacity - totalUsed);
+  const overallPercent = totalCapacity > 0 ? Math.min(100, Math.round((totalUsed / totalCapacity) * 100)) : 0;
 
   const modalContent = (
     <div className="modal-backdrop" onClick={onClose}>
       <div className="modal-container settings-modal-box" onClick={(e) => e.stopPropagation()}>
+        {/* Header */}
         <div className="modal-header">
           <div className="modal-title-group">
-            <ShieldCheck size={20} className="text-cyan" />
+            <KeyRound size={22} className="text-cyan" />
             <div>
-              <div className="modal-title">Settings & API Security</div>
-              <div className="modal-subtitle">ElevenLabs API credentials and engine configurations</div>
+              <div className="modal-title">Multi-API Key Pool & Failover</div>
+              <div className="modal-subtitle">Add multiple ElevenLabs accounts with automatic quota failover</div>
             </div>
           </div>
           <button className="btn-ghost btn-icon" onClick={onClose} title="Close Settings">
@@ -68,106 +109,191 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         </div>
 
         <div className="settings-body">
-          {/* API Key Status Banner */}
-          <div className={`status-banner ${config?.keyValid ? 'banner-success' : 'banner-warning'}`}>
-            <div className="banner-icon">
-              {config?.keyValid ? <CheckCircle2 size={18} /> : <AlertCircle size={18} />}
-            </div>
-            <div className="banner-text">
-              <div className="banner-heading">
-                {config?.keyValid ? 'ElevenLabs API Connected' : 'API Key Required for API Workflow'}
+          {/* Top Aggregated Pool Status */}
+          <div className="pool-summary-card">
+            <div className="summary-left">
+              <div className="summary-title-row">
+                <span className="summary-title">Key Pool Health</span>
+                <span className="badge badge-emerald">
+                  <Zap size={12} />
+                  <span>Auto-Failover Active</span>
+                </span>
               </div>
-              <div className="banner-sub">
-                {config?.keyValid
-                  ? `Active Tier: ${config.userInfo?.tier?.toUpperCase() || 'Standard'} • ${charCount.toLocaleString()} / ${charLimit.toLocaleString()} characters used.`
-                  : 'You can generate samples without an API key using the Normal Web Workflow, or enter your API key below for direct API generation.'}
+              <div className="summary-stats">
+                <span><strong>{keyPool.filter(k => k.status === 'ready').length}</strong> of <strong>{keyPool.length}</strong> keys ready</span>
+                <span className="stat-dot">•</span>
+                <span><strong>{totalRemaining.toLocaleString()}</strong> chars available</span>
               </div>
             </div>
+
+            <button 
+              className="btn btn-secondary btn-sm refresh-pool-btn"
+              onClick={loadKeys}
+              disabled={loadingPool}
+              title="Refresh quota status for all keys"
+            >
+              <RefreshCw size={13} className={loadingPool ? 'spin' : ''} />
+              <span>Refresh</span>
+            </button>
           </div>
 
-          {/* Usage Meter */}
-          {config?.keyValid && (
+          {/* Aggregate Progress Bar */}
+          {keyPool.length > 0 && totalCapacity > 0 && (
             <div className="quota-meter-box">
               <div className="quota-labels">
-                <span>Monthly Quota Usage</span>
-                <span>{usagePercent}% ({charCount.toLocaleString()} / {charLimit.toLocaleString()})</span>
+                <span>Combined Pool Quota</span>
+                <span>{overallPercent}% ({totalUsed.toLocaleString()} / {totalCapacity.toLocaleString()} used)</span>
               </div>
               <div className="meter-track">
-                <div className="meter-fill" style={{ width: `${usagePercent}%` }} />
+                <div className="meter-fill" style={{ width: `${overallPercent}%` }} />
               </div>
             </div>
           )}
 
-          {/* Key Form */}
-          <form onSubmit={handleSaveKey} className="settings-form">
-            <div className="form-group">
-              <label className="form-label">
-                ElevenLabs API Key
-              </label>
-              <div className="key-input-wrapper">
-                <input
-                  type={showKey ? 'text' : 'password'}
-                  className="input-control"
-                  placeholder={config?.maskedKey ? `Configured (${config.maskedKey})` : 'Paste xi-api-key here (e.g. sk_...)'}
-                  value={apiKey}
-                  onChange={(e) => setApiKey(e.target.value)}
-                  id="settings-api-key-input"
-                />
-                <button
-                  type="button"
-                  className="show-key-toggle"
-                  onClick={() => setShowKey(!showKey)}
-                >
-                  {showKey ? 'Hide' : 'Show'}
-                </button>
-              </div>
-              <div className="key-security-hint">
-                🔒 Stored securely in local backend environment (<code>.env</code>). Never exposed to browser bundle.
-              </div>
-            </div>
+          {/* Key List Section */}
+          <div className="keys-section">
+            <div className="section-label">Configured API Keys in Pool ({keyPool.length})</div>
 
-            {feedback && (
-              <div className={`feedback-alert ${feedback.success ? 'feedback-success' : 'feedback-error'}`}>
-                {feedback.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                <span>{feedback.message}</span>
+            {loadingPool ? (
+              <div className="loading-keys-state">
+                <RefreshCw size={18} className="spin text-cyan" />
+                <span>Checking API key statuses and character quotas...</span>
+              </div>
+            ) : keyPool.length === 0 ? (
+              <div className="empty-keys-box">
+                <AlertCircle size={24} className="text-amber" />
+                <div>
+                  <div className="empty-title">No API Keys Configured</div>
+                  <div className="empty-desc">Add one or more ElevenLabs API keys below to enable speech generation.</div>
+                </div>
+              </div>
+            ) : (
+              <div className="keys-list">
+                {keyPool.map((keyItem, idx) => {
+                  const keyUsed = keyItem.characterCount || 0;
+                  const keyLimit = keyItem.characterLimit || 10000;
+                  const keyPercent = keyLimit > 0 ? Math.min(100, Math.round((keyUsed / keyLimit) * 100)) : 0;
+                  const isPrimary = idx === 0;
+
+                  return (
+                    <div key={keyItem.id || idx} className={`key-card ${keyItem.status === 'exhausted' ? 'key-exhausted' : ''}`}>
+                      <div className="key-card-header">
+                        <div className="key-info-left">
+                          <div className="key-index-badge">#{idx + 1}</div>
+                          <code className="key-masked">{keyItem.maskedKey}</code>
+                          {isPrimary && <span className="badge badge-cyan">Primary</span>}
+                          <span className={`badge ${keyItem.isValid ? 'badge-emerald' : 'badge-rose'}`}>
+                            {keyItem.tier ? keyItem.tier.toUpperCase() : 'KEY'}
+                          </span>
+                        </div>
+
+                        <div className="key-card-actions">
+                          {keyItem.status === 'exhausted' ? (
+                            <span className="badge badge-amber">Exhausted (Auto-Skipped)</span>
+                          ) : keyItem.isValid ? (
+                            <span className="badge badge-emerald">Ready</span>
+                          ) : (
+                            <span className="badge badge-rose">Invalid</span>
+                          )}
+
+                          <button
+                            type="button"
+                            className="btn-danger-icon"
+                            onClick={() => handleDeleteKey(idx)}
+                            disabled={deletingIndex === idx}
+                            title="Remove this key from pool"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                        </div>
+                      </div>
+
+                      {keyItem.isValid && (
+                        <div className="key-quota-row">
+                          <div className="key-quota-meta">
+                            <span>{keyItem.remainingCharacters.toLocaleString()} chars remaining</span>
+                            <span>{keyUsed.toLocaleString()} / {keyLimit.toLocaleString()}</span>
+                          </div>
+                          <div className="meter-track-mini">
+                            <div 
+                              className={`meter-fill ${keyPercent > 90 ? 'meter-fill-warn' : ''}`} 
+                              style={{ width: `${keyPercent}%` }} 
+                            />
+                          </div>
+                        </div>
+                      )}
+
+                      {keyItem.error && (
+                        <div className="key-error-msg">{keyItem.error}</div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             )}
+          </div>
 
-            <div className="settings-actions">
-              <a
-                href="https://elevenlabs.io/app/settings/api-keys"
-                target="_blank"
-                rel="noreferrer"
-                className="btn btn-secondary btn-sm"
-              >
-                <span>Get API Key</span>
-                <ExternalLink size={13} />
-              </a>
-
-              <button
-                type="submit"
-                className="btn btn-primary btn-sm"
-                disabled={loading || !apiKey.trim()}
-              >
-                <Save size={14} />
-                <span>{loading ? 'Validating...' : 'Save & Validate Key'}</span>
-              </button>
+          {/* Add New Key Form Card */}
+          <div className="add-key-card">
+            <div className="add-key-header">
+              <Plus size={16} className="text-cyan" />
+              <span className="add-key-title">Add Another ElevenLabs API Key to Pool</span>
             </div>
-          </form>
 
-          {/* Helpful Tips */}
+            <form onSubmit={handleAddKey} className="add-key-form-inner">
+              <div className="key-form-row">
+                <input
+                  type="password"
+                  className="input-control key-input-field"
+                  placeholder="Paste ElevenLabs xi-api-key here (e.g. sk_...)"
+                  value={newApiKey}
+                  onChange={(e) => setNewApiKey(e.target.value)}
+                  id="add-api-key-input"
+                  disabled={addingKey}
+                />
+                <button
+                  type="submit"
+                  className="btn btn-primary add-key-submit-btn"
+                  disabled={addingKey || !newApiKey.trim()}
+                >
+                  <Plus size={16} />
+                  <span>{addingKey ? 'Validating...' : 'Add Key'}</span>
+                </button>
+              </div>
+
+              {feedback && (
+                <div className={`feedback-alert ${feedback.success ? 'feedback-success' : 'feedback-error'}`}>
+                  {feedback.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                  <span>{feedback.message}</span>
+                </div>
+              )}
+            </form>
+          </div>
+
+          {/* Tips / Explanations */}
           <div className="tips-section">
-            <div className="tips-title">💡 Pro Tips for Kurdish TTS Testing:</div>
+            <div className="tips-title">⚡ How Multi-Key Auto-Failover Works:</div>
             <ul className="tips-list">
-              <li>Use <strong>ElevenLabs v3</strong> for expressive audio tags (<code>[laugh]</code>, <code>[whisper]</code>, <code>[sigh]</code>).</li>
-              <li>When testing audio tags, the engine automatically strips tags from the stored Unicode transcript in <code>001.json</code>.</li>
-              <li>The <strong>Normal Web Workflow</strong> requires zero API key and lets you test ElevenLabs' web-exclusive features or models!</li>
+              <li>You can add 2, 3, or more free/paid ElevenLabs accounts to this pool.</li>
+              <li>Generations automatically use the first ready key. If that key exhausts its quota (401/402/429), the engine <strong>immediately switches to the next account</strong> without failing your request.</li>
+              <li>Keys are stored locally in your environment (<code>.env</code> & <code>keys.json</code>) and never exposed publicly.</li>
             </ul>
           </div>
         </div>
 
+        {/* Footer */}
         <div className="modal-footer">
-          <button className="btn btn-secondary btn-sm" onClick={onClose}>
+          <a
+            href="https://elevenlabs.io/app/settings/api-keys"
+            target="_blank"
+            rel="noreferrer"
+            className="btn btn-secondary btn-sm"
+          >
+            <span>Get ElevenLabs Key</span>
+            <ExternalLink size={13} />
+          </a>
+
+          <button className="btn btn-primary btn-sm" onClick={onClose}>
             Done
           </button>
         </div>
@@ -175,52 +301,57 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
       <style>{`
         .settings-modal-box {
-          max-width: 620px;
+          max-width: 680px;
+          width: 95vw;
         }
 
         .settings-body {
           padding: 20px 24px;
           display: flex;
           flex-direction: column;
-          gap: 18px;
+          gap: 16px;
           max-height: calc(85vh - 120px);
           overflow-y: auto;
         }
 
-        .status-banner {
-          display: flex;
-          align-items: flex-start;
-          gap: 12px;
-          padding: 12px 16px;
+        .settings-body > * {
+          flex-shrink: 0;
+        }
+
+        .pool-summary-card {
+          background: rgba(15, 23, 42, 0.8);
+          border: 1px solid rgba(56, 189, 248, 0.25);
           border-radius: var(--radius-md);
+          padding: 14px 18px;
+          display: flex;
+          align-items: center;
+          justify-content: space-between;
+          gap: 12px;
         }
 
-        .banner-success {
-          background: rgba(16, 185, 129, 0.1);
-          border: 1px solid rgba(16, 185, 129, 0.3);
-          color: #34D399;
+        .summary-title-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
         }
 
-        .banner-warning {
-          background: rgba(245, 158, 11, 0.1);
-          border: 1px solid rgba(245, 158, 11, 0.3);
-          color: #FBBF24;
-        }
-
-        .banner-icon {
-          margin-top: 2px;
-        }
-
-        .banner-heading {
+        .summary-title {
           font-weight: 700;
-          font-size: 0.92rem;
+          font-size: 1rem;
+          color: var(--text-main);
         }
 
-        .banner-sub {
-          font-size: 0.8rem;
+        .summary-stats {
+          font-size: 0.82rem;
           color: var(--text-muted);
-          margin-top: 2px;
-          line-height: 1.4;
+          margin-top: 4px;
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .stat-dot {
+          color: var(--border-medium);
         }
 
         .quota-meter-box {
@@ -250,40 +381,222 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
         .meter-fill {
           height: 100%;
-          background: linear-gradient(90deg, #38BDF8, #818CF8);
+          background: linear-gradient(90deg, #38BDF8, #10B981);
           border-radius: 3px;
           transition: width 0.3s ease;
         }
 
-        .key-input-wrapper {
-          position: relative;
+        .meter-fill-warn {
+          background: linear-gradient(90deg, #F59E0B, #EF4444);
+        }
+
+        .section-label {
+          font-size: 0.82rem;
+          font-weight: 700;
+          color: var(--text-muted);
+          text-transform: uppercase;
+          letter-spacing: 0.05em;
+          margin-bottom: 8px;
+        }
+
+        .keys-list {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .key-card {
+          background: rgba(15, 23, 42, 0.75);
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          padding: 12px 16px;
+          display: flex;
+          flex-direction: column;
+          gap: 8px;
+          transition: all var(--transition-fast);
+        }
+
+        .key-card:hover {
+          border-color: rgba(56, 189, 248, 0.4);
+        }
+
+        .key-exhausted {
+          opacity: 0.7;
+          border-color: rgba(245, 158, 11, 0.4);
+        }
+
+        .key-card-header {
           display: flex;
           align-items: center;
+          justify-content: space-between;
+          flex-wrap: wrap;
+          gap: 8px;
         }
 
-        .key-input-wrapper input {
-          padding-right: 70px;
+        .key-info-left {
+          display: flex;
+          align-items: center;
+          gap: 8px;
         }
 
-        .show-key-toggle {
-          position: absolute;
-          right: 12px;
+        .key-index-badge {
+          background: rgba(56, 189, 248, 0.15);
+          color: #38BDF8;
+          font-size: 0.72rem;
+          font-weight: 800;
+          padding: 2px 6px;
+          border-radius: 4px;
+          font-family: var(--font-mono);
+        }
+
+        .key-masked {
+          font-family: var(--font-mono);
+          font-size: 0.86rem;
+          color: #F8FAFC;
+        }
+
+        .key-card-actions {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+        }
+
+        .btn-danger-icon {
           background: transparent;
           border: none;
-          color: var(--text-muted);
-          font-size: 0.78rem;
-          font-weight: 600;
-          cursor: pointer;
-        }
-
-        .show-key-toggle:hover {
-          color: var(--text-main);
-        }
-
-        .key-security-hint {
-          font-size: 0.75rem;
           color: var(--text-dim);
-          margin-top: 6px;
+          cursor: pointer;
+          padding: 6px;
+          border-radius: var(--radius-sm);
+          transition: all 0.15s ease;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+        }
+
+        .btn-danger-icon:hover {
+          color: #F87171;
+          background: rgba(239, 68, 68, 0.15);
+        }
+
+        .key-quota-row {
+          display: flex;
+          flex-direction: column;
+          gap: 4px;
+        }
+
+        .key-quota-meta {
+          display: flex;
+          justify-content: space-between;
+          font-size: 0.72rem;
+          color: var(--text-muted);
+          font-family: var(--font-mono);
+        }
+
+        .meter-track-mini {
+          height: 4px;
+          background: rgba(30, 41, 59, 0.9);
+          border-radius: 2px;
+          overflow: hidden;
+        }
+
+        .key-error-msg {
+          font-size: 0.75rem;
+          color: #F87171;
+        }
+
+        .loading-keys-state {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          padding: 20px;
+          background: rgba(15, 23, 42, 0.5);
+          border-radius: var(--radius-md);
+          font-size: 0.85rem;
+          color: var(--text-muted);
+          justify-content: center;
+        }
+
+        .empty-keys-box {
+          display: flex;
+          align-items: center;
+          gap: 14px;
+          padding: 16px 20px;
+          background: rgba(245, 158, 11, 0.08);
+          border: 1px solid rgba(245, 158, 11, 0.25);
+          border-radius: var(--radius-md);
+        }
+
+        .empty-title {
+          font-weight: 700;
+          font-size: 0.9rem;
+          color: #FBBF24;
+        }
+
+        .empty-desc {
+          font-size: 0.78rem;
+          color: var(--text-muted);
+          margin-top: 2px;
+        }
+
+        .add-key-card {
+          background: rgba(15, 23, 42, 0.9);
+          border: 1px solid rgba(56, 189, 248, 0.35);
+          border-radius: var(--radius-md);
+          padding: 16px 18px;
+          display: flex;
+          flex-direction: column;
+          gap: 12px;
+          box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+        }
+
+        .add-key-header {
+          display: flex;
+          align-items: center;
+          gap: 8px;
+          font-size: 0.84rem;
+          font-weight: 700;
+          color: #38BDF8;
+          text-transform: uppercase;
+          letter-spacing: 0.03em;
+        }
+
+        .add-key-form-inner {
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+        }
+
+        .key-form-row {
+          display: flex;
+          align-items: center;
+          gap: 10px;
+          width: 100%;
+        }
+
+        .key-input-field {
+          flex: 1;
+          min-width: 0;
+          min-height: 44px;
+          height: 44px;
+          background: #0B0F17;
+          border: 1px solid var(--border-medium);
+          border-radius: var(--radius-md);
+          padding: 10px 14px;
+          font-size: 0.92rem;
+          color: #FFFFFF;
+        }
+
+        .add-key-submit-btn {
+          height: 44px;
+          padding: 0 18px;
+          display: flex;
+          align-items: center;
+          gap: 6px;
+          font-size: 0.88rem;
+          font-weight: 600;
+          flex-shrink: 0;
+          white-space: nowrap;
         }
 
         .feedback-alert {
@@ -293,7 +606,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           padding: 10px 14px;
           border-radius: var(--radius-sm);
           font-size: 0.84rem;
-          margin-bottom: 14px;
         }
 
         .feedback-success {
@@ -308,13 +620,6 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           border: 1px solid rgba(239, 68, 68, 0.3);
         }
 
-        .settings-actions {
-          display: flex;
-          align-items: center;
-          justify-content: space-between;
-          gap: 10px;
-        }
-
         .tips-section {
           background: rgba(15, 23, 42, 0.5);
           border: 1px solid var(--border-subtle);
@@ -325,7 +630,7 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
         .tips-title {
           font-size: 0.82rem;
           font-weight: 700;
-          color: var(--text-main);
+          color: #38BDF8;
           margin-bottom: 6px;
         }
 
@@ -334,6 +639,15 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
           font-size: 0.78rem;
           color: var(--text-muted);
           line-height: 1.6;
+        }
+
+        .spin {
+          animation: spin 1s infinite linear;
+        }
+
+        @keyframes spin {
+          from { transform: rotate(0deg); }
+          to { transform: rotate(360deg); }
         }
       `}</style>
     </div>

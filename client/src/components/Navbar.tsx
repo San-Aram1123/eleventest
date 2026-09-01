@@ -1,19 +1,19 @@
 import React from 'react';
 import { 
   Sparkles, 
-  Layers, 
   Database, 
   GitCompare, 
   Settings, 
   KeyRound, 
   CheckCircle2, 
-  AlertCircle 
+  AlertCircle,
+  Layers
 } from 'lucide-react';
 import { SystemConfig } from '../types';
 
 interface NavbarProps {
-  activeTab: 'api' | 'normal' | 'dataset' | 'compare';
-  onSelectTab: (tab: 'api' | 'normal' | 'dataset' | 'compare') => void;
+  activeTab: 'api' | 'dataset' | 'compare';
+  onSelectTab: (tab: 'api' | 'dataset' | 'compare') => void;
   onOpenSettings: () => void;
   config: SystemConfig | null;
   datasetCount: number;
@@ -26,6 +26,8 @@ export const Navbar: React.FC<NavbarProps> = ({
   config,
   datasetCount
 }) => {
+  const poolCount = config?.poolSize || (config?.isKeyConfigured ? 1 : 0);
+
   return (
     <header className="navbar-root">
       <div className="navbar-container">
@@ -40,7 +42,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-gradient">Kurdish TTS</span> Studio
             </div>
             <div className="brand-subtitle">
-              ElevenLabs Dataset Engine & A/B Benchmark
+              ElevenLabs Multi-Key Generator & Kurdish Dataset Engine
             </div>
           </div>
         </div>
@@ -53,16 +55,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onSelectTab('api')}
           >
             <Sparkles size={18} className="nav-tab-icon" />
-            <span>API Generation</span>
-          </button>
-
-          <button
-            id="nav-tab-normal"
-            className={`nav-tab-btn ${activeTab === 'normal' ? 'active' : ''}`}
-            onClick={() => onSelectTab('normal')}
-          >
-            <Layers size={18} className="nav-tab-icon" />
-            <span>Normal Web Workflow</span>
+            <span>Speech Generation</span>
           </button>
 
           <button
@@ -83,41 +76,41 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onSelectTab('compare')}
           >
             <GitCompare size={18} className="nav-tab-icon" />
-            <span>Compare A/B</span>
+            <span>Compare & Evaluate</span>
           </button>
         </nav>
 
         {/* Right Actions & Status */}
         <div className="navbar-actions">
-          {/* API Status Pill */}
+          {/* Key Pool Status Pill */}
           <button 
             className={`api-status-pill ${config?.keyValid ? 'status-valid' : 'status-warning'}`}
             onClick={onOpenSettings}
-            title={config?.keyValid ? `Connected to ElevenLabs (${config.userInfo?.character_count ?? 0} chars used)` : 'Configure ElevenLabs API Key'}
+            title={config?.keyValid ? `Key Pool Active: ${poolCount} keys configured with automatic failover` : 'Configure ElevenLabs API Keys'}
           >
             {config?.keyValid ? (
               <>
                 <CheckCircle2 size={15} className="status-icon" />
                 <span className="status-text">
-                  ElevenLabs: {config.userInfo?.tier ? `${config.userInfo.tier.toUpperCase()}` : 'Connected'}
+                  {poolCount > 1 ? `${poolCount} Keys (Failover On)` : `1 Key (${config.userInfo?.tier?.toUpperCase() || 'Ready'})`}
                 </span>
               </>
             ) : (
               <>
                 <AlertCircle size={15} className="status-icon" />
-                <span className="status-text">Configure API Key</span>
+                <span className="status-text">Add API Keys</span>
               </>
             )}
           </button>
 
-          {/* Settings Button */}
+          {/* Settings / Key Pool Button */}
           <button
             id="btn-open-settings"
             className="btn btn-secondary btn-icon"
             onClick={onOpenSettings}
-            title="Settings & API Key"
+            title="Multi-Key Pool & Settings"
           >
-            <Settings size={18} />
+            <KeyRound size={18} />
           </button>
         </div>
       </div>
@@ -152,59 +145,55 @@ export const Navbar: React.FC<NavbarProps> = ({
 
         .brand-icon-wrapper {
           position: relative;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-
-        .brand-logo-icon {
-          font-size: 26px;
-          background: rgba(30, 41, 59, 0.9);
-          border: 1px solid rgba(56, 189, 248, 0.3);
-          border-radius: var(--radius-md);
           width: 44px;
           height: 44px;
+          background: linear-gradient(135deg, rgba(56, 189, 248, 0.2), rgba(129, 140, 248, 0.1));
+          border: 1px solid var(--border-accent);
+          border-radius: var(--radius-md);
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 15px rgba(56, 189, 248, 0.25);
+          font-size: 1.3rem;
+          box-shadow: 0 0 15px rgba(56, 189, 248, 0.2);
         }
 
         .brand-flag-badge {
           position: absolute;
-          top: -8px;
-          right: -8px;
-          background: linear-gradient(135deg, #10B981, #F59E0B, #EF4444);
-          color: #fff;
-          font-size: 9px;
-          font-weight: 700;
-          padding: 2px 6px;
+          top: -7px;
+          right: -6px;
+          font-size: 0.62rem;
+          font-weight: 800;
+          text-transform: uppercase;
+          background: linear-gradient(90deg, #10B981, #F59E0B, #EF4444);
+          color: #FFFFFF;
+          padding: 1px 5px;
           border-radius: 4px;
           letter-spacing: 0.05em;
-          text-transform: uppercase;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.5);
         }
 
         .brand-title {
           font-size: 1.25rem;
           font-weight: 800;
+          line-height: 1.15;
           letter-spacing: -0.02em;
-          line-height: 1.2;
         }
 
         .brand-subtitle {
-          font-size: 0.75rem;
+          font-size: 0.74rem;
           color: var(--text-muted);
           font-weight: 500;
+          margin-top: 2px;
         }
 
         .navbar-nav {
           display: flex;
           align-items: center;
-          background: rgba(15, 23, 42, 0.7);
+          gap: 6px;
+          background: rgba(15, 23, 42, 0.75);
           padding: 4px;
           border-radius: var(--radius-lg);
           border: 1px solid var(--border-subtle);
-          gap: 4px;
         }
 
         .nav-tab-btn {
@@ -212,15 +201,15 @@ export const Navbar: React.FC<NavbarProps> = ({
           align-items: center;
           gap: 8px;
           padding: 8px 16px;
-          border-radius: var(--radius-md);
-          background: transparent;
-          color: var(--text-muted);
-          border: none;
-          font-family: var(--font-sans);
-          font-size: 0.9rem;
+          font-size: 0.88rem;
           font-weight: 600;
+          color: var(--text-muted);
+          background: transparent;
+          border: none;
+          border-radius: var(--radius-md);
           cursor: pointer;
           transition: all var(--transition-fast);
+          user-select: none;
         }
 
         .nav-tab-btn:hover {
@@ -229,27 +218,23 @@ export const Navbar: React.FC<NavbarProps> = ({
         }
 
         .nav-tab-btn.active {
-          background: linear-gradient(135deg, rgba(56, 189, 248, 0.15), rgba(129, 140, 248, 0.15));
+          color: #FFFFFF;
+          background: linear-gradient(135deg, rgba(56, 189, 248, 0.25), rgba(129, 140, 248, 0.2));
+          border: 1px solid rgba(56, 189, 248, 0.4);
+          box-shadow: 0 2px 10px rgba(56, 189, 248, 0.2);
+        }
+
+        .nav-tab-btn.active .nav-tab-icon {
           color: #38BDF8;
-          box-shadow: inset 0 0 0 1px rgba(56, 189, 248, 0.35);
-        }
-
-        .nav-tab-icon {
-          transition: transform var(--transition-fast);
-        }
-
-        .nav-tab-btn:hover .nav-tab-icon {
-          transform: scale(1.1);
         }
 
         .nav-count-badge {
-          background: rgba(56, 189, 248, 0.2);
-          color: #38BDF8;
-          font-size: 0.75rem;
-          font-weight: 700;
-          padding: 1px 7px;
+          font-size: 0.7rem;
+          background: #0284C7;
+          color: #FFFFFF;
+          padding: 1px 6px;
           border-radius: var(--radius-full);
-          margin-left: 2px;
+          font-weight: 700;
         }
 
         .navbar-actions {
@@ -261,7 +246,7 @@ export const Navbar: React.FC<NavbarProps> = ({
         .api-status-pill {
           display: flex;
           align-items: center;
-          gap: 7px;
+          gap: 8px;
           padding: 6px 14px;
           border-radius: var(--radius-full);
           font-size: 0.82rem;
@@ -271,46 +256,35 @@ export const Navbar: React.FC<NavbarProps> = ({
           border: 1px solid transparent;
         }
 
-        .api-status-pill.status-valid {
+        .status-valid {
           background: rgba(16, 185, 129, 0.12);
-          color: #34D399;
           border-color: rgba(16, 185, 129, 0.3);
+          color: #34D399;
         }
 
-        .api-status-pill.status-valid:hover {
-          background: rgba(16, 185, 129, 0.22);
+        .status-valid:hover {
+          background: rgba(16, 185, 129, 0.2);
+          border-color: rgba(16, 185, 129, 0.5);
         }
 
-        .api-status-pill.status-warning {
+        .status-warning {
           background: rgba(245, 158, 11, 0.12);
-          color: #FBBF24;
           border-color: rgba(245, 158, 11, 0.3);
+          color: #FBBF24;
         }
 
-        .api-status-pill.status-warning:hover {
-          background: rgba(245, 158, 11, 0.22);
+        .status-warning:hover {
+          background: rgba(245, 158, 11, 0.2);
+          border-color: rgba(245, 158, 11, 0.5);
         }
 
         .btn-icon {
+          padding: 8px;
           width: 38px;
           height: 38px;
-          padding: 0;
           display: flex;
           align-items: center;
           justify-content: center;
-          border-radius: var(--radius-md);
-        }
-
-        @media (max-width: 960px) {
-          .brand-subtitle, .status-text {
-            display: none;
-          }
-          .nav-tab-btn span {
-            display: none;
-          }
-          .nav-tab-btn {
-            padding: 8px 12px;
-          }
         }
       `}</style>
     </header>
