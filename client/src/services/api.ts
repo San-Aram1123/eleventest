@@ -177,6 +177,16 @@ export function getZipExportUrl(): string {
   return `${API_BASE}/dataset/export/zip`;
 }
 
+export function getAudarZipExportUrl(): string {
+  return `${API_BASE}/dataset/export/audar-zip`;
+}
+
+export async function fetchAudarSummary(): Promise<any> {
+  const res = await fetch(`${API_BASE}/dataset/export/audar-summary`);
+  if (!res.ok) throw new Error('Failed to fetch Audar dataset summary');
+  return await res.json();
+}
+
 export function getAudioDownloadUrl(id: string): string {
   return `${API_BASE}/dataset/${encodeURIComponent(id)}/download/wav`;
 }

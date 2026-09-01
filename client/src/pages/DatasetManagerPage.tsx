@@ -13,13 +13,15 @@ import {
   Pause,
   ExternalLink,
   Layers,
-  Sparkles
+  Sparkles,
+  BarChart3
 } from 'lucide-react';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { MetadataModal } from '../components/MetadataModal';
+import { AudarExportModal } from '../components/AudarExportModal';
 import { RatingWidget } from '../components/RatingWidget';
 import { Sample, EmotionType, SampleRatings } from '../types';
-import { deleteSample, updateSample, getZipExportUrl } from '../services/api';
+import { deleteSample, updateSample, getZipExportUrl, getAudarZipExportUrl } from '../services/api';
 
 interface DatasetManagerProps {
   samples: Sample[];
@@ -39,6 +41,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [filterMethod, setFilterMethod] = useState<string>('all');
   const [activeAudioSampleId, setActiveAudioSampleId] = useState<string | null>(null);
   const [inspectingSample, setInspectingSample] = useState<Sample | null>(null);
+  const [showAudarModal, setShowAudarModal] = useState(false);
   const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
 
   // Filter & Search Logic
@@ -99,19 +102,54 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             <span>Kurdish Speech Dataset Manager</span>
           </h1>
           <p className="page-description">
-            Authoritative repository of all generated Kurdish WAV audio files and strictly preserved Unicode JSON metadata.
+            Authoritative repository of all generated Kurdish WAV audio files, Asosoft Kurdish orthography, and Audar Canonical Speech Schema.
           </p>
         </div>
 
-        <div className="header-actions">
+        <div className="header-actions" style={{ display: 'flex', gap: '10px', alignItems: 'center', flexWrap: 'wrap' }}>
+          {/* Audar Canonical Export Button */}
+          <a
+            href={getAudarZipExportUrl()}
+            download="audar_kurdish_canonical_dataset.zip"
+            className="btn btn-accent btn-md"
+            id="btn-download-audar-canonical-zip"
+            style={{
+              background: 'linear-gradient(135deg, #06b6d4 0%, #3b82f6 100%)',
+              color: '#ffffff',
+              fontWeight: 600,
+              boxShadow: '0 4px 14px rgba(6, 182, 212, 0.35)',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px'
+            }}
+            title="Export full dataset formatted strictly according to Audar Canonical Schema (data.jsonl, metadata.csv, whisper.jsonl, 24kHz Mono WAVs)"
+          >
+            <Sparkles size={17} />
+            <span>Export Audar Canonical (ZIP)</span>
+          </a>
+
+          {/* Audar Schema & Stats Modal trigger */}
+          <button
+            onClick={() => setShowAudarModal(true)}
+            className="btn btn-secondary btn-md"
+            id="btn-audar-schema-stats"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+            title="View Kurdish Phoneme Coverage and Audar Schema specifications"
+          >
+            <BarChart3 size={17} />
+            <span>Audar Schema & Stats</span>
+          </button>
+
+          {/* Raw Dataset Export */}
           <a
             href={getZipExportUrl()}
             download="kurdish_tts_dataset.zip"
-            className="btn btn-accent btn-md"
+            className="btn btn-secondary btn-sm"
             id="btn-download-dataset-zip"
+            title="Download raw audio and JSON files"
           >
-            <FileArchive size={18} />
-            <span>Download Dataset (ZIP)</span>
+            <FileArchive size={15} />
+            <span>Raw ZIP</span>
           </a>
         </div>
       </div>
@@ -375,6 +413,12 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
           }}
         />
       )}
+
+      {/* Audar Canonical Export Modal */}
+      <AudarExportModal
+        isOpen={showAudarModal}
+        onClose={() => setShowAudarModal(false)}
+      />
 
       <style>{`
         .dataset-page-root {

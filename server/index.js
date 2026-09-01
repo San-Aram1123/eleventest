@@ -409,12 +409,38 @@ app.delete('/api/dataset/:id', (req, res) => {
   }
 });
 
+import { exportAudarCanonicalZip, getAudarDatasetSummary } from './audarExporter.js';
+
 /**
- * Download complete dataset as ZIP
+ * Download complete dataset as raw ZIP
  */
 app.get('/api/dataset/export/zip', (req, res) => {
   try {
     exportDatasetZip(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Download complete dataset formatted strictly in Audar Canonical Speech Schema
+ * (dataset_export/ layout with audio/, data.jsonl, metadata.csv, whisper.jsonl, manifest.json)
+ */
+app.get('/api/dataset/export/audar-zip', (req, res) => {
+  try {
+    exportAudarCanonicalZip(res);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Get Audar Canonical Dataset Summary & Phonetic Coverage Report
+ */
+app.get('/api/dataset/export/audar-summary', (req, res) => {
+  try {
+    const summary = getAudarDatasetSummary();
+    res.json(summary);
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
