@@ -18,6 +18,7 @@ import crypto from 'crypto';
 import archiver from 'archiver';
 import { fileURLToPath } from 'url';
 import { normalizeKurdish, stripParalinguistic, analyzePhonetics, DISTINCT_KURDISH_PHONEMES } from './kurdishNormalizer.js';
+import { sampleMatchesFilter, resolveSampleGender } from './datasetService.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -29,8 +30,9 @@ function computeSha256(contentString) {
 
 /**
  * Builds all Audar Canonical manifest records from raw dataset samples.
+ * Supports optional filters (gender, voice, dialect, emotion, method, ids, etc.)
  */
-export function buildAudarDatasetRecords() {
+export function buildAudarDatasetRecords(filters = {}) {
   if (!fs.existsSync(DATASET_ROOT)) return [];
 
   const files = fs.readdirSync(DATASET_ROOT);
@@ -48,12 +50,17 @@ export function buildAudarDatasetRecords() {
       const raw = fs.readFileSync(path.join(DATASET_ROOT, file), 'utf8');
       const item = JSON.parse(raw);
 
+      if (!sampleMatchesFilter(item, filters)) {
+        continue;
+      }
+
+      const speakerGender = resolveSampleGender(item);
       const baseId = item.id || path.basename(file, '.json');
       const wavFilename = `${baseId}.wav`;
       const wavPath = path.join(DATASET_ROOT, wavFilename);
       const hasAudio = fs.existsSync(wavPath);
 
-      const canonId = `krd_synth_spk01_${String(i + 1).padStart(3, '0')}`;
+      const canonId = `krd_synth_${speakerGender === 'female' ? 'spk02' : 'spk01'}_${String(records.length + 1).padStart(3, '0')}`;
       const destWavFilename = `${canonId}.wav`;
       const audioUrl = `audio/${destWavFilename}`;
 
@@ -91,7 +98,7 @@ export function buildAudarDatasetRecords() {
         language: 'ckb',
         speakerId: item.voice_id ? `spk_kurdish_${item.voice_id.slice(0, 8)}` : 'spk_kurdish_male_01',
         speakerName: item.voice_name ? `${item.voice_name} (دەنگی دەستکرد)` : 'ئاراس (دەنگی دەستکرد)',
-        speakerGender: item.gender || 'male',
+        speakerGender: speakerGender,
         datasetSplit: split,
         source: item.method === 'elevenlabs_api' ? 'ElevenLabs Synthetic v2' : 'Audar Kurdish Platform',
         duration,
@@ -126,9 +133,10 @@ export function buildAudarDatasetRecords() {
 
 /**
  * Computes dataset overview, phoneme coverage stats, and distribution.
+ * Supports optional filters.
  */
-export function getAudarDatasetSummary() {
-  const records = buildAudarDatasetRecords();
+export function getAudarDatasetSummary(filters = {}) {
+  const records = buildAudarDatasetRecords(filters);
   const totalSamples = records.length;
   const totalDuration = records.reduce((acc, r) => acc + r.duration, 0);
 
@@ -180,22 +188,36 @@ export function getAudarDatasetSummary() {
 
 /**
  * Streams the dataset formatted strictly according to the Audar Canonical Speech Schema as a ZIP archive.
+ * Supports filtering by gender (male/female/all), voice, dialect, emotion, method, and specific sample IDs.
  */
-export function exportAudarCanonicalZip(res) {
-  const records = buildAudarDatasetRecords();
-  const summary = getAudarDatasetSummary();
+export function exportAudarCanonicalZip(res, filters = {}) {
+  const records = buildAudarDatasetRecords(filters);
+  const summary = getAudarDatasetSummary(filters);
 
   const archive = archiver('zip', {
     zlib: { level: 9 }
   });
 
+  let filenamePrefix = 'audar_kurdish_canonical';
+  if (filters.gender && filters.gender !== 'all') {
+    filenamePrefix += `_${filters.gender.toLowerCase()}_voices`;
+  }
+  if (filters.voice && filters.voice !== 'all') {
+    const safeVoice = filters.voice.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
+    filenamePrefix += `_${safeVoice}`;
+  }
+  if (filters.dialect && filters.dialect !== 'all') {
+    filenamePrefix += `_${filters.dialect.toLowerCase()}`;
+  }
   const timestamp = new Date().toISOString().slice(0, 10);
-  res.attachment(`audar_kurdish_canonical_dataset_${timestamp}.zip`);
+  res.attachment(`${filenamePrefix}_dataset_${timestamp}.zip`);
   res.setHeader('Content-Type', 'application/zip');
 
   archive.on('error', (err) => {
     console.error('Error generating Audar Canonical zip:', err);
-    res.status(500).send({ error: 'Failed to generate Audar Canonical dataset ZIP' });
+    if (!res.headersSent) {
+      res.status(500).send({ error: 'Failed to generate Audar Canonical dataset ZIP' });
+    }
   });
 
   archive.pipe(res);

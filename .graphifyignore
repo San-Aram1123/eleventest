@@ -1,0 +1,3 @@
+# Graphify ignore file
+# Exclude massive audio dataset from the knowledge graph
+dataset/

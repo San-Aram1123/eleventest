@@ -8,6 +8,7 @@ interface AudioPlayerProps {
   onEnded?: () => void;
   onTimeUpdate?: (currentTime: number) => void;
   showDownload?: boolean;
+  initialDuration?: number;
 }
 
 export const AudioPlayer: React.FC<AudioPlayerProps> = ({
@@ -16,15 +17,22 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
   autoPlay = false,
   onEnded,
   onTimeUpdate,
-  showDownload = true
+  showDownload = true,
+  initialDuration = 0
 }) => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
-  const [duration, setDuration] = useState(0);
+  const [duration, setDuration] = useState(initialDuration || 0);
   const [playbackRate, setPlaybackRate] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
   const [volume, setVolume] = useState(1);
+
+  useEffect(() => {
+    if (initialDuration && initialDuration > 0 && (!duration || duration === 0)) {
+      setDuration(initialDuration);
+    }
+  }, [initialDuration]);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -36,7 +44,8 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
     // Reset state when src changes
     setIsPlaying(false);
     setCurrentTime(0);
-  }, [src]);
+    if (initialDuration) setDuration(initialDuration);
+  }, [src, initialDuration]);
 
   const togglePlay = () => {
     if (!audioRef.current) return;
@@ -109,6 +118,7 @@ export const AudioPlayer: React.FC<AudioPlayerProps> = ({
       <audio
         ref={audioRef}
         src={src}
+        preload="none"
         autoPlay={autoPlay}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}

@@ -1,0 +1,1282 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+import { ensureWavBuffer } from './wavUtils.js';
+import { syncApiKeysToDb, deleteDbApiKey } from './db.js';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+const ENV_FILE_PATH = path.resolve(__dirname, '..', '.env');
+const GEMINI_KEYS_FILE_PATH = path.resolve(__dirname, '..', 'gemini_keys.json');
+
+const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
+
+// In-memory runtime metrics per key (keyed by maskedKey)
+const keyRuntimeMetrics = new Map();
+
+
+/**
+ * Calculates remaining milliseconds until Midnight Pacific Time (PT).
+ * Google Cloud Free Tier quotas reset at Midnight PT (07:00 UTC during PDT).
+ */
+export function getMsUntilMidnightPT() {
+  const now = new Date();
+  const nextMidnightPT = new Date(now);
+  nextMidnightPT.setUTCHours(7, 0, 0, 0); // 00:00 PT in PDT (UTC-7) is 07:00 UTC
+  if (nextMidnightPT.getTime() <= now.getTime()) {
+    nextMidnightPT.setUTCDate(nextMidnightPT.getUTCDate() + 1);
+  }
+  return Math.max(60000, nextMidnightPT.getTime() - now.getTime());
+}
+
+/**
+ * Accurately extracts retry delay from Google Gemini's Quota error details and text.
+ */
+export function parseGoogleRetryDelayMs(errJson, errorText) {
+  // 1. Check RetryInfo detail object in error details
+  if (errJson && Array.isArray(errJson.error?.details)) {
+    const retryInfo = errJson.error.details.find(d => 
+      d['@type'] && d['@type'].includes('RetryInfo')
+    );
+    if (retryInfo && retryInfo.retryDelay) {
+      const match = String(retryInfo.retryDelay).match(/([\d\.]+)\s*s?/i);
+      if (match && match[1]) {
+        const sec = parseFloat(match[1]);
+        if (!isNaN(sec) && sec > 0) {
+          return Math.ceil((sec + 1.5) * 1000);
+        }
+      }
+    }
+  }
+
+  // 2. Check error message string for "Please retry in XX.XXs"
+  const raw = (errJson?.error?.message || errorText || '');
+  const match = raw.match(/retry\s+(?:in|after)\s+([\d\.]+)\s*s/i) ||
+                raw.match(/([\d\.]+)\s*(?:seconds|s)\b/i);
+  if (match && match[1]) {
+    const parsedSec = parseFloat(match[1]);
+    if (!isNaN(parsedSec) && parsedSec > 0) {
+      return Math.ceil((parsedSec + 1.5) * 1000);
+    }
+  }
+
+  return 30000; // Safe default 30s
+}
+
+/**
+ * Determines whether quota exhaustion is a temporary rolling/per-minute rate limit (RPM)
+ * or an actual daily free tier quota exhaustion.
+ * CRITICAL FIX: If Google specifies a retry delay of <= 180 seconds, it is 100% a short
+ * per-minute rate limit. DO NOT lock out the key for 18 hours!
+ */
+export function parseQuotaExhaustionInfo(errJson, errorText, delayMs) {
+  const raw = (errJson?.error?.message || errorText || '').toLowerCase();
+  const quotaId = (errJson?.error?.details?.find(d => d['@type']?.includes('QuotaFailure'))?.violations?.[0]?.quotaId || '').toLowerCase();
+
+  // 1. FIRST PRIORITY: If Google explicitly gave a short retry delay (e.g. 10s, 38s, 45s):
+  // It is 100% a short per-minute rate-limit cooldown (RPM or burst). Key recovers in seconds!
+  // NEVER lock out the key for 18 hours when Google specifically says "Please retry in XXs"!
+  if (delayMs && delayMs <= 300000) {
+    const sec = Math.ceil(delayMs / 1000);
+    return {
+      isDaily: false,
+      delayMs: delayMs,
+      quotaType: 'minute',
+      statusText: `Rate limit active (recovers in ${sec}s)`
+    };
+  }
+
+  // 2. Only if there is NO short retry window, check if it is truly a daily limit
+  const isExplicitDaily = quotaId.includes('perday') || quotaId.includes('daily') ||
+                          raw.includes('daily') || 
+                          raw.includes('per day') || 
+                          raw.includes('per_day') || 
+                          raw.includes('day limit') || 
+                          raw.includes('quota per 24 hours');
+
+  if (isExplicitDaily) {
+    const msUntilReset = getMsUntilMidnightPT();
+    return {
+      isDaily: true,
+      delayMs: msUntilReset,
+      quotaType: 'daily',
+      statusText: 'Free tier daily limit reached. Resets at Midnight PT (10:00 AM).'
+    };
+  }
+
+  // Fallback: treat as short rate limit
+  return {
+    isDaily: false,
+    delayMs: delayMs || 30000,
+    quotaType: 'minute',
+    statusText: `Rate limit active (recovers in ${Math.ceil((delayMs || 30000) / 1000)}s)`
+  };
+}
+
+/**
+ * Checks whether an HTTP status or error message means the key is permanently invalid or denied.
+ */
+export function isGoogleKeyInvalid(status, errorMsg) {
+  const msg = (errorMsg || '').toLowerCase();
+  return status === 401 ||
+         (status === 400 && (msg.includes('api key not valid') || msg.includes('bad request') || msg.includes('key not valid'))) ||
+         (status === 403 && (msg.includes('denied') || msg.includes('permission') || msg.includes('disabled') || msg.includes('unregistered') || msg.includes('blocked')));
+}
+
+/**
+ * Clears any active cooldowns on all keys in memory.
+ */
+export function clearGeminiCooldowns() {
+  for (const metric of keyRuntimeMetrics.values()) {
+    if (metric.lastStatus !== 'invalid') {
+      metric.retryAvailableAt = null;
+      metric.cooldownDurationSeconds = null;
+      metric.cooldownStartedAt = null;
+      metric.lastStatus = 'ready';
+      metric.lastError = null;
+      metric.quotaType = 'minute';
+      metric.failureCount = 0;
+      if (metric.exhaustedModels) metric.exhaustedModels.clear();
+    }
+  }
+  return { success: true, count: keyRuntimeMetrics.size };
+}
+
+// Keep backwards-compatible alias for any imports
+export const parseRetryDelayMs = (err) => parseGoogleRetryDelayMs(null, err);
+
+/**
+ * Analyzes text to detect multilingual code-switching makeup across English, Kurdish, and Arabic.
+ */
+export function analyzeMultilingualContent(rawText) {
+  if (!rawText) return { hasLatin: false, hasArabicScript: false, startsWithLatin: false, isMultilingual: false };
+
+  // Strip emotion tags like [laugh], [whisper] so they don't count as English prose
+  const textWithoutTags = rawText.replace(/\[([a-zA-Z0-9_\s-]+)\]/g, ' ');
+
+  const hasLatin = /[a-zA-Z]/.test(textWithoutTags);
+  const hasArabicScript = /[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]/.test(textWithoutTags);
+
+  // Determine the script of the very first letter/word
+  const trimmed = textWithoutTags.trim();
+  const firstLetterMatch = trimmed.match(/^[^\p{L}\p{N}]*([\p{L}\p{N}])/u);
+  const firstChar = firstLetterMatch ? firstLetterMatch[1] : '';
+  const startsWithLatin = /[a-zA-Z]/.test(firstChar);
+
+  const isMultilingual = hasLatin && hasArabicScript;
+
+  return {
+    hasLatin,
+    hasArabicScript,
+    startsWithLatin,
+    isMultilingual,
+    firstChar
+  };
+}
+
+/**
+ * Normalizes BiDi script boundaries to prevent punctuation and spacing collisions
+ * between LTR (English) and RTL (Kurdish/Arabic) sentences.
+ */
+export function normalizeMultilingualBidiText(text) {
+  if (!text) return '';
+  let cleaned = text;
+
+  // 1. Ensure clean spacing between Latin sentence end punctuation and Arabic script
+  cleaned = cleaned.replace(/([a-zA-Z0-9][.!?])([\u0600-\u06FF])/g, '$1 $2');
+
+  // 2. Ensure clean spacing between Arabic sentence end punctuation and Latin text
+  cleaned = cleaned.replace(/([\u0600-\u06FF][.!?،؛؟])([a-zA-Z0-9])/g, '$1 $2');
+
+  return cleaned.trim();
+}
+
+function getOrCreateKeyMetric(key) {
+  const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
+  if (!keyRuntimeMetrics.has(masked)) {
+    keyRuntimeMetrics.set(masked, {
+      maskedKey: masked,
+      totalRequests: 0,
+      successCount: 0,
+      failureCount: 0,
+      lastStatus: 'ready',
+      quotaType: 'minute',
+      quotaLimit: '10',
+      dailyResetInfo: null,
+      lastError: null,
+      lastUsedAt: null,
+      retryAvailableAt: null,
+      cooldownDurationSeconds: null,
+      cooldownStartedAt: null,
+      exhaustedModels: new Set()
+    });
+  }
+  if (!keyRuntimeMetrics.get(masked).exhaustedModels) {
+    keyRuntimeMetrics.get(masked).exhaustedModels = new Set();
+  }
+  return keyRuntimeMetrics.get(masked);
+}
+
+export const GEMINI_VOICES = [
+  // --- Male Voices (12) ---
+  { id: 'Puck', name: 'Puck', gender: 'Male', description: 'Upbeat and lively tone (Recommended Default)' },
+  { id: 'Fenrir', name: 'Fenrir', gender: 'Male', description: 'Passionate, strong, energetic tone' },
+  { id: 'Orus', name: 'Orus', gender: 'Male', description: 'Calm, steady, firm tone' },
+  { id: 'Enceladus', name: 'Enceladus', gender: 'Male', description: 'Soft, breathy, gentle tone' },
+  { id: 'Iapetus', name: 'Iapetus', gender: 'Male', description: 'Clear, crisp, clean tone' },
+  { id: 'Umbriel', name: 'Umbriel', gender: 'Male', description: 'Relaxed, easy-going, smooth tone' },
+  { id: 'Algieba', name: 'Algieba', gender: 'Male', description: 'Smooth, flowing, melodic tone' },
+  { id: 'Rasalgethi', name: 'Rasalgethi', gender: 'Male', description: 'Professional, articulate narrator tone' },
+  { id: 'Schedar', name: 'Schedar', gender: 'Male', description: 'Even, balanced, steady tone' },
+  { id: 'Pulcherrima', name: 'Pulcherrima', gender: 'Male', description: 'Forward, enterprising, dynamic tone' },
+  { id: 'Achird', name: 'Achird', gender: 'Male', description: 'Friendly, warm, kind tone' },
+  { id: 'Zubenelgenubi', name: 'Zubenelgenubi', gender: 'Male', description: 'Casual, relaxed, conversational tone' },
+
+  // --- Female Voices (10) ---
+  { id: 'Aoede', name: 'Aoede', gender: 'Female', description: 'Relaxed, natural, gentle tone (Recommended Default)' },
+  { id: 'Zephyr', name: 'Zephyr', gender: 'Female', description: 'Bright, clear, vibrant tone' },
+  { id: 'Leda', name: 'Leda', gender: 'Female', description: 'Youthful, energetic, cheerful tone' },
+  { id: 'Callirrhoe', name: 'Callirrhoe', gender: 'Female', description: 'Friendly, warm, easy-going tone' },
+  { id: 'Autonoe', name: 'Autonoe', gender: 'Female', description: 'Bright, cheerful, lively tone' },
+  { id: 'Despina', name: 'Despina', gender: 'Female', description: 'Smooth, gentle, velvety tone' },
+  { id: 'Erinome', name: 'Erinome', gender: 'Female', description: 'Clear, articulate, refined tone' },
+  { id: 'Laomedeia', name: 'Laomedeia', gender: 'Female', description: 'Positive, upbeat, sunny tone' },
+  { id: 'Achernar', name: 'Achernar', gender: 'Female', description: 'Soft, warm, delicate tone' },
+  { id: 'Vindemiatrix', name: 'Vindemiatrix', gender: 'Female', description: 'Gentle, delicate, intimate tone' }
+];
+
+export const KNOWN_AUDIO_MODELS = [
+  { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS (Default)', isDefault: true },
+  { id: 'gemini-2.5-flash-preview-tts', name: 'Gemini 2.5 Flash TTS' },
+  { id: 'gemini-2.5-pro-preview-tts', name: 'Gemini 2.5 Pro Preview TTS' },
+  { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
+  { id: 'gemini-2.0-flash', name: 'Gemini 2.0 Flash' },
+  { id: 'gemini-2.0-flash-exp', name: 'Gemini 2.0 Flash Experimental' }
+];
+
+/**
+ * Reads all configured Gemini API keys.
+ * Checks GEMINI_API_KEYS, GEMINI_API_KEY, and gemini_keys.json.
+ * @returns {string[]}
+ */
+export function getGeminiKeyPool() {
+  const keys = new Set();
+
+  // 1. From process.env.GEMINI_API_KEYS (comma separated)
+  if (process.env.GEMINI_API_KEYS) {
+    const parts = process.env.GEMINI_API_KEYS.split(',');
+    for (const p of parts) {
+      const trimmed = p.trim();
+      if (trimmed) keys.add(trimmed);
+    }
+  }
+
+  // 2. From process.env.GEMINI_API_KEY (single fallback)
+  if (process.env.GEMINI_API_KEY) {
+    const single = process.env.GEMINI_API_KEY.trim();
+    if (single) keys.add(single);
+  }
+
+  // 3. From gemini_keys.json if exists
+  if (fs.existsSync(GEMINI_KEYS_FILE_PATH)) {
+    try {
+      const raw = fs.readFileSync(GEMINI_KEYS_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const k of parsed) {
+          if (typeof k === 'string' && k.trim()) {
+            keys.add(k.trim());
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read gemini_keys.json:', e.message);
+    }
+  }
+
+  return Array.from(keys);
+}
+
+/**
+ * Saves updated Gemini key pool to .env and gemini_keys.json and MySQL
+ * @param {string[]} keys
+ */
+export function saveGeminiKeyPool(keys) {
+  const uniqueKeys = Array.from(new Set(keys.map(k => String(k || '').trim()).filter(Boolean)));
+
+  // Update process.env
+  process.env.GEMINI_API_KEYS = uniqueKeys.join(',');
+  process.env.GEMINI_API_KEY = uniqueKeys[0] || '';
+
+  // Save to gemini_keys.json
+  try {
+    fs.writeFileSync(GEMINI_KEYS_FILE_PATH, JSON.stringify(uniqueKeys, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Could not write gemini_keys.json:', e.message);
+  }
+
+  // Save to .env
+  try {
+    let envContent = '';
+    if (fs.existsSync(ENV_FILE_PATH)) {
+      envContent = fs.readFileSync(ENV_FILE_PATH, 'utf8');
+
+      if (envContent.includes('GEMINI_API_KEYS=')) {
+        envContent = envContent.replace(/GEMINI_API_KEYS=.*/g, `GEMINI_API_KEYS=${uniqueKeys.join(',')}`);
+      } else {
+        envContent += `\nGEMINI_API_KEYS=${uniqueKeys.join(',')}\n`;
+      }
+
+      if (envContent.includes('GEMINI_API_KEY=')) {
+        envContent = envContent.replace(/GEMINI_API_KEY=.*/g, `GEMINI_API_KEY=${uniqueKeys[0] || ''}`);
+      } else {
+        envContent += `\nGEMINI_API_KEY=${uniqueKeys[0] || ''}\n`;
+      }
+    } else {
+      envContent = `GEMINI_API_KEYS=${uniqueKeys.join(',')}\nGEMINI_API_KEY=${uniqueKeys[0] || ''}\nPORT=5000\nDATASET_DIR=dataset\n`;
+    }
+    fs.writeFileSync(ENV_FILE_PATH, envContent, 'utf8');
+  } catch (e) {
+    console.warn('Could not write GEMINI_API_KEYS to .env:', e.message);
+  }
+
+  // Sync to MySQL api_keys table
+  syncApiKeysToDb('gemini', uniqueKeys).catch(() => {});
+
+  return uniqueKeys;
+}
+
+/**
+ * Helper to get the primary active Gemini API key.
+ */
+export function getGeminiApiKey(overrideKey) {
+  if (overrideKey && typeof overrideKey === 'string' && overrideKey.trim()) {
+    return overrideKey.trim();
+  }
+  const pool = getGeminiKeyPool();
+  return pool[0] || '';
+}
+
+/**
+ * Saves or updates a single GEMINI_API_KEY.
+ */
+export function saveGeminiApiKey(apiKey) {
+  const trimmed = String(apiKey || '').trim();
+  if (!trimmed) return '';
+  const currentPool = getGeminiKeyPool();
+  if (!currentPool.includes(trimmed)) {
+    currentPool.unshift(trimmed);
+  }
+  saveGeminiKeyPool(currentPool);
+  return trimmed;
+}
+
+/**
+ * Validates a Gemini API key using a lightweight GET /models check.
+ * CRITICAL: Uses zero audio quota and does NOT burn from the 10 daily speech generation requests.
+ */
+export async function probeGeminiKeyQuota(apiKey) {
+  const key = String(apiKey || '').trim();
+  if (!key) {
+    throw new Error('Gemini API Key is empty.');
+  }
+
+  const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
+  const metric = getOrCreateKeyMetric(key);
+  const now = Date.now();
+
+  // If key is in active cooldown that hasn't expired yet, report current cooldown
+  if (metric.retryAvailableAt && now < metric.retryAvailableAt) {
+    const remainingSeconds = Math.max(1, Math.ceil((metric.retryAvailableAt - now) / 1000));
+    return {
+      valid: metric.lastStatus !== 'invalid',
+      status: metric.lastStatus,
+      quotaType: metric.quotaType || 'minute',
+      quotaLimit: metric.quotaLimit || '10',
+      dailyResetInfo: metric.dailyResetInfo,
+      hasQuota: false,
+      remainingSeconds,
+      cooldownDurationSeconds: metric.cooldownDurationSeconds || 30,
+      error: metric.lastError,
+      httpStatus: 429
+    };
+  }
+
+  // Fast, lightweight, zero-quota verification via GET /models
+  try {
+    const response = await fetch(`${GEMINI_API_BASE}/models?key=${key}`);
+    
+    if (response.ok) {
+      if (metric.lastStatus !== 'invalid') {
+        metric.lastStatus = 'ready';
+        metric.lastError = null;
+        metric.retryAvailableAt = null;
+        metric.cooldownDurationSeconds = 0;
+      }
+      return {
+        valid: true,
+        status: 'ready',
+        hasQuota: true,
+        remainingSeconds: 0,
+        cooldownDurationSeconds: 0,
+        error: null,
+        httpStatus: 200
+      };
+    }
+
+    const errorText = await response.text();
+    let errorMsg = `Google API Error (${response.status})`;
+    try {
+      const errJson = JSON.parse(errorText);
+      errorMsg = errJson.error?.message || errJson.message || errorMsg;
+    } catch {}
+
+    if (isGoogleKeyInvalid(response.status, errorMsg)) {
+      metric.lastStatus = 'invalid';
+      metric.lastError = errorMsg;
+      metric.retryAvailableAt = null;
+      metric.cooldownDurationSeconds = 0;
+
+      return {
+        valid: false,
+        status: 'invalid',
+        hasQuota: false,
+        remainingSeconds: 0,
+        cooldownDurationSeconds: 0,
+        error: errorMsg,
+        httpStatus: response.status
+      };
+    }
+
+    return {
+      valid: true,
+      status: metric.lastStatus || 'ready',
+      quotaType: metric.quotaType || 'minute',
+      quotaLimit: metric.quotaLimit || '10',
+      dailyResetInfo: metric.dailyResetInfo,
+      hasQuota: (metric.lastStatus || 'ready') === 'ready',
+      remainingSeconds: 0,
+      cooldownDurationSeconds: 0,
+      error: errorMsg,
+      httpStatus: response.status
+    };
+  } catch (err) {
+    return {
+      valid: metric.lastStatus !== 'invalid',
+      status: metric.lastStatus || 'ready',
+      quotaType: metric.quotaType || 'minute',
+      quotaLimit: metric.quotaLimit || '10',
+      dailyResetInfo: metric.dailyResetInfo,
+      hasQuota: (metric.lastStatus || 'ready') === 'ready',
+      remainingSeconds: 0,
+      cooldownDurationSeconds: 0,
+      error: err.message,
+      httpStatus: 500
+    };
+  }
+}
+
+/**
+ * Validates a Gemini API key without burning any speech quota.
+ */
+export async function validateGeminiApiKey(apiKey) {
+  const probe = await probeGeminiKeyQuota(apiKey);
+  if (!probe.valid && probe.status === 'invalid') {
+    throw new Error(probe.error || 'Invalid Gemini API key or access denied.');
+  }
+  return { valid: true, status: probe.status, hasQuota: probe.hasQuota };
+}
+
+/**
+ * Adds a new Gemini key to the pool after validation.
+ */
+export async function addGeminiKeyToPool(newKey) {
+  const trimmed = String(newKey || '').trim();
+  if (!trimmed) {
+    throw new Error('Gemini API key cannot be empty.');
+  }
+
+  // Validate key against Google API
+  await validateGeminiApiKey(trimmed);
+
+  const currentPool = getGeminiKeyPool();
+  if (!currentPool.includes(trimmed)) {
+    currentPool.push(trimmed);
+    saveGeminiKeyPool(currentPool);
+  }
+
+  return {
+    success: true,
+    maskedKey: `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`,
+    poolSize: currentPool.length
+  };
+}
+
+/**
+ * Removes a Gemini key by index or value.
+ */
+export function removeGeminiKeyFromPool(indexOrKey) {
+  const pool = getGeminiKeyPool();
+  let updated = [];
+
+  if (typeof indexOrKey === 'number') {
+    updated = pool.filter((_, idx) => idx !== indexOrKey);
+  } else {
+    updated = pool.filter(k => k !== indexOrKey && !k.endsWith(String(indexOrKey).slice(-4)));
+  }
+
+  saveGeminiKeyPool(updated);
+  return {
+    success: true,
+    poolSize: updated.length
+  };
+}
+
+/**
+ * Live probes all keys in the pool against Google AI Studio API simultaneously.
+ */
+export async function probeAllGeminiKeys() {
+  const pool = getGeminiKeyPool();
+  if (pool.length === 0) return [];
+
+  const now = Date.now();
+  const results = [];
+
+  // Paced non-destructive validation using lightweight GET /models check
+  // Avoids burning speech quota on 47 keys and prevents Google IP burst rate-limiting!
+  for (let idx = 0; idx < pool.length; idx++) {
+    const key = pool[idx];
+    const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
+    const metric = getOrCreateKeyMetric(key);
+
+    // If key is currently in an active cooldown that has not expired yet:
+    if (metric.retryAvailableAt && now < metric.retryAvailableAt) {
+      const remainingSeconds = Math.max(1, Math.ceil((metric.retryAvailableAt - now) / 1000));
+      results.push({
+        id: `gemini_key_${idx}`,
+        index: idx,
+        maskedKey: masked,
+        status: metric.lastStatus,
+        quotaType: metric.quotaType || 'minute',
+        quotaLimit: metric.quotaLimit || '10',
+        dailyResetInfo: metric.dailyResetInfo,
+        isValid: metric.lastStatus !== 'invalid',
+        hasQuota: false,
+        error: metric.lastError,
+        totalRequests: metric.totalRequests,
+        successCount: metric.successCount,
+        failureCount: metric.failureCount,
+        lastUsedAt: metric.lastUsedAt,
+        retryAvailableAt: metric.retryAvailableAt,
+        remainingSeconds,
+        cooldownDurationSeconds: metric.cooldownDurationSeconds || 30,
+        httpStatus: 429
+      });
+      continue;
+    }
+
+    // Fast lightweight verification via GET /models
+    try {
+      const res = await fetch(`${GEMINI_API_BASE}/models?key=${key}`);
+      if (res.ok) {
+        metric.lastStatus = 'ready';
+        metric.lastError = null;
+        results.push({
+          id: `gemini_key_${idx}`,
+          index: idx,
+          maskedKey: masked,
+          status: 'ready',
+          quotaType: metric.quotaType || 'minute',
+          quotaLimit: metric.quotaLimit || '10',
+          dailyResetInfo: metric.dailyResetInfo,
+          isValid: true,
+          hasQuota: true,
+          error: null,
+          totalRequests: metric.totalRequests,
+          successCount: metric.successCount,
+          failureCount: metric.failureCount,
+          lastUsedAt: metric.lastUsedAt,
+          retryAvailableAt: null,
+          remainingSeconds: 0,
+          cooldownDurationSeconds: 0,
+          httpStatus: 200
+        });
+      } else {
+        const errorText = await res.text();
+        let errMsg = `Google API Error (${res.status})`;
+        try {
+          const j = JSON.parse(errorText);
+          errMsg = j.error?.message || errMsg;
+        } catch {}
+
+        if (isGoogleKeyInvalid(res.status, errMsg)) {
+          metric.lastStatus = 'invalid';
+          metric.lastError = errMsg;
+          results.push({
+            id: `gemini_key_${idx}`,
+            index: idx,
+            maskedKey: masked,
+            status: 'invalid',
+            quotaType: 'minute',
+            quotaLimit: '10',
+            dailyResetInfo: null,
+            isValid: false,
+            hasQuota: false,
+            error: errMsg,
+            totalRequests: metric.totalRequests,
+            successCount: metric.successCount,
+            failureCount: metric.failureCount,
+            lastUsedAt: metric.lastUsedAt,
+            retryAvailableAt: null,
+            remainingSeconds: 0,
+            cooldownDurationSeconds: 0,
+            httpStatus: res.status
+          });
+        } else {
+          results.push({
+            id: `gemini_key_${idx}`,
+            index: idx,
+            maskedKey: masked,
+            status: metric.lastStatus || 'ready',
+            quotaType: metric.quotaType || 'minute',
+            quotaLimit: metric.quotaLimit || '10',
+            dailyResetInfo: null,
+            isValid: true,
+            hasQuota: (metric.lastStatus || 'ready') === 'ready',
+            error: errMsg,
+            totalRequests: metric.totalRequests,
+            successCount: metric.successCount,
+            failureCount: metric.failureCount,
+            lastUsedAt: metric.lastUsedAt,
+            retryAvailableAt: metric.retryAvailableAt,
+            remainingSeconds: 0,
+            cooldownDurationSeconds: 0,
+            httpStatus: res.status
+          });
+        }
+      }
+    } catch (e) {
+      results.push({
+        id: `gemini_key_${idx}`,
+        index: idx,
+        maskedKey: masked,
+        status: metric.lastStatus || 'ready',
+        quotaType: metric.quotaType || 'minute',
+        quotaLimit: metric.quotaLimit || '10',
+        dailyResetInfo: null,
+        isValid: metric.lastStatus !== 'invalid',
+        hasQuota: metric.lastStatus === 'ready',
+        error: e.message,
+        totalRequests: metric.totalRequests,
+        successCount: metric.successCount,
+        failureCount: metric.failureCount,
+        lastUsedAt: metric.lastUsedAt,
+        retryAvailableAt: metric.retryAvailableAt,
+        remainingSeconds: 0,
+        cooldownDurationSeconds: 0,
+        httpStatus: 500
+      });
+    }
+
+    if (idx < pool.length - 1) {
+      await new Promise(r => setTimeout(r, 20));
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Inspects all Gemini keys in the pool and returns their health status.
+ * If forceLiveProbe is true, actually pings Google AI Studio in real time.
+ */
+export async function getGeminiKeyPoolDetails(forceLiveProbe = false) {
+  const pool = getGeminiKeyPool();
+  if (pool.length === 0) {
+    return [];
+  }
+
+  if (forceLiveProbe) {
+    return await probeAllGeminiKeys();
+  }
+
+  const now = Date.now();
+
+  const results = pool.map((key, idx) => {
+    const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
+    const metric = getOrCreateKeyMetric(key);
+
+    const isDaily = metric.lastStatus === 'daily_exhausted' || metric.quotaType === 'daily';
+
+    if (metric.retryAvailableAt && now < metric.retryAvailableAt) {
+      const remainingSeconds = Math.max(1, Math.ceil((metric.retryAvailableAt - now) / 1000));
+      return {
+        id: `gemini_key_${idx}`,
+        index: idx,
+        maskedKey: masked,
+        status: isDaily ? 'daily_exhausted' : 'exhausted',
+        quotaType: isDaily ? 'daily' : 'minute',
+        quotaLimit: metric.quotaLimit || '10',
+        dailyResetInfo: metric.dailyResetInfo || 'Resets at Midnight Pacific Time (PT) / 10:00 AM',
+        isValid: true,
+        hasQuota: false,
+        error: metric.lastError || (isDaily ? 'Free Tier Daily Limit Reached (10/10 Used Today)' : `Quota cooldown active (available in ${remainingSeconds}s)`),
+        totalRequests: metric.totalRequests,
+        successCount: metric.successCount,
+        failureCount: metric.failureCount,
+        lastUsedAt: metric.lastUsedAt,
+        retryAvailableAt: metric.retryAvailableAt,
+        remainingSeconds: remainingSeconds,
+        cooldownDurationSeconds: metric.cooldownDurationSeconds || 60
+      };
+    }
+
+    if (metric.retryAvailableAt && now >= metric.retryAvailableAt) {
+      metric.retryAvailableAt = null;
+      metric.cooldownDurationSeconds = null;
+      metric.cooldownStartedAt = null;
+      metric.lastStatus = 'ready';
+      metric.lastError = null;
+      metric.quotaType = 'minute';
+    }
+
+    const isReady = (metric.lastStatus === 'ready' || !metric.lastStatus);
+    return {
+      id: `gemini_key_${idx}`,
+      index: idx,
+      maskedKey: masked,
+      status: isReady ? 'ready' : metric.lastStatus,
+      quotaType: metric.quotaType || 'minute',
+      quotaLimit: metric.quotaLimit || '10',
+      dailyResetInfo: metric.dailyResetInfo || null,
+      isValid: metric.lastStatus !== 'invalid',
+      hasQuota: isReady,
+      error: isReady ? null : metric.lastError,
+      totalRequests: metric.totalRequests,
+      successCount: metric.successCount,
+      failureCount: metric.failureCount,
+      lastUsedAt: metric.lastUsedAt,
+      retryAvailableAt: null,
+      remainingSeconds: 0,
+      cooldownDurationSeconds: 0
+    };
+  });
+
+  return results;
+}
+
+/**
+ * Force re-tests all Gemini API keys in the pool using live Google API calls.
+ */
+export async function reloadAndValidateGeminiKeys() {
+  return await probeAllGeminiKeys();
+}
+
+// In-memory cache for available Gemini models to prevent redundant API queries
+let cachedGeminiModels = null;
+let cachedGeminiModelsExpiresAt = 0;
+
+/**
+ * Dynamically queries Google AI Studio API for available models using the first valid key in the pool.
+ * Caches results in memory for 30 minutes.
+ */
+export async function getAvailableGeminiModels(overrideKey) {
+  const now = Date.now();
+  if (!overrideKey && cachedGeminiModels && now < cachedGeminiModelsExpiresAt) {
+    return cachedGeminiModels;
+  }
+
+  const pool = overrideKey ? [overrideKey] : getGeminiKeyPool();
+  if (pool.length === 0) {
+    return KNOWN_AUDIO_MODELS;
+  }
+
+  for (const activeKey of pool) {
+    const metric = getOrCreateKeyMetric(activeKey);
+    // Skip keys known to be invalid or currently in rate-limit cooldown
+    if (metric.lastStatus === 'invalid') continue;
+    if (metric.retryAvailableAt && now < metric.retryAvailableAt) continue;
+
+    try {
+      const url = `${GEMINI_API_BASE}/models?key=${activeKey}`;
+      const res = await fetch(url);
+      if (!res.ok) continue;
+
+      const data = await res.json();
+      if (!data.models || !Array.isArray(data.models)) continue;
+
+      const discovered = data.models
+        .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes('generateContent'))
+        .map(m => {
+          const id = m.name.replace(/^models\//, '');
+          return {
+            id,
+            name: m.displayName || id,
+            description: m.description
+          };
+        });
+
+      // Prioritize 3.1 Flash TTS, 2.5 Flash TTS, and Audio models
+      const sorted = discovered.sort((a, b) => {
+        const getScore = (m) => {
+          let s = 0;
+          if (m.id === 'gemini-3.1-flash-tts-preview') s += 30;
+          if (m.id.includes('3.1') && m.id.includes('tts')) s += 25;
+          if (m.id === 'gemini-2.5-flash-preview-tts') s += 20;
+          if (m.id.includes('tts')) s += 15;
+          if (m.id.includes('audio')) s += 12;
+          if (m.id.includes('2.5-flash')) s += 8;
+          if (m.id.includes('2.0-flash')) s += 6;
+          if (m.id.includes('flash')) s += 4;
+          if (m.id.includes('exp')) s += 2;
+          return s;
+        };
+        return getScore(b) - getScore(a);
+      });
+
+      if (sorted.length > 0) {
+        if (!overrideKey) {
+          cachedGeminiModels = sorted;
+          cachedGeminiModelsExpiresAt = now + (30 * 60 * 1000); // 30 minutes cache
+        }
+        return sorted;
+      }
+    } catch (err) {
+      console.warn('Could not fetch dynamic models list for key:', err.message);
+    }
+  }
+
+  return KNOWN_AUDIO_MODELS;
+}
+
+/**
+ * Generates speech with automatic multi-key failover and inline emotion parsing.
+ * If one key hits a rate limit, quota exhaustion, or error, it automatically moves to the next key.
+ */
+export async function generateGeminiSpeech({
+  text,
+  voiceName = 'Puck',
+  dialect = 'sorani',
+  promptInstruction = '',
+  apiKey = '',
+  model = 'gemini-3.1-flash-tts-preview'
+}) {
+  const pool = apiKey ? [apiKey] : getGeminiKeyPool();
+  if (pool.length === 0) {
+    throw new Error('No Google Gemini API Key configured. Please add at least one Gemini API Key in Gemini Studio or Settings.');
+  }
+
+  // Sanitize text: remove control characters and strip null bytes
+  const sanitizedText = (text || '')
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uD800-\uDFFF]/g, '')
+    .trim();
+
+  if (!sanitizedText) {
+    throw new Error('Kurdish text is required for speech generation.');
+  }
+
+  // Sanitize voiceName to ensure it strictly matches one of Google Gemini's prebuilt voices
+  let cleanVoice = typeof voiceName === 'string' ? voiceName.trim() : 'Puck';
+  if (cleanVoice.startsWith('gemini_')) cleanVoice = cleanVoice.replace(/^gemini_/, '');
+  if (cleanVoice.startsWith('Gemini (')) cleanVoice = cleanVoice.replace(/^Gemini\s*\(([^)]+)\)$/, '$1');
+  const matchedVoice = GEMINI_VOICES.find(v => v.id.toLowerCase() === cleanVoice.toLowerCase());
+  cleanVoice = matchedVoice ? matchedVoice.id : 'Puck';
+
+  // Extract any inline tags in text (e.g. [laugh], [whisper], [sigh], [gasp], [crying], [shouting], [happy], [angry])
+  const inlineTags = (sanitizedText.match(/\[([a-zA-Z0-9_\s-]+)\]/g) || []);
+  const uniqueTags = [...new Set(inlineTags)];
+
+  // Analyze multilingual makeup (English + Kurdish + Arabic)
+  const langAnalysis = analyzeMultilingualContent(sanitizedText);
+  const normalizedText = normalizeMultilingualBidiText(sanitizedText);
+
+  // Construct prompt directing Gemini to speak Kurdish / multilingual text and express inline emotions
+  let baseInstruction = promptInstruction?.trim();
+  if (!baseInstruction) {
+    if (langAnalysis.isMultilingual) {
+      const dialectName = dialect === 'badini' ? 'Kurdish Badini (Kurmanji)' : 'Central Kurdish (Sorani)';
+      const regionalIntonation = dialect === 'badini' ? 'natural Duhok/Badinan intonation for Kurdish Badini' : 'natural Erbil/Sulaymaniyah intonation for Kurdish Sorani';
+      baseInstruction = `You are a professional multilingual voice actor and speech synthesizer specializing in fluent code-switching across English, ${dialectName}, and Arabic. Read and speak aloud the provided text completely, naturally, and accurately with authentic native pronunciation and ${regionalIntonation}, natural English pronunciation, and clear Arabic pronunciation.`;
+    } else if (dialect === 'badini') {
+      baseInstruction = 'You are a native Kurdish Badini (Kurmanji) speaker and voice narrator from the Duhok/Badinan region performing high-quality speech synthesis. Read and speak aloud the provided Kurdish text naturally and accurately with authentic Kurdish Badini pronunciation, correct Northern Kurmanji vocabulary and vowels (ڤ, خ، ح، غ، ۆ، ێ، ە), and natural Duhok intonation. Under NO circumstances should you speak Badini with Central Sorani phonetics or Erbil/Sulaymaniyah intonation.';
+    } else {
+      baseInstruction = 'You are a native Kurdish Sorani speaker performing high-quality speech synthesis. Read and speak aloud the provided Kurdish text naturally and accurately with authentic Central Kurdish (Sorani) pronunciation, correct Kurdish vowels (ۆ, ێ, ە), and natural Erbil/Sulaymaniyah intonation.';
+    }
+  }
+
+  let codeSwitchingDirective = '';
+  let emotionDirective = '';
+
+  // Only append code-switching and emotion directives if no custom promptInstruction was supplied
+  // to avoid redundant prompt bloat exceeding Gemini audio generation token limits
+  if (!promptInstruction) {
+    if (langAnalysis.hasLatin || langAnalysis.isMultilingual) {
+      codeSwitchingDirective = `\n- English & Arabic: Natural native pronunciation with seamless code-switching transitions; never omit opening words.`;
+    }
+    if (uniqueTags.length > 0) {
+      emotionDirective = `\n- Emotions: Act out bracketed feelings (${uniqueTags.map(t => `[${t}]`).join(', ')}) naturally without speaking bracket words.`;
+    }
+  }
+
+  const prompt = promptInstruction
+    ? `${baseInstruction}\n\n${normalizedText}`
+    : `${baseInstruction}${codeSwitchingDirective}${emotionDirective}\n\n${normalizedText}`;
+
+  const requestBody = {
+    contents: [
+      {
+        role: 'user',
+        parts: [{ text: prompt }]
+      }
+    ],
+    generationConfig: {
+      responseModalities: ['AUDIO'],
+      speechConfig: {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: cleanVoice
+          }
+        }
+      }
+    }
+  };
+
+  const primaryModel = model || 'gemini-3.1-flash-tts-preview';
+  // Strictly enforce single model requested by user - NO automatic downgrade or switching to other models
+  const candidateModels = [primaryModel];
+
+  let hasVoiceFallback = false;
+  let keyErrors = [];
+  let audioBuffer = null;
+  let successfulModel = candidateModels[0];
+  let successfulKeyMasked = '';
+
+  const now = Date.now();
+
+  // 1. Proactively clear expired rate-limit cooldowns so keys immediately return to 'ready'
+  for (const k of pool) {
+    const m = getOrCreateKeyMetric(k);
+    if (m.retryAvailableAt && now >= m.retryAvailableAt) {
+      m.retryAvailableAt = null;
+      m.cooldownDurationSeconds = 0;
+      if (m.lastStatus !== 'invalid') {
+        m.lastStatus = 'ready';
+        m.lastError = null;
+      }
+    }
+  }
+
+  // 2. Prioritize keys using self-balancing Least Recently Used (LRU) among ready keys:
+  // Keys not used recently (or never used) come FIRST.
+  // This automatically spreads requests across all keys in the pool evenly!
+  let sortedPool = [];
+
+  if (apiKey) {
+    sortedPool = [apiKey];
+  } else {
+    // Filter out permanently invalid/denied keys
+    const validKeys = pool.filter(k => {
+      const m = getOrCreateKeyMetric(k);
+      return m.lastStatus !== 'invalid';
+    });
+
+    // Keys currently ready to use (not in cooldown)
+    // Sort by lastUsedAt ASC (least recently used first -> perfect rotation across entire pool)
+    const readyKeys = validKeys.filter(k => {
+      const m = getOrCreateKeyMetric(k);
+      return !m.retryAvailableAt || now >= m.retryAvailableAt;
+    }).sort((a, b) => {
+      const mA = getOrCreateKeyMetric(a);
+      const mB = getOrCreateKeyMetric(b);
+      const tA = mA.lastUsedAt ? new Date(mA.lastUsedAt).getTime() : 0;
+      const tB = mB.lastUsedAt ? new Date(mB.lastUsedAt).getTime() : 0;
+      return tA - tB;
+    });
+
+    // Keys in cooldown, sorted by earliest recovery time
+    const cooldownKeys = validKeys.filter(k => {
+      const m = getOrCreateKeyMetric(k);
+      return m.retryAvailableAt && now < m.retryAvailableAt;
+    }).sort((a, b) => {
+      const mA = getOrCreateKeyMetric(a);
+      const mB = getOrCreateKeyMetric(b);
+      return (mA.retryAvailableAt || 0) - (mB.retryAvailableAt || 0);
+    });
+
+    if (readyKeys.length > 0) {
+      sortedPool = [...readyKeys, ...cooldownKeys];
+    } else if (cooldownKeys.length > 0) {
+      // If ALL keys in pool are in rate-limit cooldown:
+      // Check if the soonest key recovers within 75 seconds:
+      const soonestKey = cooldownKeys[0];
+      const soonestMetric = getOrCreateKeyMetric(soonestKey);
+      const waitMs = Math.max(0, (soonestMetric.retryAvailableAt || 0) - Date.now());
+
+      if (waitMs <= 75000 && soonestMetric.quotaType !== 'daily') {
+        console.log(`[Gemini Auto-Wait] All ${validKeys.length} keys in rate-limit cooldown. Soonest key (${soonestMetric.maskedKey}) recovers in ${(waitMs / 1000).toFixed(1)}s. Auto-waiting...`);
+        await new Promise(r => setTimeout(r, waitMs + 600));
+        soonestMetric.retryAvailableAt = null;
+        soonestMetric.lastStatus = 'ready';
+        sortedPool = [soonestKey, ...cooldownKeys.slice(1)];
+      } else {
+        sortedPool = cooldownKeys;
+      }
+    } else {
+      sortedPool = pool;
+    }
+  }
+
+  let voiceFallbackAttempted = false;
+
+  for (let keyIdx = 0; keyIdx < sortedPool.length; keyIdx++) {
+    const activeKey = sortedPool[keyIdx];
+    const maskedKey = `${activeKey.slice(0, 4)}...${activeKey.slice(-4)}`;
+    const metric = getOrCreateKeyMetric(activeKey);
+    const loopNow = Date.now();
+
+    // Fast-skip invalid keys or keys in active cooldown (unless single override key)
+    if (!apiKey) {
+      if (metric.lastStatus === 'invalid') {
+        continue;
+      }
+      const hasAvailableModelOnThisKey = candidateModels.some(cm => !metric.exhaustedModels?.has(cm));
+      if (!hasAvailableModelOnThisKey && metric.retryAvailableAt && loopNow < metric.retryAvailableAt) {
+        const remainingSec = Math.ceil((metric.retryAvailableAt - loopNow) / 1000);
+        keyErrors.push(`Key ${maskedKey}: in quota cooldown (${remainingSec}s remaining)`);
+        continue;
+      }
+    }
+
+    // Inter-key failover pacing (150ms)
+    if (keyIdx > 0) {
+      await new Promise(resolve => setTimeout(resolve, 150));
+    }
+
+    metric.totalRequests++;
+    metric.lastUsedAt = new Date().toISOString();
+
+    // Try candidate models with current key
+    for (const candidateModel of candidateModels) {
+      if (metric.exhaustedModels?.has(candidateModel)) {
+        continue;
+      }
+
+      const url = `${GEMINI_API_BASE}/models/${candidateModel}:generateContent?key=${activeKey}`;
+
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestBody)
+        });
+
+        if (!response.ok) {
+          const errorText = await response.text();
+          let errorMsg = `Gemini API Error (${response.status})`;
+          let errJson = null;
+          try {
+            errJson = JSON.parse(errorText);
+            errorMsg = errJson.error?.message || errJson.message || errorMsg;
+          } catch {
+            errorMsg = errorText || errorMsg;
+          }
+
+          // Extract detailed field violations or RPC reasons if provided
+          let detailedReason = '';
+          if (errJson?.error?.details && Array.isArray(errJson.error.details)) {
+            for (const d of errJson.error.details) {
+              if (d.fieldViolations && Array.isArray(d.fieldViolations)) {
+                const violations = d.fieldViolations
+                  .map(fv => `${fv.field ? fv.field + ': ' : ''}${fv.description || ''}`)
+                  .filter(Boolean)
+                  .join('; ');
+                if (violations) detailedReason = violations;
+              }
+            }
+          }
+          if (detailedReason) {
+            errorMsg = `${errorMsg} (${detailedReason})`;
+          }
+
+          // 1. Permanent invalid/denied key check (401, 403 denied access, disabled project)
+          if (isGoogleKeyInvalid(response.status, errorMsg)) {
+            metric.failureCount++;
+            metric.lastStatus = 'invalid';
+            metric.lastError = errorMsg;
+            metric.retryAvailableAt = null;
+            metric.cooldownDurationSeconds = 0;
+            keyErrors.push(`Key ${maskedKey}: ${errorMsg}`);
+            console.warn(`[Gemini Key Invalid] Key #${keyIdx + 1}/${sortedPool.length} (${maskedKey}) permanently invalid/denied: "${errorMsg}". Skipping...`);
+            break; // Break model loop, proceed to next key
+          }
+
+          // 2. Quota / Rate-limit check -> FAILOVER TO NEXT KEY WITH ACCURATE COOLDOWN
+          const isQuotaOrLimit = response.status === 429 || 
+                                 errorMsg.toLowerCase().includes('quota') || 
+                                 errorMsg.toLowerCase().includes('resource_exhausted') || 
+                                 errorMsg.toLowerCase().includes('rate limit');
+
+          if (isQuotaOrLimit) {
+            const delayMs = parseGoogleRetryDelayMs(errJson, errorText);
+            const quotaAnalysis = parseQuotaExhaustionInfo(errJson, errorText, delayMs);
+            const remainingSec = Math.ceil(quotaAnalysis.delayMs / 1000);
+
+            if (quotaAnalysis.isDaily) {
+              metric.exhaustedModels = metric.exhaustedModels || new Set();
+              metric.exhaustedModels.add(candidateModel);
+            }
+
+            metric.failureCount++;
+            metric.lastStatus = quotaAnalysis.isDaily ? 'daily_exhausted' : 'exhausted';
+            metric.quotaType = quotaAnalysis.quotaType;
+            metric.quotaLimit = quotaAnalysis.isDaily ? '10/day' : '10/min';
+            metric.dailyResetInfo = 'Resets at Midnight Pacific Time (PT) / 10:00 AM';
+            metric.lastError = quotaAnalysis.statusText;
+            metric.retryAvailableAt = Date.now() + quotaAnalysis.delayMs;
+            metric.cooldownDurationSeconds = remainingSec;
+            metric.cooldownStartedAt = Date.now();
+
+            console.warn(`[Gemini Key Failover] Key #${keyIdx + 1}/${sortedPool.length} (${maskedKey}) hit ${quotaAnalysis.isDaily ? 'DAILY QUOTA LIMIT' : `rate-limit cooldown (${remainingSec}s)`}: "${errorMsg}". Moving to next key in pool...`);
+            keyErrors.push(`Key ${maskedKey}: ${quotaAnalysis.statusText}`);
+
+            // Proceed to next key in pool!
+            break;
+          }
+
+          // 3. If 404 or model not found / deprecated, try next candidate model
+          if (response.status === 404 || errorMsg.includes('not found') || errorMsg.includes('no longer available') || errorMsg.includes('not supported')) {
+            continue;
+          }
+
+          // 4. Request payload / argument error (HTTP 400 INVALID_ARGUMENT / Bad Request)
+          // If voice or multilingual phoneme alignment caused an argument rejection, attempt automatic fallback once to core verified voice
+          if (response.status === 400 || errorMsg.toLowerCase().includes('invalid argument')) {
+            console.error(`[Gemini 400 Bad Request] Text: "${text.slice(0, 50)}..." Voice: "${cleanVoice}". Error: ${errorMsg}`);
+
+            if (!voiceFallbackAttempted) {
+              voiceFallbackAttempted = true;
+              const voiceMeta = GEMINI_VOICES.find(v => v.id.toLowerCase() === cleanVoice.toLowerCase());
+              const isFemale = voiceMeta?.gender === 'Female';
+              const fallbackVoice = isFemale 
+                ? (cleanVoice === 'Aoede' ? 'Despina' : 'Aoede')
+                : (cleanVoice === 'Puck' ? 'Fenrir' : 'Puck');
+
+              console.warn(`[Gemini Voice Fallback] 400 rejection on voice "${cleanVoice}". Automatically attempting in-flight fallback to core voice "${fallbackVoice}"...`);
+              cleanVoice = fallbackVoice;
+              requestBody.generationConfig.speechConfig.voiceConfig.prebuiltVoiceConfig.voiceName = fallbackVoice;
+              continue;
+            }
+
+            throw new Error(`Google API Invalid Argument: ${errorMsg}`);
+          }
+
+          metric.failureCount++;
+          metric.lastError = errorMsg;
+          throw new Error(errorMsg);
+        }
+
+        const data = await response.json();
+        const candidate = data.candidates?.[0];
+        if (!candidate || !candidate.content?.parts) {
+          continue;
+        }
+
+        // Find audio inline data part
+        let audioPart = null;
+        for (const part of candidate.content.parts) {
+          if (part.inlineData && part.inlineData.data) {
+            audioPart = part.inlineData;
+            break;
+          }
+        }
+
+        if (!audioPart || !audioPart.data) {
+          const textPart = candidate.content.parts.find(p => p.text)?.text;
+          if (textPart) {
+            console.warn(`[Gemini] Model ${candidateModel} returned text instead of audio, trying next model...`);
+            continue;
+          }
+          continue;
+        }
+
+        const rawAudioBuffer = Buffer.from(audioPart.data, 'base64');
+        audioBuffer = ensureWavBuffer(rawAudioBuffer, 24000);
+        successfulModel = candidateModel;
+        successfulKeyMasked = maskedKey;
+        metric.successCount++;
+        metric.lastStatus = 'ready';
+        metric.lastError = null;
+        metric.retryAvailableAt = null;
+
+        break; // Successfully generated audio!
+      } catch (err) {
+        // If it's a 400 Bad Request / Invalid Argument, do NOT cascade through keys!
+        // Immediately rethrow so the caller fails this specific sample and moves to the next.
+        if (err.message.includes('Google API Invalid Argument') || err.message.toLowerCase().includes('invalid argument')) {
+          throw err;
+        }
+
+        const isQuotaOrLimit = err.message.toLowerCase().includes('quota') || 
+                               err.message.toLowerCase().includes('resource_exhausted') || 
+                               err.message.toLowerCase().includes('rate limit');
+
+        if (isQuotaOrLimit) {
+          const delayMs = parseGoogleRetryDelayMs(null, err.message);
+          const quotaAnalysis = parseQuotaExhaustionInfo(null, err.message, delayMs);
+          const remainingSec = Math.ceil(quotaAnalysis.delayMs / 1000);
+
+          metric.failureCount++;
+          metric.lastStatus = quotaAnalysis.isDaily ? 'daily_exhausted' : 'exhausted';
+          metric.quotaType = quotaAnalysis.quotaType;
+          metric.lastError = quotaAnalysis.statusText;
+          metric.retryAvailableAt = Date.now() + quotaAnalysis.delayMs;
+          metric.cooldownDurationSeconds = remainingSec;
+          metric.cooldownStartedAt = Date.now();
+
+          console.warn(`[Gemini Key Failover] Key #${keyIdx + 1}/${sortedPool.length} (${maskedKey}) quota exception (cooldown ${remainingSec}s): "${err.message}". Moving to next key...`);
+          keyErrors.push(`Key ${maskedKey}: ${quotaAnalysis.statusText}`);
+
+          break; // Break model loop, jump to next key in pool
+        }
+
+        metric.failureCount++;
+        metric.lastError = err.message;
+        if (!err.message.includes('not found') && !err.message.includes('no longer available') && !err.message.includes('not supported')) {
+          keyErrors.push(`Key ${maskedKey} on ${candidateModel}: ${err.message}`);
+        }
+      }
+    }
+
+    if (audioBuffer) {
+      break; // Successfully synthesized audio from pool key!
+    }
+  }
+
+  if (!audioBuffer) {
+    const failedCount = keyErrors.length > 0 ? keyErrors.length : pool.length;
+    throw new Error(`All ${pool.length} Gemini API Key(s) in the pool failed or are in cooldown (${failedCount} key${failedCount === 1 ? '' : 's'} checked). Please wait a moment for short rate limits to expire.`);
+  }
+
+  // Estimate duration from 24000Hz 16-bit mono PCM
+  const pcmLength = Math.max(0, audioBuffer.length - 44);
+  const durationSeconds = Math.round(((pcmLength / (24000 * 2)) + Number.EPSILON) * 100) / 100;
+
+  // Clean Kurdish transcript (without tags)
+  const cleanText = text.replace(/\[([a-zA-Z0-9_\s-]+)\]/g, '').replace(/\s+/g, ' ').trim();
+
+  return {
+    audioBuffer,
+    cleanText: cleanText || text.trim(),
+    detectedTags: uniqueTags,
+    mimeType: 'audio/wav',
+    durationSeconds,
+    sampleRate: 24000,
+    voiceName: voiceName || 'Puck',
+    modelId: successfulModel,
+    usedKeyMasked: successfulKeyMasked,
+    isMultilingual: langAnalysis.isMultilingual,
+    characters: Array.from(cleanText || text.trim())
+  };
+}

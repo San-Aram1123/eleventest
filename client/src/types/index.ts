@@ -8,7 +8,112 @@ export type EmotionType =
   | 'laughing'
   | 'custom';
 
-export type GenerationMethod = 'elevenlabs_api' | 'elevenlabs_web';
+export type KurdishDialect = 'sorani' | 'badini';
+
+export type GenerationMethod = 'elevenlabs_api' | 'elevenlabs_web' | 'gemini_api';
+
+export interface GeminiVoice {
+  id: string;
+  name: string;
+  gender: string;
+  description: string;
+}
+
+export interface GeminiModel {
+  id: string;
+  name: string;
+  isDefault?: boolean;
+}
+
+export interface GeminiKeyPoolItem {
+  id: string;
+  index: number;
+  maskedKey: string;
+  status: 'ready' | 'exhausted' | 'daily_exhausted' | 'invalid';
+  quotaType?: 'daily' | 'minute';
+  quotaLimit?: string;
+  dailyResetInfo?: string;
+  isValid: boolean;
+  error: string | null;
+  totalRequests?: number;
+  successCount?: number;
+  failureCount?: number;
+  lastUsedAt?: string | null;
+  retryAvailableAt?: number | null;
+  remainingSeconds?: number;
+  cooldownDurationSeconds?: number;
+}
+
+export interface GeminiKeyPoolResponse {
+  pool: GeminiKeyPoolItem[];
+  poolSize: number;
+  activeKeyIndex: number;
+  readyCount?: number;
+}
+
+export interface GeminiBatchItem {
+  id: number;
+  lineNumber: number;
+  text: string;
+  cleanText: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+  sample?: Sample;
+  error?: string;
+  duration?: number;
+  keyUsed?: string;
+  tags?: string[];
+  voiceName?: string;
+  voiceGender?: 'Male' | 'Female';
+}
+export interface BatchFileQueueItem {
+  id: string;
+  fileName: string;
+  content: string;
+  lineCount: number;
+  status: 'queued' | 'active' | 'completed' | 'failed';
+  addedAt: string;
+  completedLines?: number;
+  failedLines?: number;
+}
+
+export interface LongSplitChunk {
+  id: number;
+  chunkIndex: number;
+  text: string;
+  cleanText: string;
+  startTime: number;
+  endTime: number;
+  duration: number;
+  audioBase64: string;
+  voiceName?: string;
+  dialect?: KurdishDialect;
+  emotion?: string;
+  status: 'ready' | 'saving' | 'saved' | 'error';
+  savedSample?: Sample;
+  error?: string;
+}
+
+export interface LongSplitResponse {
+  success: boolean;
+  masterDuration: number;
+  voiceName: string;
+  model: string;
+  usedKeyMasked: string;
+  detectedTags?: string[];
+  chunks: LongSplitChunk[];
+  masterAudioBase64?: string;
+}
+
+export interface GeminiConfig {
+  isKeyConfigured: boolean;
+  poolSize?: number;
+  maskedKey: string | null;
+  voices: GeminiVoice[];
+  models?: GeminiModel[];
+  defaultModel?: string;
+  defaultVoice?: string;
+  model: string;
+}
 
 export interface AlignmentData {
   characters?: string[];
@@ -28,6 +133,10 @@ export interface SampleRatings {
 export interface Sample {
   id: string;
   text: string;
+  cleanText?: string;
+  durationSeconds?: number;
+  duration_seconds?: number;
+  audio_size?: number;
   emotion: EmotionType | string;
   emotion_tag?: string;
   voice_id?: string;
@@ -36,6 +145,7 @@ export interface Sample {
   generation_id?: string;
   method: GenerationMethod;
   language: string;
+  dialect?: KurdishDialect;
   script: string;
   characters?: string[];
   alignment?: AlignmentData | null;
@@ -47,6 +157,21 @@ export interface Sample {
   json_filename: string;
   hasAudio?: boolean;
   audioUrl?: string;
+  voice_gender?: string;
+  gender?: string;
+  used_key?: string;
+  metadata_extra?: any;
+  customMetadata?: any;
+}
+
+export interface DatasetExportFilters {
+  gender?: 'all' | 'male' | 'female' | string;
+  voice?: string;
+  dialect?: 'all' | 'sorani' | 'badini' | string;
+  emotion?: string;
+  method?: string;
+  ids?: string[] | string;
+  search?: string;
 }
 
 export interface Voice {
@@ -102,6 +227,16 @@ export interface KeyPoolResponse {
   totalRemainingCharacters: number;
 }
 
+export interface DatabaseStatus {
+  configured: boolean;
+  connected: boolean;
+  error?: string | null;
+  database?: string;
+  host?: string;
+  port?: number;
+  sampleCount?: number;
+}
+
 export interface SystemConfig {
   status: string;
   isKeyConfigured: boolean;
@@ -110,4 +245,5 @@ export interface SystemConfig {
   validationError?: string | null;
   maskedKey?: string | null;
   userInfo?: UserInfo | null;
+  database?: DatabaseStatus;
 }

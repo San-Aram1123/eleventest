@@ -709,13 +709,13 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
           gap: 24px;
         }
 
-        .page-header {
+        .api-page-root .page-header {
           display: flex;
           align-items: flex-start;
           justify-content: space-between;
         }
 
-        .page-title {
+        .api-page-root .page-title {
           font-size: 1.65rem;
           font-weight: 800;
           display: flex;
@@ -724,11 +724,11 @@ export const ApiGenerationPage: React.FC<ApiGenerationPageProps> = ({
           letter-spacing: -0.02em;
         }
 
-        .inline-icon {
+        .api-page-root .inline-icon {
           color: #38BDF8;
         }
 
-        .page-description {
+        .api-page-root .page-description {
           font-size: 0.92rem;
           color: var(--text-muted);
           margin-top: 4px;

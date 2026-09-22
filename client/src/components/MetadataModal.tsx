@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Copy, Check, Download, FileCode, Edit3, Save } from 'lucide-react';
+import { X, Copy, Check, Download, FileCode, Edit3, Save, Key } from 'lucide-react';
 import { Sample } from '../types';
 import { updateSample } from '../services/api';
 
@@ -21,6 +21,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({
   const [editedNotes, setEditedNotes] = useState(sample.notes || '');
   const [saving, setSaving] = useState(false);
 
+  const usedKey = sample.used_key || (sample as any).customMetadata?.used_key || (sample as any).metadata_extra?.used_key;
   const jsonString = JSON.stringify(sample, null, 2);
 
   const handleCopyJson = () => {
@@ -52,9 +53,37 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({
           <div className="modal-title-group">
             <FileCode size={20} className="text-cyan" />
             <div>
-              <div className="modal-title">Sample Metadata: {sample.id}</div>
-              <div className="modal-subtitle">
-                {sample.json_filename} • {sample.method === 'elevenlabs_api' ? 'API Generation' : 'Normal Website Workflow'}
+              <div className="modal-title">Sample Metadata: #{sample.id}</div>
+              <div className="modal-subtitle" style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
+                <span>
+                  {sample.json_filename || `${sample.id}.json`} • {
+                    sample.method === 'gemini_api' 
+                      ? 'Google Gemini Voice Studio' 
+                      : sample.method === 'elevenlabs_api' 
+                        ? 'ElevenLabs API' 
+                        : 'ElevenLabs Web'
+                  }
+                </span>
+                {usedKey && (
+                  <span 
+                    style={{ 
+                      display: 'inline-flex', 
+                      alignItems: 'center', 
+                      gap: '3px',
+                      background: 'rgba(168, 85, 247, 0.15)',
+                      color: '#c084fc',
+                      border: '1px solid rgba(168, 85, 247, 0.3)',
+                      borderRadius: '4px',
+                      padding: '1px 6px',
+                      fontSize: '11px',
+                      fontFamily: 'ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace'
+                    }}
+                    title={`Gemini Key: ${usedKey}`}
+                  >
+                    <Key size={10} />
+                    <span>{usedKey}</span>
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -77,7 +106,9 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({
         <div className="kurdish-spotlight-card">
           <div className="spotlight-header">
             <span className="spotlight-label">Authoritative Kurdish Transcript (Unicode UTF-8)</span>
-            <span className="badge badge-emerald">{sample.language.toUpperCase()} • {sample.script}</span>
+            <span className="badge badge-emerald">
+              {(sample.language || 'ku').toUpperCase()} • {sample.script || (sample.dialect === 'badini' ? 'Kurmanji' : 'Sorani')}
+            </span>
           </div>
           <div className="kurdish-text kurdish-spotlight-body" dir="rtl">
             {sample.text}
@@ -137,7 +168,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({
               </button>
               <a
                 href={`/api/dataset/${sample.id}/download/json`}
-                download={sample.json_filename}
+                download={sample.json_filename || `${sample.id}.json`}
                 className="aux-btn"
               >
                 <Download size={13} />
@@ -150,7 +181,7 @@ export const MetadataModal: React.FC<MetadataModalProps> = ({
 
         <div className="modal-footer">
           <div className="modal-created-info">
-            Created: {new Date(sample.created_at).toLocaleString()}
+            Created: {sample.created_at ? new Date(sample.created_at).toLocaleString() : '—'}
           </div>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>
             Close

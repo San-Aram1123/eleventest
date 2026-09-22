@@ -2,6 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { ensureWavBuffer } from './wavUtils.js';
+import { syncApiKeysToDb, deleteDbApiKey } from './db.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -54,7 +55,7 @@ export function getKeyPool() {
 }
 
 /**
- * Saves updated key pool to .env and keys.json
+ * Saves updated key pool to .env and keys.json and MySQL
  * @param {string[]} keys
  */
 export function saveKeyPool(keys) {
@@ -95,6 +96,9 @@ export function saveKeyPool(keys) {
   } catch (e) {
     console.warn('Could not write .env:', e.message);
   }
+
+  // Sync to MySQL api_keys table
+  syncApiKeysToDb('elevenlabs', uniqueKeys).catch(() => {});
 
   return uniqueKeys;
 }
@@ -529,5 +533,5 @@ export async function generateSpeech({
     }
   }
 
-  throw new Error(`All ${pool.length} ElevenLabs API keys in pool failed or ran out of quota:\n${errors.join('\n')}`);
+  throw new Error(`All ${pool.length} ElevenLabs API keys in pool failed or ran out of quota (${errors.length} keys failed). Please add another ElevenLabs key in Settings.`);
 }

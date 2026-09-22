@@ -7,7 +7,7 @@ import { saveSample, deleteSample } from './datasetService.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-const BASE_URL = 'http://localhost:5000/api';
+const BASE_URL = 'http://127.0.0.1:5000/api';
 
 console.log('====================================================');
 console.log(' 🧪 KURDISH TTS END-TO-END INTEGRATION TEST SUITE');
@@ -49,7 +49,7 @@ async function runIntegrationTests() {
   const dummyWav = createWavHeader(dummyPcm.length);
   const fullDummyWav = Buffer.concat([dummyWav, dummyPcm]);
 
-  const testSample = saveSample({
+  const testSample = await saveSample({
     id: 'test_kurdish_001',
     text: kurdishText,
     emotion: 'laugh, happy',

@@ -7,16 +7,21 @@ import {
   KeyRound, 
   CheckCircle2, 
   AlertCircle,
-  Layers
+  Layers,
+  Bot,
+  Sun,
+  Moon
 } from 'lucide-react';
 import { SystemConfig } from '../types';
 
 interface NavbarProps {
-  activeTab: 'api' | 'dataset' | 'compare';
-  onSelectTab: (tab: 'api' | 'dataset' | 'compare') => void;
+  activeTab: 'api' | 'gemini' | 'dataset' | 'compare';
+  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare') => void;
   onOpenSettings: () => void;
   config: SystemConfig | null;
   datasetCount: number;
+  theme: 'dark' | 'light';
+  onToggleTheme: () => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
@@ -24,7 +29,9 @@ export const Navbar: React.FC<NavbarProps> = ({
   onSelectTab,
   onOpenSettings,
   config,
-  datasetCount
+  datasetCount,
+  theme,
+  onToggleTheme
 }) => {
   const poolCount = config?.poolSize || (config?.isKeyConfigured ? 1 : 0);
 
@@ -42,7 +49,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="text-gradient">Kurdish TTS</span> Studio
             </div>
             <div className="brand-subtitle">
-              ElevenLabs Multi-Key Generator & Kurdish Dataset Engine
+              ElevenLabs & Gemini Voice Testing & Dataset Engine
             </div>
           </div>
         </div>
@@ -55,7 +62,17 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={() => onSelectTab('api')}
           >
             <Sparkles size={18} className="nav-tab-icon" />
-            <span>Speech Generation</span>
+            <span>ElevenLabs</span>
+          </button>
+
+          <button
+            id="nav-tab-gemini"
+            className={`nav-tab-btn ${activeTab === 'gemini' ? 'active' : ''}`}
+            onClick={() => onSelectTab('gemini')}
+          >
+            <Bot size={18} className="nav-tab-icon" />
+            <span>Gemini Studio</span>
+            <span className="nav-count-badge" style={{ background: '#7C3AED' }}>2.0</span>
           </button>
 
           <button
@@ -100,6 +117,26 @@ export const Navbar: React.FC<NavbarProps> = ({
                 <AlertCircle size={15} className="status-icon" />
                 <span className="status-text">Add API Keys</span>
               </>
+            )}
+          </button>
+
+          {/* Theme Switcher Button */}
+          <button
+            id="btn-toggle-theme"
+            className="btn btn-secondary btn-icon"
+            onClick={onToggleTheme}
+            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
+            aria-label="Toggle Theme"
+            style={{ 
+              transition: 'all 0.2s ease',
+              background: theme === 'dark' ? 'rgba(30, 41, 59, 0.8)' : '#FFFFFF',
+              boxShadow: theme === 'light' ? '0 1px 4px rgba(15, 23, 42, 0.08)' : undefined
+            }}
+          >
+            {theme === 'dark' ? (
+              <Sun size={18} color="#FBBF24" />
+            ) : (
+              <Moon size={18} color="#6366F1" />
             )}
           </button>
 

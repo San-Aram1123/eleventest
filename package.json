@@ -4,8 +4,10 @@
   "description": "Kurdish TTS Dataset Generator & Comparison Tool for ElevenLabs",
   "scripts": {
     "dev": "node server/index.js",
-    "test:unicode": "node server/testUnicode.js",
-    "start": "node server/index.js"
+    "start": "node server/index.js",
+    "build": "npm run build --prefix client",
+    "client:dev": "npm run dev --prefix client",
+    "test:unicode": "node server/testUnicode.js"
   },
   "keywords": ["kurdish", "tts", "elevenlabs", "dataset", "unicode"],
   "author": "",

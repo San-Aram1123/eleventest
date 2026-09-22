@@ -3,17 +3,33 @@ import { Navbar } from './components/Navbar';
 import { ToastContainer, ToastMessage } from './components/Toast';
 import { SettingsModal } from './pages/SettingsModal';
 import { ApiGenerationPage } from './pages/ApiGenerationPage';
+import { GeminiGenerationPage } from './pages/GeminiGenerationPage';
 import { DatasetManagerPage } from './pages/DatasetManagerPage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'dataset' | 'compare'>('api');
+  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare'>('api');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  // Theme Management (Light / Dark)
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    const saved = localStorage.getItem('tts_theme');
+    return (saved === 'light' || saved === 'dark') ? saved : 'dark';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('tts_theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme((prev) => (prev === 'dark' ? 'light' : 'dark'));
+  };
 
   // Add toast helper
   const addToast = (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => {
@@ -66,6 +82,12 @@ export const App: React.FC = () => {
     setSamples((prev) => prev.filter((s) => s.id !== id));
   };
 
+  // Handle batch delete of multiple samples
+  const handleBatchDeleted = (ids: string[]) => {
+    const idSet = new Set(ids);
+    setSamples((prev) => prev.filter((s) => !idSet.has(s.id)));
+  };
+
   return (
     <div className="app-root">
       {/* Top Navbar */}
@@ -75,11 +97,13 @@ export const App: React.FC = () => {
         onOpenSettings={() => setIsSettingsOpen(true)}
         config={config}
         datasetCount={samples.length}
+        theme={theme}
+        onToggleTheme={toggleTheme}
       />
 
       {/* Main Content Area */}
       <main className="app-container">
-        {activeTab === 'api' && (
+        <div style={{ display: activeTab === 'api' ? 'block' : 'none' }}>
           <ApiGenerationPage
             config={config}
             onOpenSettings={() => setIsSettingsOpen(true)}
@@ -87,24 +111,32 @@ export const App: React.FC = () => {
             addToast={addToast}
             onConfigUpdated={setConfig}
           />
-        )}
+        </div>
 
-        {activeTab === 'dataset' && (
+        <div style={{ display: activeTab === 'gemini' ? 'block' : 'none' }}>
+          <GeminiGenerationPage
+            onSampleCreated={handleSampleCreated}
+            addToast={addToast}
+          />
+        </div>
+
+        <div style={{ display: activeTab === 'dataset' ? 'block' : 'none' }}>
           <DatasetManagerPage
             samples={samples}
             onSampleUpdated={handleSampleUpdated}
             onSampleDeleted={handleSampleDeleted}
+            onBatchDeleted={handleBatchDeleted}
             addToast={addToast}
           />
-        )}
+        </div>
 
-        {activeTab === 'compare' && (
+        <div style={{ display: activeTab === 'compare' ? 'block' : 'none' }}>
           <ComparisonPage
             samples={samples}
             onSampleUpdated={handleSampleUpdated}
             addToast={addToast}
           />
-        )}
+        </div>
       </main>
 
       {/* App Footer */}
