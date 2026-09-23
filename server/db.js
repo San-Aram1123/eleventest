@@ -137,6 +137,21 @@ export async function initDatabase() {
     try {
       await pool.query("ALTER TABLE samples ADD COLUMN dialect VARCHAR(64) DEFAULT 'sorani'");
     } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN family_id VARCHAR(128) DEFAULT NULL");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN emotion_intensity FLOAT DEFAULT 0.0");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN speaker_name VARCHAR(255) DEFAULT NULL");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN language VARCHAR(32) DEFAULT 'ckb'");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD INDEX idx_family_id (family_id)");
+    } catch (e) {}
 
     await pool.query(`
       CREATE TABLE IF NOT EXISTS api_keys (
@@ -237,14 +252,26 @@ export async function migrateDiskSamplesToDb() {
         }
         const extraJson = Object.keys(extraObj).length > 0 ? JSON.stringify(extraObj) : null;
 
+        let calculatedDur = meta.duration_seconds;
+        if (!calculatedDur && audioSize > 44) {
+          calculatedDur = Math.round(((Math.max(0, audioSize - 44) / 48000) + Number.EPSILON) * 100) / 100;
+        }
+
+        const familyId = meta.family_id || extraObj.family_id || null;
+        const emotionIntensity = meta.emotion_intensity !== undefined ? meta.emotion_intensity : (extraObj.emotion_intensity !== undefined ? extraObj.emotion_intensity : null);
+        const speakerName = meta.speaker_name || extraObj.speaker_name || null;
+        const language = meta.language || extraObj.language || 'ckb';
+
         await pool.query(
           `INSERT INTO samples (
-            id, text, emotion, emotion_tag, voice_id, voice_name, model_id, method,
+            id, text, dialect, emotion, emotion_tag, voice_id, voice_name, model_id, method,
             rating, rating_clarity, rating_naturalness, rating_emotion, rating_dialect, rating_notes,
-            wav_filename, audio_size, duration_seconds, created_at, metadata_extra
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            wav_filename, audio_size, duration_seconds, created_at, metadata_extra,
+            family_id, emotion_intensity, speaker_name, language
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
             text = VALUES(text),
+            dialect = VALUES(dialect),
             emotion = VALUES(emotion),
             emotion_tag = VALUES(emotion_tag),
             rating = VALUES(rating),
@@ -255,10 +282,15 @@ export async function migrateDiskSamplesToDb() {
             rating_notes = VALUES(rating_notes),
             audio_size = VALUES(audio_size),
             duration_seconds = VALUES(duration_seconds),
-            metadata_extra = VALUES(metadata_extra);`,
+            metadata_extra = VALUES(metadata_extra),
+            family_id = VALUES(family_id),
+            emotion_intensity = VALUES(emotion_intensity),
+            speaker_name = VALUES(speaker_name),
+            language = VALUES(language);`,
           [
             String(meta.id),
             meta.text,
+            meta.dialect || 'sorani',
             meta.emotion || 'neutral',
             emotionTagJson,
             meta.voice_id || null,
@@ -273,9 +305,13 @@ export async function migrateDiskSamplesToDb() {
             meta.rating_notes || null,
             wavName,
             audioSize,
-            meta.duration_seconds || 0,
+            calculatedDur || 0,
             createdAt,
-            extraJson
+            extraJson,
+            familyId,
+            emotionIntensity,
+            speakerName,
+            language
           ]
         );
         importedCount++;
@@ -311,6 +347,9 @@ export function parseDbRowToSample(r) {
   const wavPath = path.join(DATASET_ROOT, r.wav_filename || `${r.id}.wav`);
   return {
     id: r.id,
+    family_id: r.family_id || parsedExtra?.family_id || undefined,
+    emotion_intensity: r.emotion_intensity !== undefined && r.emotion_intensity !== null ? parseFloat(r.emotion_intensity) : (parsedExtra?.emotion_intensity !== undefined ? parseFloat(parsedExtra.emotion_intensity) : 0.0),
+    speaker_name: r.speaker_name || parsedExtra?.speaker_name || r.voice_name || undefined,
     text: r.text,
     dialect: r.dialect || 'sorani',
     emotion: r.emotion,
@@ -323,7 +362,7 @@ export function parseDbRowToSample(r) {
     used_key: parsedExtra?.used_key || r.used_key || undefined,
     model_id: r.model_id,
     method: r.method,
-    language: 'ku',
+    language: r.language || parsedExtra?.language || 'ckb',
     script: (r.dialect || 'sorani') === 'badini' ? 'Kurmanji' : 'Sorani',
     json_filename: `${r.id}.json`,
     audio_filename: r.wav_filename || `${r.id}.wav`,
@@ -390,14 +429,19 @@ export async function saveDbSample(meta) {
   if ((meta.voice_gender || meta.gender) && !extraObj.voice_gender) {
     extraObj.voice_gender = meta.voice_gender || meta.gender;
   }
+  if (meta.family_id && !extraObj.family_id) extraObj.family_id = meta.family_id;
+  if (meta.emotion_intensity !== undefined && extraObj.emotion_intensity === undefined) extraObj.emotion_intensity = meta.emotion_intensity;
+  if (meta.speaker_name && !extraObj.speaker_name) extraObj.speaker_name = meta.speaker_name;
+  if (meta.language && !extraObj.language) extraObj.language = meta.language;
   const extraJson = Object.keys(extraObj).length > 0 ? JSON.stringify(extraObj) : null;
 
   await pool.query(
     `INSERT INTO samples (
       id, text, dialect, emotion, emotion_tag, voice_id, voice_name, model_id, method,
       rating, rating_clarity, rating_naturalness, rating_emotion, rating_dialect, rating_notes,
-      wav_filename, audio_size, duration_seconds, created_at, metadata_extra
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      wav_filename, audio_size, duration_seconds, created_at, metadata_extra,
+      family_id, emotion_intensity, speaker_name, language
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       text = VALUES(text),
       dialect = VALUES(dialect),
@@ -415,7 +459,11 @@ export async function saveDbSample(meta) {
       rating_notes = VALUES(rating_notes),
       audio_size = VALUES(audio_size),
       duration_seconds = VALUES(duration_seconds),
-      metadata_extra = VALUES(metadata_extra);`,
+      metadata_extra = VALUES(metadata_extra),
+      family_id = VALUES(family_id),
+      emotion_intensity = VALUES(emotion_intensity),
+      speaker_name = VALUES(speaker_name),
+      language = VALUES(language);`,
     [
       String(meta.id),
       meta.text,
@@ -436,7 +484,11 @@ export async function saveDbSample(meta) {
       meta.audio_size || 0,
       meta.duration_seconds || 0,
       createdAt,
-      extraJson
+      extraJson,
+      meta.family_id || null,
+      meta.emotion_intensity !== undefined && meta.emotion_intensity !== null ? meta.emotion_intensity : 0.0,
+      meta.speaker_name || null,
+      meta.language || 'ckb'
     ]
   );
 

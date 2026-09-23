@@ -8,6 +8,7 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const ENV_FILE_PATH = path.resolve(__dirname, '..', '.env');
 const GEMINI_KEYS_FILE_PATH = path.resolve(__dirname, '..', 'gemini_keys.json');
+const GEMINI_DISABLED_KEYS_FILE_PATH = path.resolve(__dirname, '..', 'gemini_disabled_keys.json');
 
 const GEMINI_API_BASE = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -73,20 +74,7 @@ export function parseQuotaExhaustionInfo(errJson, errorText, delayMs) {
   const raw = (errJson?.error?.message || errorText || '').toLowerCase();
   const quotaId = (errJson?.error?.details?.find(d => d['@type']?.includes('QuotaFailure'))?.violations?.[0]?.quotaId || '').toLowerCase();
 
-  // 1. FIRST PRIORITY: If Google explicitly gave a short retry delay (e.g. 10s, 38s, 45s):
-  // It is 100% a short per-minute rate-limit cooldown (RPM or burst). Key recovers in seconds!
-  // NEVER lock out the key for 18 hours when Google specifically says "Please retry in XXs"!
-  if (delayMs && delayMs <= 300000) {
-    const sec = Math.ceil(delayMs / 1000);
-    return {
-      isDaily: false,
-      delayMs: delayMs,
-      quotaType: 'minute',
-      statusText: `Rate limit active (recovers in ${sec}s)`
-    };
-  }
-
-  // 2. Only if there is NO short retry window, check if it is truly a daily limit
+  // 1. FIRST PRIORITY: check if it is an explicit daily limit for this model
   const isExplicitDaily = quotaId.includes('perday') || quotaId.includes('daily') ||
                           raw.includes('daily') || 
                           raw.includes('per day') || 
@@ -100,7 +88,18 @@ export function parseQuotaExhaustionInfo(errJson, errorText, delayMs) {
       isDaily: true,
       delayMs: msUntilReset,
       quotaType: 'daily',
-      statusText: 'Free tier daily limit reached. Resets at Midnight PT (10:00 AM).'
+      statusText: 'Free tier daily limit reached for this model. Resets at Midnight PT.'
+    };
+  }
+
+  // 2. Short per-minute rate-limit cooldown (RPM or burst)
+  if (delayMs && delayMs <= 300000) {
+    const sec = Math.ceil(delayMs / 1000);
+    return {
+      isDaily: false,
+      delayMs: delayMs,
+      quotaType: 'minute',
+      statusText: `Rate limit active (recovers in ${sec}s)`
     };
   }
 
@@ -255,11 +254,11 @@ export const KNOWN_AUDIO_MODELS = [
 ];
 
 /**
- * Reads all configured Gemini API keys.
+ * Reads all configured Gemini API keys from all sources.
  * Checks GEMINI_API_KEYS, GEMINI_API_KEY, and gemini_keys.json.
  * @returns {string[]}
  */
-export function getGeminiKeyPool() {
+export function getAllGeminiKeys() {
   const keys = new Set();
 
   // 1. From process.env.GEMINI_API_KEYS (comma separated)
@@ -295,6 +294,158 @@ export function getGeminiKeyPool() {
   }
 
   return Array.from(keys);
+}
+
+/**
+ * Reads the persistent list of turned-off / disabled Gemini API keys.
+ * @returns {Set<string>}
+ */
+export function getDisabledGeminiKeys() {
+  const disabled = new Set();
+  if (fs.existsSync(GEMINI_DISABLED_KEYS_FILE_PATH)) {
+    try {
+      const raw = fs.readFileSync(GEMINI_DISABLED_KEYS_FILE_PATH, 'utf8');
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        for (const k of parsed) {
+          if (typeof k === 'string' && k.trim()) {
+            disabled.add(k.trim());
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Could not read gemini_disabled_keys.json:', e.message);
+    }
+  }
+  return disabled;
+}
+
+/**
+ * Persists the list of turned-off / disabled Gemini API keys to disk and DB.
+ * @param {Set<string>|string[]} disabledKeys
+ */
+export function saveDisabledGeminiKeys(disabledKeys) {
+  const keysArray = Array.isArray(disabledKeys) 
+    ? disabledKeys 
+    : Array.from(disabledKeys || []);
+  const unique = Array.from(new Set(keysArray.map(k => String(k || '').trim()).filter(Boolean)));
+
+  try {
+    fs.writeFileSync(GEMINI_DISABLED_KEYS_FILE_PATH, JSON.stringify(unique, null, 2), 'utf8');
+  } catch (e) {
+    console.warn('Could not write gemini_disabled_keys.json:', e.message);
+  }
+}
+
+/**
+ * Reads all active Gemini API keys (excluding turned off / disabled keys by default).
+ * @param {{ includeDisabled?: boolean }} options
+ * @returns {string[]}
+ */
+export function getGeminiKeyPool({ includeDisabled = false } = {}) {
+  const allKeys = getAllGeminiKeys();
+  if (includeDisabled) {
+    return allKeys;
+  }
+  const disabled = getDisabledGeminiKeys();
+  return allKeys.filter(k => !disabled.has(k));
+}
+
+/**
+ * Toggles a key's enabled/disabled state by index or key substring.
+ * @param {number|string} indexOrKey
+ * @param {boolean|null} explicitEnabled
+ */
+export function toggleGeminiKey(indexOrKey, explicitEnabled = null) {
+  const allKeys = getAllGeminiKeys();
+  let targetKey = null;
+
+  if (typeof indexOrKey === 'number') {
+    targetKey = allKeys[indexOrKey];
+  } else if (typeof indexOrKey === 'string') {
+    targetKey = allKeys.find(k => k === indexOrKey || k.endsWith(indexOrKey.slice(-4)));
+  }
+
+  if (!targetKey) {
+    throw new Error(`Key at identifier "${indexOrKey}" not found in Gemini pool.`);
+  }
+
+  const disabledKeys = getDisabledGeminiKeys();
+  const currentlyDisabled = disabledKeys.has(targetKey);
+
+  let willBeEnabled;
+  if (typeof explicitEnabled === 'boolean') {
+    willBeEnabled = explicitEnabled;
+  } else {
+    willBeEnabled = currentlyDisabled; // toggle: if disabled, enable it; if enabled, disable it
+  }
+
+  if (willBeEnabled) {
+    disabledKeys.delete(targetKey);
+  } else {
+    disabledKeys.add(targetKey);
+  }
+
+  saveDisabledGeminiKeys(disabledKeys);
+
+  const maskedKey = `${targetKey.slice(0, 4)}...${targetKey.slice(-4)}`;
+  return {
+    success: true,
+    maskedKey,
+    isEnabled: willBeEnabled,
+    activeCount: allKeys.length - disabledKeys.size,
+    totalCount: allKeys.length
+  };
+}
+
+/**
+ * Enables or disables all keys in the pool at once.
+ * @param {boolean} enabled
+ */
+export function setAllGeminiKeysEnabled(enabled) {
+  const allKeys = getAllGeminiKeys();
+  const disabledKeys = new Set();
+  if (!enabled) {
+    for (const k of allKeys) {
+      disabledKeys.add(k);
+    }
+  }
+  saveDisabledGeminiKeys(disabledKeys);
+  return {
+    success: true,
+    enabled,
+    activeCount: enabled ? allKeys.length : 0,
+    totalCount: allKeys.length
+  };
+}
+
+/**
+ * Enables or disables a specific subset of keys by their indices.
+ * @param {number[]} indices
+ * @param {boolean} enabled
+ */
+export function toggleMultipleGeminiKeys(indices, enabled) {
+  const allKeys = getAllGeminiKeys();
+  const disabledKeys = getDisabledGeminiKeys();
+  const targetSet = new Set(indices);
+
+  for (let idx = 0; idx < allKeys.length; idx++) {
+    if (targetSet.has(idx)) {
+      if (enabled) {
+        disabledKeys.delete(allKeys[idx]);
+      } else {
+        disabledKeys.add(allKeys[idx]);
+      }
+    }
+  }
+
+  saveDisabledGeminiKeys(disabledKeys);
+  return {
+    success: true,
+    enabled,
+    activeCount: allKeys.length - disabledKeys.size,
+    totalCount: allKeys.length
+  };
 }
 
 /**
@@ -499,7 +650,7 @@ export async function addGeminiKeyToPool(newKey) {
   // Validate key against Google API
   await validateGeminiApiKey(trimmed);
 
-  const currentPool = getGeminiKeyPool();
+  const currentPool = getAllGeminiKeys();
   if (!currentPool.includes(trimmed)) {
     currentPool.push(trimmed);
     saveGeminiKeyPool(currentPool);
@@ -516,16 +667,28 @@ export async function addGeminiKeyToPool(newKey) {
  * Removes a Gemini key by index or value.
  */
 export function removeGeminiKeyFromPool(indexOrKey) {
-  const pool = getGeminiKeyPool();
+  const allKeys = getAllGeminiKeys();
+  let targetKey = null;
   let updated = [];
 
   if (typeof indexOrKey === 'number') {
-    updated = pool.filter((_, idx) => idx !== indexOrKey);
+    targetKey = allKeys[indexOrKey];
+    updated = allKeys.filter((_, idx) => idx !== indexOrKey);
   } else {
-    updated = pool.filter(k => k !== indexOrKey && !k.endsWith(String(indexOrKey).slice(-4)));
+    targetKey = allKeys.find(k => k === indexOrKey || k.endsWith(String(indexOrKey).slice(-4)));
+    updated = allKeys.filter(k => k !== indexOrKey && !k.endsWith(String(indexOrKey).slice(-4)));
   }
 
   saveGeminiKeyPool(updated);
+
+  if (targetKey) {
+    const disabledKeys = getDisabledGeminiKeys();
+    if (disabledKeys.has(targetKey)) {
+      disabledKeys.delete(targetKey);
+      saveDisabledGeminiKeys(disabledKeys);
+    }
+  }
+
   return {
     success: true,
     poolSize: updated.length
@@ -536,9 +699,10 @@ export function removeGeminiKeyFromPool(indexOrKey) {
  * Live probes all keys in the pool against Google AI Studio API simultaneously.
  */
 export async function probeAllGeminiKeys() {
-  const pool = getGeminiKeyPool();
+  const pool = getAllGeminiKeys();
   if (pool.length === 0) return [];
 
+  const disabledKeys = getDisabledGeminiKeys();
   const now = Date.now();
   const results = [];
 
@@ -548,6 +712,33 @@ export async function probeAllGeminiKeys() {
     const key = pool[idx];
     const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
     const metric = getOrCreateKeyMetric(key);
+    const isEnabled = !disabledKeys.has(key);
+
+    // If key is turned off by user, do not probe Google API
+    if (!isEnabled) {
+      results.push({
+        id: `gemini_key_${idx}`,
+        index: idx,
+        maskedKey: masked,
+        status: 'disabled',
+        isEnabled: false,
+        quotaType: 'minute',
+        quotaLimit: '10',
+        dailyResetInfo: null,
+        isValid: true,
+        hasQuota: false,
+        error: 'Turned off by user (Excluded from generation & rotation)',
+        totalRequests: metric.totalRequests,
+        successCount: metric.successCount,
+        failureCount: metric.failureCount,
+        lastUsedAt: metric.lastUsedAt,
+        retryAvailableAt: null,
+        remainingSeconds: 0,
+        cooldownDurationSeconds: 0,
+        httpStatus: 200
+      });
+      continue;
+    }
 
     // If key is currently in an active cooldown that has not expired yet:
     if (metric.retryAvailableAt && now < metric.retryAvailableAt) {
@@ -557,6 +748,7 @@ export async function probeAllGeminiKeys() {
         index: idx,
         maskedKey: masked,
         status: metric.lastStatus,
+        isEnabled: true,
         quotaType: metric.quotaType || 'minute',
         quotaLimit: metric.quotaLimit || '10',
         dailyResetInfo: metric.dailyResetInfo,
@@ -586,6 +778,7 @@ export async function probeAllGeminiKeys() {
           index: idx,
           maskedKey: masked,
           status: 'ready',
+          isEnabled: true,
           quotaType: metric.quotaType || 'minute',
           quotaLimit: metric.quotaLimit || '10',
           dailyResetInfo: metric.dailyResetInfo,
@@ -617,6 +810,7 @@ export async function probeAllGeminiKeys() {
             index: idx,
             maskedKey: masked,
             status: 'invalid',
+            isEnabled: true,
             quotaType: 'minute',
             quotaLimit: '10',
             dailyResetInfo: null,
@@ -638,6 +832,7 @@ export async function probeAllGeminiKeys() {
             index: idx,
             maskedKey: masked,
             status: metric.lastStatus || 'ready',
+            isEnabled: true,
             quotaType: metric.quotaType || 'minute',
             quotaLimit: metric.quotaLimit || '10',
             dailyResetInfo: null,
@@ -661,6 +856,7 @@ export async function probeAllGeminiKeys() {
         index: idx,
         maskedKey: masked,
         status: metric.lastStatus || 'ready',
+        isEnabled: true,
         quotaType: metric.quotaType || 'minute',
         quotaLimit: metric.quotaLimit || '10',
         dailyResetInfo: null,
@@ -691,7 +887,7 @@ export async function probeAllGeminiKeys() {
  * If forceLiveProbe is true, actually pings Google AI Studio in real time.
  */
 export async function getGeminiKeyPoolDetails(forceLiveProbe = false) {
-  const pool = getGeminiKeyPool();
+  const pool = getAllGeminiKeys();
   if (pool.length === 0) {
     return [];
   }
@@ -700,11 +896,36 @@ export async function getGeminiKeyPoolDetails(forceLiveProbe = false) {
     return await probeAllGeminiKeys();
   }
 
+  const disabledKeys = getDisabledGeminiKeys();
   const now = Date.now();
 
   const results = pool.map((key, idx) => {
     const masked = `${key.slice(0, 4)}...${key.slice(-4)}`;
     const metric = getOrCreateKeyMetric(key);
+    const isEnabled = !disabledKeys.has(key);
+
+    if (!isEnabled) {
+      return {
+        id: `gemini_key_${idx}`,
+        index: idx,
+        maskedKey: masked,
+        status: 'disabled',
+        isEnabled: false,
+        quotaType: 'minute',
+        quotaLimit: '10',
+        dailyResetInfo: null,
+        isValid: true,
+        hasQuota: false,
+        error: 'Turned off by user (Excluded from generation & rotation)',
+        totalRequests: metric.totalRequests,
+        successCount: metric.successCount,
+        failureCount: metric.failureCount,
+        lastUsedAt: metric.lastUsedAt,
+        retryAvailableAt: null,
+        remainingSeconds: 0,
+        cooldownDurationSeconds: 0
+      };
+    }
 
     const isDaily = metric.lastStatus === 'daily_exhausted' || metric.quotaType === 'daily';
 
@@ -715,6 +936,7 @@ export async function getGeminiKeyPoolDetails(forceLiveProbe = false) {
         index: idx,
         maskedKey: masked,
         status: isDaily ? 'daily_exhausted' : 'exhausted',
+        isEnabled: true,
         quotaType: isDaily ? 'daily' : 'minute',
         quotaLimit: metric.quotaLimit || '10',
         dailyResetInfo: metric.dailyResetInfo || 'Resets at Midnight Pacific Time (PT) / 10:00 AM',
@@ -746,6 +968,7 @@ export async function getGeminiKeyPoolDetails(forceLiveProbe = false) {
       index: idx,
       maskedKey: masked,
       status: isReady ? 'ready' : metric.lastStatus,
+      isEnabled: true,
       quotaType: metric.quotaType || 'minute',
       quotaLimit: metric.quotaLimit || '10',
       dailyResetInfo: metric.dailyResetInfo || null,
@@ -863,6 +1086,10 @@ export async function generateGeminiSpeech({
 }) {
   const pool = apiKey ? [apiKey] : getGeminiKeyPool();
   if (pool.length === 0) {
+    const allConfigured = getAllGeminiKeys();
+    if (allConfigured.length > 0) {
+      throw new Error('All configured Gemini API keys are currently turned off. Please turn on at least one key in Gemini Voice Studio.');
+    }
     throw new Error('No Google Gemini API Key configured. Please add at least one Gemini API Key in Gemini Studio or Settings.');
   }
 
@@ -942,7 +1169,7 @@ export async function generateGeminiSpeech({
   };
 
   const primaryModel = model || 'gemini-3.1-flash-tts-preview';
-  // Strictly enforce single model requested by user - NO automatic downgrade or switching to other models
+  // Strictly enforce single model requested by user - NEVER use fallback to 2.5
   const candidateModels = [primaryModel];
 
   let hasVoiceFallback = false;
@@ -1138,7 +1365,6 @@ export async function generateGeminiSpeech({
             metric.cooldownDurationSeconds = remainingSec;
             metric.cooldownStartedAt = Date.now();
 
-            console.warn(`[Gemini Key Failover] Key #${keyIdx + 1}/${sortedPool.length} (${maskedKey}) hit ${quotaAnalysis.isDaily ? 'DAILY QUOTA LIMIT' : `rate-limit cooldown (${remainingSec}s)`}: "${errorMsg}". Moving to next key in pool...`);
             keyErrors.push(`Key ${maskedKey}: ${quotaAnalysis.statusText}`);
 
             // Proceed to next key in pool!
@@ -1227,6 +1453,11 @@ export async function generateGeminiSpeech({
           const quotaAnalysis = parseQuotaExhaustionInfo(null, err.message, delayMs);
           const remainingSec = Math.ceil(quotaAnalysis.delayMs / 1000);
 
+          if (quotaAnalysis.isDaily) {
+            metric.exhaustedModels = metric.exhaustedModels || new Set();
+            metric.exhaustedModels.add(candidateModel);
+          }
+
           metric.failureCount++;
           metric.lastStatus = quotaAnalysis.isDaily ? 'daily_exhausted' : 'exhausted';
           metric.quotaType = quotaAnalysis.quotaType;
@@ -1255,6 +1486,30 @@ export async function generateGeminiSpeech({
   }
 
   if (!audioBuffer) {
+    // If all keys in pool hit quota limits, but the soonest key recovers within 65 seconds:
+    // Auto-wait directly and retry to fulfill the synthesis without throwing an error!
+    if (!apiKey) {
+      const cooldownMetrics = pool.map(k => getOrCreateKeyMetric(k)).filter(m => m.retryAvailableAt && m.retryAvailableAt > Date.now() && m.quotaType !== 'daily');
+      cooldownMetrics.sort((a, b) => (a.retryAvailableAt || 0) - (b.retryAvailableAt || 0));
+      if (cooldownMetrics.length > 0) {
+        const waitMs = (cooldownMetrics[0].retryAvailableAt || 0) - Date.now();
+        if (waitMs <= 65000 && waitMs > 0) {
+          console.log(`[Gemini Auto-Wait] All keys in pool are in short rate-limit cooldown. Soonest key (${cooldownMetrics[0].maskedKey}) recovers in ${(waitMs / 1000).toFixed(1)}s. Waiting to auto-recover...`);
+          await new Promise(r => setTimeout(r, waitMs + 800));
+          // Clear cooldown on that recovered key and retry call once across the full pool!
+          cooldownMetrics[0].retryAvailableAt = null;
+          cooldownMetrics[0].lastStatus = 'ready';
+          return await generateGeminiSpeech({
+            text,
+            voiceName,
+            dialect,
+            promptInstruction,
+            model
+          });
+        }
+      }
+    }
+
     const failedCount = keyErrors.length > 0 ? keyErrors.length : pool.length;
     throw new Error(`All ${pool.length} Gemini API Key(s) in the pool failed or are in cooldown (${failedCount} key${failedCount === 1 ? '' : 's'} checked). Please wait a moment for short rate limits to expire.`);
   }

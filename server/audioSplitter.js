@@ -116,13 +116,14 @@ export function formatPromptWithExplicitPauses(paragraphs, dialect = 'sorani', c
 
     instruction = `You are a professional voice narrator and speech synthesizer. Read and speak aloud the provided text completely and naturally:
 - ${dialectRule}${multiRule}${emotionRule}
-- Pauses: Each [pause] marker is a 1.5-second silence pause between paragraphs. Under no circumstances speak the word "pause" aloud.`;
+- Pacing & Cadence: Speak at a steady, calm, unhurried pace. Deliver every sentence fully and deliberately with natural breathing. Do NOT rush or speak quickly.
+- Transitions: At each ellipsis (... ...), pause in complete silence for 1.5 seconds between paragraphs without vocalizing.`;
   }
 
   let formattedBody = '';
   paragraphs.forEach((p, idx) => {
     const cleanP = normalizeMultilingualBidiText(p.trim());
-    formattedBody += (idx > 0 ? `\n\n[pause]\n\n` : '') + cleanP;
+    formattedBody += (idx > 0 ? `\n\n... ...\n\n` : '') + cleanP;
   });
 
   return {

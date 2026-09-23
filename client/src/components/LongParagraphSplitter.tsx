@@ -2069,15 +2069,11 @@ export const LongParagraphSplitter: React.FC<LongParagraphSplitterProps> = ({
                   className="select"
                   style={{ width: '100%', padding: '6px 8px', fontSize: '0.84rem' }}
                 >
-                  <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Auto-fallback to 2.5)</option>
-                  <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS (High Quota)</option>
+                  <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Default)</option>
+                  <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS</option>
                 </select>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>
-                  {selectedModel === 'gemini-3.1-flash-tts-preview' ? (
-                    <span>⚡ Automatically falls back to 2.5 Flash TTS when 3.1 reaches 10/day project quota.</span>
-                  ) : (
-                    <span>⚡ Direct mode on 2.5 Flash TTS with independent daily quota.</span>
-                  )}
+                  <span>⚡ Uses selected Gemini model without automatic fallback.</span>
                 </div>
               </div>
 

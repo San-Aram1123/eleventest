@@ -50,6 +50,7 @@ import { KurdishEditor } from '../components/KurdishEditor';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { RatingWidget } from '../components/RatingWidget';
 import { LongParagraphSplitter } from '../components/LongParagraphSplitter';
+import { PairedEmotionBatchPage } from './PairedEmotionBatchPage';
 import { 
   Sample, 
   GeminiVoice, 
@@ -68,11 +69,15 @@ import {
   probeGeminiKeys,
   addGeminiKeyToPool, 
   deleteGeminiKeyFromPool, 
+  toggleGeminiKey,
+  toggleAllGeminiKeys,
+  toggleBulkGeminiKeys,
   generateGeminiSpeech, 
   updateSample,
   deleteSample,
   fetchDataset
 } from '../services/api';
+import { GeminiKeyManager } from '../components/GeminiKeyManager';
 
 interface GeminiGenerationPageProps {
   onSampleCreated: (sample: Sample) => void;
@@ -190,7 +195,7 @@ const BATCH_STORAGE_KEY = 'kurdish_tts_gemini_batch_v2';
 interface StoredGeminiBatchState {
   version: number;
   savedAt: string;
-  activeTab?: 'single' | 'bulk';
+  activeTab?: 'single' | 'bulk' | 'paired';
   uploadedFileName?: string;
   rawBatchInput?: string;
   batchItems: GeminiBatchItem[];
@@ -256,8 +261,8 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
 }) => {
   const initialSaved = useRef(getStoredBatchState()).current;
 
-  // Mode selection: 'single' vs 'bulk'
-  const [activeTab, setActiveTab] = useState<'single' | 'bulk'>(() => initialSaved?.activeTab || 'single');
+  // Mode selection: 'single' vs 'bulk' vs 'paired'
+  const [activeTab, setActiveTab] = useState<'single' | 'bulk' | 'paired'>(() => initialSaved?.activeTab || 'single');
   // Sub-mode inside bulk: 'standard' (existing line-by-line batch) vs 'long_split' (single-call multi-chunk)
   const [bulkSubMode, setBulkSubMode] = useState<'standard' | 'long_split'>('standard');
 
@@ -627,6 +632,66 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
       await loadConfigAndPool();
     } catch (err: any) {
       addToast({ type: 'error', title: 'Failed to Delete Key', message: err.message });
+    }
+  };
+
+  const handleToggleKey = async (index: number, enabled?: boolean) => {
+    try {
+      const res = await toggleGeminiKey(index, enabled);
+      if (res.pool) {
+        setKeyPool(res.pool);
+      }
+      addToast({
+        type: 'info',
+        title: res.isEnabled ? 'Gemini Key Turned ON' : 'Gemini Key Turned OFF',
+        message: res.message
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Toggle Key',
+        message: err.message || 'Could not update key state'
+      });
+    }
+  };
+
+  const handleToggleAllKeys = async (enabled: boolean) => {
+    try {
+      const res = await toggleAllGeminiKeys(enabled);
+      if (res.pool) {
+        setKeyPool(res.pool);
+      }
+      addToast({
+        type: 'info',
+        title: enabled ? 'All Keys Enabled' : 'All Keys Turned OFF',
+        message: res.message
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Toggle Keys',
+        message: err.message || 'Could not update keys'
+      });
+    }
+  };
+
+  const handleToggleBulkKeys = async (indices: number[], enabled: boolean) => {
+    try {
+      const res = await toggleBulkGeminiKeys(indices, enabled);
+      if (res.pool) {
+        setKeyPool(res.pool);
+      }
+      addToast({
+        type: 'info',
+        title: enabled ? `${indices.length} Keys Enabled` : `${indices.length} Keys Turned OFF`,
+        message: res.message
+      });
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Toggle Selected Keys',
+        message: err.message || 'Could not update keys'
+      });
     }
   };
 
@@ -1756,9 +1821,11 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
   // ----------------------------------------------------
   const currentPresets = dialect === 'badini' ? BADINI_PRESETS : SORANI_PRESETS;
   const poolCount = keyPool.length || (geminiConfig?.isKeyConfigured ? 1 : 0);
-  const readyKeyCount = keyPool.filter(k => k.status === 'ready').length;
-  const dailyExhaustedKeys = keyPool.filter(k => k.status === 'daily_exhausted' || (k.quotaType === 'daily' && k.status !== 'ready'));
-  const minuteCooldownKeys = keyPool.filter(k => k.status === 'exhausted' && k.quotaType !== 'daily' && (k.remainingSeconds !== undefined && k.remainingSeconds > 0));
+  const activeKeyCount = keyPool.filter(k => k.isEnabled !== false).length;
+  const disabledKeyCount = keyPool.filter(k => k.isEnabled === false).length;
+  const readyKeyCount = keyPool.filter(k => k.isEnabled !== false && k.status === 'ready').length;
+  const dailyExhaustedKeys = keyPool.filter(k => k.isEnabled !== false && (k.status === 'daily_exhausted' || (k.quotaType === 'daily' && k.status !== 'ready')));
+  const minuteCooldownKeys = keyPool.filter(k => k.isEnabled !== false && k.status === 'exhausted' && k.quotaType !== 'daily' && (k.remainingSeconds !== undefined && k.remainingSeconds > 0));
   const minCooldownSeconds = minuteCooldownKeys.length > 0 
     ? Math.min(...minuteCooldownKeys.map(k => k.remainingSeconds || 60))
     : 0;
@@ -1803,10 +1870,15 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
                 className={`badge ${readyKeyCount > 0 ? 'badge-success' : (dailyExhaustedKeys.length > 0 ? 'badge-danger' : 'badge-amber')}`}
                 onClick={() => setShowKeyManager(!showKeyManager)}
                 style={{ cursor: 'pointer', border: readyKeyCount > 0 ? '1px solid rgba(16, 185, 129, 0.4)' : (dailyExhaustedKeys.length > 0 ? '1px solid rgba(239, 68, 68, 0.4)' : '1px solid rgba(245, 158, 11, 0.4)') }}
-                title="Click to view all Gemini API Keys and live quota cooldowns"
+                title="Click to view all Gemini API Keys, toggles, and live quota cooldowns"
               >
                 <ShieldCheck size={13} />
-                <span>{readyKeyCount}/{poolCount} Keys Ready</span>
+                <span>{readyKeyCount}/{activeKeyCount} Keys Ready</span>
+                {disabledKeyCount > 0 && (
+                  <span style={{ opacity: 0.85, color: '#94A3B8', fontSize: '0.72rem' }}>
+                    ({disabledKeyCount} Off)
+                  </span>
+                )}
                 {dailyExhaustedKeys.length > 0 && readyKeyCount === 0 && (
                   <span style={{ opacity: 0.95, color: '#FCA5A5', fontWeight: 600 }}>
                     ({dailyExhaustedKeys.length} Daily Limit Reached • Resets Midnight PT)
@@ -1875,242 +1947,50 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
               <span className="tab-counter-badge">{batchItems.length} lines</span>
             )}
           </button>
+          <button
+            type="button"
+            className={`studio-tab-btn ${activeTab === 'paired' ? 'studio-tab-active' : ''}`}
+            onClick={() => setActiveTab('paired')}
+            style={activeTab === 'paired' ? {
+              borderColor: '#a855f7',
+              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.3) 0%, rgba(236, 72, 153, 0.3) 100%)',
+              color: '#f8fafc'
+            } : {
+              borderColor: 'rgba(168, 85, 247, 0.4)',
+              background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.15) 0%, rgba(236, 72, 153, 0.15) 100%)',
+              color: '#f8fafc'
+            }}
+            title="Open Paired Emotion Batch Studio (same speaker, same sentence, 6 emotions)"
+          >
+            <Layers size={16} color="#c084fc" />
+            <span style={{ fontWeight: 600 }}>Paired Emotion Batch Studio</span>
+            <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.3)', color: '#c084fc', fontSize: '0.7rem' }}>
+              TTS Training
+            </span>
+          </button>
         </div>
       </div>
 
       {/* Multi-Key Pool Drawer & Live Monitor */}
       {(showKeyManager || poolCount === 0) && (
-        <div className="gemini-key-card" style={{ marginBottom: '24px' }}>
-          <div className="key-card-header" style={{ justifyContent: 'space-between' }}>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <Layers size={18} className="text-cyan" />
-              <span className="key-card-title">Google Gemini Multi-Key Pool & Health Monitor</span>
-            </div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={handleResetCooldowns}
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
-                title="Reset active cooldowns across all keys and restore them to Ready status"
-              >
-                <RotateCcw size={13} />
-                <span>Reset Cooldowns</span>
-              </button>
-              <button
-                type="button"
-                className="btn btn-sm btn-ghost"
-                onClick={handleReloadKeys}
-                disabled={isReloadingKeys}
-                title="Verify all Gemini API keys in the pool (Uses 0 speech generation quota)"
-                style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-              >
-                <RefreshCw size={13} className={isReloadingKeys ? 'spin' : ''} />
-                <span>{isReloadingKeys ? 'Checking Keys...' : 'Check All Keys (0 Quota)'}</span>
-              </button>
-              <span className="badge badge-cyan">
-                {poolCount} {poolCount === 1 ? 'Key Configured' : 'Keys in Pool'}
-              </span>
-            </div>
-          </div>
-
-          <p className="key-card-desc">
-            Add multiple Google AI Studio Gemini API keys. When doing batch line-by-line speech generation, if any key hits a quota limit (429/403), the engine <strong>automatically cascades to the next key</strong> with zero interruption.
-          </p>
-
-          {/* Daily Limit Warning Banner */}
-          {dailyExhaustedKeys.length > 0 && (
-            <div style={{
-              background: 'rgba(239, 68, 68, 0.12)',
-              border: '1px solid rgba(239, 68, 68, 0.35)',
-              borderRadius: 'var(--radius-sm)',
-              padding: '12px 16px',
-              marginTop: '12px',
-              fontSize: '0.8rem',
-              color: '#FCA5A5',
-              display: 'flex',
-              alignItems: 'flex-start',
-              gap: '12px'
-            }}>
-              <AlertCircle size={18} style={{ color: '#F87171', flexShrink: 0, marginTop: '2px' }} />
-              <div>
-                <strong style={{ color: '#FECACA', fontSize: '0.84rem' }}>
-                  Free Tier Daily Limit Reached ({dailyExhaustedKeys.length}/{poolCount} keys exhausted today):
-                </strong>
-                <div style={{ marginTop: '4px', color: 'rgba(255, 255, 255, 0.88)', fontSize: '0.78rem', lineHeight: 1.45 }}>
-                  Google limits <code>gemini-3.1-flash-tts-preview</code> to <strong>10 requests per day per project</strong> on the Free Tier.
-                  These keys will reset automatically at <strong>Midnight US Pacific Time (PT) (~10:00 AM Local Time)</strong>.
-                  To continue generating Kurdish speech today without waiting, paste fresh API keys from new Google AI Studio projects above!
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* Add Key Form */}
-          <form onSubmit={handleAddKey} className="key-input-row">
-            <input
-              type="password"
-              className="input-control"
-              placeholder="Paste Google AI Studio API Key (AIzaSy...)"
-              value={customKeyInput}
-              onChange={(e) => setCustomKeyInput(e.target.value)}
-              disabled={isSavingKey}
-            />
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={isSavingKey || !customKeyInput.trim()}
-              style={{ whiteSpace: 'nowrap' }}
-            >
-              <Plus size={15} />
-              <span>{isSavingKey ? 'Verifying...' : 'Add to Key Pool'}</span>
-            </button>
-          </form>
-
-          {/* Key List with Live Metrics & Status */}
-          {keyPool.length > 0 && (
-            <div className="key-pool-list" style={{ marginTop: '14px', display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              {keyPool.map((k, idx) => {
-                const isDaily = k.status === 'daily_exhausted' || (k.quotaType === 'daily' && k.status !== 'ready');
-                const isCooldown = !isDaily && (k.status === 'exhausted' || (k.remainingSeconds !== undefined && k.remainingSeconds > 0));
-                const remainingSec = k.remainingSeconds || 0;
-                const totalCooldown = k.cooldownDurationSeconds || 60;
-                const progressPct = isCooldown 
-                  ? Math.min(100, Math.max(0, Math.round(((totalCooldown - remainingSec) / totalCooldown) * 100))) 
-                  : 100;
-
-                return (
-                  <div key={k.id || idx} className="key-pool-item" style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: '8px',
-                    background: isDaily ? 'rgba(239, 68, 68, 0.08)' : (isCooldown ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0, 0, 0, 0.35)'),
-                    padding: '12px 14px',
-                    borderRadius: 'var(--radius-sm)',
-                    border: k.status === 'ready' 
-                      ? '1px solid rgba(16, 185, 129, 0.3)' 
-                      : (isDaily ? '1px solid rgba(239, 68, 68, 0.35)' : (isCooldown ? '1px solid rgba(245, 158, 11, 0.4)' : '1px solid rgba(239, 68, 68, 0.35)'))
-                  }}>
-                    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' }}>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)', fontWeight: 700 }}>#{idx + 1}</span>
-                        <code style={{ fontSize: '0.84rem', color: '#38BDF8', fontWeight: 600 }}>{k.maskedKey}</code>
-                        
-                        {k.status === 'ready' && !isCooldown && !isDaily && (
-                          <span className="badge badge-success" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-                            Ready / Active
-                          </span>
-                        )}
-
-                        {isDaily && (
-                          <span className="badge badge-danger" style={{ fontSize: '0.72rem', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(239, 68, 68, 0.25)', color: '#FCA5A5', fontWeight: 700 }}>
-                            <AlertCircle size={11} />
-                            <span>🔴 Daily Limit Reached (10/10 Used Today)</span>
-                          </span>
-                        )}
-
-                        {isCooldown && (
-                          <span className="badge badge-amber" style={{ fontSize: '0.72rem', padding: '2px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px', background: 'rgba(245, 158, 11, 0.25)', color: '#FDE047', fontWeight: 700 }}>
-                            <Clock size={11} className="spin" />
-                            <span>Minute Cooldown: Available in {remainingSec}s ({progressPct}%)</span>
-                          </span>
-                        )}
-
-                        {k.status === 'invalid' && !isCooldown && !isDaily && (
-                          <span className="badge badge-danger" style={{ fontSize: '0.72rem', padding: '2px 8px' }}>
-                            Invalid / Access Denied
-                          </span>
-                        )}
-
-                        {(k.totalRequests !== undefined && k.totalRequests > 0) && (
-                          <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                            Requests: <strong>{k.totalRequests}</strong> ({k.successCount || 0} OK, {k.failureCount || 0} Err)
-                          </span>
-                        )}
-                      </div>
-
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                        <button
-                          type="button"
-                          className="btn btn-secondary btn-xs"
-                          onClick={() => handleProbeSingleKey(idx)}
-                          disabled={probingKeyIndex === idx || isReloadingKeys}
-                          title="Verify key status against Google AI Studio (Uses 0 speech generation quota)"
-                          style={{ fontSize: '0.72rem', padding: '3px 8px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-                        >
-                          <Zap size={11} className={probingKeyIndex === idx ? 'spin text-amber' : 'text-cyan'} />
-                          <span>{probingKeyIndex === idx ? 'Checking Key...' : '⚡ Check (0 Quota)'}</span>
-                        </button>
-
-                        <button
-                          type="button"
-                          className="btn btn-icon btn-ghost text-danger"
-                          onClick={() => handleDeleteKey(idx)}
-                          title="Remove this key from pool"
-                          style={{ padding: '4px 8px', color: '#EF4444' }}
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    {/* Progress Bar for Minute Cooldown */}
-                    {isCooldown && (
-                      <div style={{ marginTop: '2px' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.7rem', color: '#FDE047', marginBottom: '3px' }}>
-                          <span>Minute Rate-Limit Cooldown</span>
-                          <span>{remainingSec}s remaining</span>
-                        </div>
-                        <div style={{ background: 'rgba(255, 255, 255, 0.08)', height: '4px', borderRadius: '2px', overflow: 'hidden' }}>
-                          <div 
-                            style={{ 
-                              width: `${progressPct}%`, 
-                              background: 'linear-gradient(90deg, #F59E0B, #10B981)', 
-                              height: '100%',
-                              transition: 'width 1s linear'
-                            }} 
-                          />
-                        </div>
-                      </div>
-                    )}
-
-                    {isDaily && (
-                      <div style={{ fontSize: '0.72rem', color: '#FCA5A5', background: 'rgba(239, 68, 68, 0.1)', padding: '6px 10px', borderRadius: '4px', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.4 }}>
-                        ⏰ <strong>Daily Free Quota Exhausted:</strong> Resets at Midnight Pacific Time (PT) / 10:00 AM Local Time.
-                      </div>
-                    )}
-
-                    {k.error && !isDaily && k.status !== 'ready' && (
-                      <div style={{ fontSize: '0.7rem', color: isCooldown ? '#FDE047' : '#F87171', background: 'rgba(0,0,0,0.25)', padding: '5px 8px', borderRadius: '4px', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.4 }}>
-                        🌐 <strong>Google API Response:</strong> {k.error}
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
-          )}
-
-          <div style={{ marginTop: '12px', fontSize: '0.78rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <a
-              href="https://aistudio.google.com/app/apikey"
-              target="_blank"
-              rel="noreferrer"
-              style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-            >
-              <span>Get Free Gemini API Keys from Google AI Studio</span>
-              <ExternalLink size={12} />
-            </a>
-            <button
-              type="button"
-              className="btn btn-ghost btn-sm"
-              onClick={() => setShowKeyManager(false)}
-              style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}
-            >
-              Close Monitor
-            </button>
-          </div>
-        </div>
+        <GeminiKeyManager
+          keyPool={keyPool}
+          poolCount={poolCount}
+          isReloadingKeys={isReloadingKeys}
+          probingKeyIndex={probingKeyIndex}
+          customKeyInput={customKeyInput}
+          isSavingKey={isSavingKey}
+          onKeyInputChange={setCustomKeyInput}
+          onAddKey={handleAddKey}
+          onDeleteKey={handleDeleteKey}
+          onToggleKey={handleToggleKey}
+          onToggleAllKeys={handleToggleAllKeys}
+          onToggleBulkKeys={handleToggleBulkKeys}
+          onProbeKey={handleProbeSingleKey}
+          onReloadKeys={handleReloadKeys}
+          onResetCooldowns={handleResetCooldowns}
+          onClose={() => setShowKeyManager(false)}
+        />
       )}
 
       {/* ========================================================= */}
@@ -3900,6 +3780,16 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
             </>
           )}
         </div>
+      )}
+
+      {/* ========================================================= */}
+      {/* TAB 3: PAIRED EMOTION DATASET STUDIO                      */}
+      {/* ========================================================= */}
+      {activeTab === 'paired' && (
+        <PairedEmotionBatchPage
+          onSampleCreated={onSampleCreated}
+          addToast={addToast}
+        />
       )}
 
       {/* Page Styles */}

@@ -24,7 +24,8 @@ import {
   Globe,
   Users,
   CheckSquare,
-  Key
+  Key,
+  ShieldCheck
 } from 'lucide-react';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { MetadataModal } from '../components/MetadataModal';
@@ -33,6 +34,9 @@ import { DuplicateManagerModal } from '../components/DuplicateManagerModal';
 import { ExportDatasetModal, getSampleGender } from '../components/ExportDatasetModal';
 import { MassDeleteModal } from '../components/MassDeleteModal';
 import { RatingWidget } from '../components/RatingWidget';
+import { PairedFamiliesView } from '../components/paired/PairedFamiliesView';
+import { PairedValidationModal } from '../components/paired/PairedValidationModal';
+import { PairedExportModal } from '../components/paired/PairedExportModal';
 import { Sample, EmotionType, SampleRatings } from '../types';
 import { deleteSample, updateSample, getZipExportUrl, getAudarZipExportUrl } from '../services/api';
 
@@ -69,8 +73,10 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showMassDeleteModal, setShowMassDeleteModal] = useState(false);
+  const [showPairedValidateModal, setShowPairedValidateModal] = useState(false);
+  const [showPairedExportModal, setShowPairedExportModal] = useState(false);
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'cards' | 'table'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families'>('cards');
 
   const pageTopRef = useRef<HTMLDivElement | null>(null);
 
@@ -538,6 +544,28 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             <FileArchive size={15} />
             <span>Raw ZIP</span>
           </button>
+
+          {/* Validate Paired Emotion Rules */}
+          <button
+            onClick={() => setShowPairedValidateModal(true)}
+            className="btn btn-secondary btn-sm"
+            title="Validate paired emotion dataset rules (same speaker, same text, 6 emotions)"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', borderColor: 'rgba(16, 185, 129, 0.4)', color: '#34d399' }}
+          >
+            <ShieldCheck size={15} />
+            <span>Validate Paired</span>
+          </button>
+
+          {/* Paired Emotion Dataset Export */}
+          <button
+            onClick={() => setShowPairedExportModal(true)}
+            className="btn btn-primary btn-sm"
+            title="Export paired emotion dataset with required schema"
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', background: 'linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%)' }}
+          >
+            <Download size={15} />
+            <span>Paired Export</span>
+          </button>
         </div>
       </div>
 
@@ -710,6 +738,15 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             >
               Table
             </button>
+            <button
+              className={`view-btn ${viewMode === 'families' ? 'active' : ''}`}
+              onClick={() => setViewMode('families')}
+              title="Paired Emotion Families View"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Layers size={13} />
+              <span>Families</span>
+            </button>
           </div>
         </div>
 
@@ -859,7 +896,9 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
       )}
 
       {/* Dataset List / Grid */}
-      {totalItems === 0 ? (
+      {viewMode === 'families' ? (
+        <PairedFamiliesView samples={samples} />
+      ) : totalItems === 0 ? (
         <div className="glass-card empty-dataset-state">
           <Database size={40} className="text-dim" />
           <div className="empty-title">No Samples Found</div>
@@ -1282,6 +1321,22 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         onBatchDeleted={handleBatchDeleted}
         addToast={addToast}
       />
+
+      {showPairedValidateModal && (
+        <PairedValidationModal
+          isOpen={showPairedValidateModal}
+          onClose={() => setShowPairedValidateModal(false)}
+        />
+      )}
+
+      {showPairedExportModal && (
+        <PairedExportModal
+          isOpen={showPairedExportModal}
+          onClose={() => setShowPairedExportModal(false)}
+          samples={samples}
+          addToast={addToast}
+        />
+      )}
 
       <style>{`
         .dataset-page-root {

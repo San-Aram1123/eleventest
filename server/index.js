@@ -47,6 +47,10 @@ import {
   getGeminiApiKey,
   saveGeminiApiKey,
   getGeminiKeyPool,
+  getAllGeminiKeys,
+  toggleGeminiKey,
+  setAllGeminiKeysEnabled,
+  toggleMultipleGeminiKeys,
   addGeminiKeyToPool,
   removeGeminiKeyFromPool,
   getGeminiKeyPoolDetails,
@@ -71,6 +75,21 @@ import {
   extractEmotionAndCleanText,
   normalizeEmotionName
 } from './emotionUtils.js';
+import {
+  generatePairedEmotionClip,
+  generateFullFamilySet
+} from './pairedBatchService.js';
+import { validatePairedDataset } from './pairedValidation.js';
+import {
+  generatePairedMetadataCsv,
+  exportPairedZipArchive
+} from './pairedExporter.js';
+import { generatePairedFamilySliced } from './pairedSlicingService.js';
+import {
+  REQUIRED_EMOTIONS,
+  OPTIONAL_EMOTIONS,
+  SPEAKER_PRESETS
+} from './pairedEmotionConfig.js';
 
 dotenv.config();
 
@@ -387,13 +406,15 @@ app.post('/api/generate', async (req, res) => {
  */
 app.get('/api/gemini/config', async (req, res) => {
   const pool = getGeminiKeyPool();
+  const allKeys = getAllGeminiKeys();
   const isKeyConfigured = pool.length > 0;
-  const key = pool[0] || '';
+  const key = pool[0] || allKeys[0] || '';
   const models = await getAvailableGeminiModels();
   res.json({
     isKeyConfigured,
     poolSize: pool.length,
-    maskedKey: isKeyConfigured ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
+    totalKeys: allKeys.length,
+    maskedKey: (key) ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
     voices: GEMINI_VOICES,
     models,
     defaultModel: 'gemini-3.1-flash-tts-preview',
@@ -407,9 +428,15 @@ app.get('/api/gemini/config', async (req, res) => {
 app.get('/api/gemini/config/keys', async (req, res) => {
   try {
     const keys = await getGeminiKeyPoolDetails();
+    const readyCount = keys.filter(k => k.status === 'ready').length;
+    const activeCount = keys.filter(k => k.isEnabled !== false).length;
+    const disabledCount = keys.filter(k => k.isEnabled === false).length;
     res.json({
       pool: keys,
       poolSize: keys.length,
+      activeCount,
+      disabledCount,
+      readyCount,
       activeKeyIndex: 0
     });
   } catch (err) {
@@ -531,6 +558,76 @@ app.delete('/api/gemini/config/keys/:index', (req, res) => {
       success: true,
       message: 'Gemini key removed from pool',
       poolSize: result.poolSize
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Toggle a Gemini key ON (active) or OFF (turned off)
+ */
+app.post('/api/gemini/config/keys/:index/toggle', async (req, res) => {
+  try {
+    const index = parseInt(req.params.index, 10);
+    if (isNaN(index)) {
+      return res.status(400).json({ error: 'Invalid key index' });
+    }
+    const { enabled } = req.body || {};
+    const result = toggleGeminiKey(index, typeof enabled === 'boolean' ? enabled : null);
+    const pool = await getGeminiKeyPoolDetails();
+    res.json({
+      success: true,
+      message: `Gemini key #${index + 1} (${result.maskedKey}) is now ${result.isEnabled ? 'Active (Turned ON)' : 'Turned OFF'}`,
+      isEnabled: result.isEnabled,
+      activeCount: result.activeCount,
+      totalCount: result.totalCount,
+      pool
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Toggle all Gemini keys ON or OFF at once
+ */
+app.post('/api/gemini/config/keys/toggle-all', async (req, res) => {
+  try {
+    const { enabled = true } = req.body || {};
+    const result = setAllGeminiKeysEnabled(Boolean(enabled));
+    const pool = await getGeminiKeyPoolDetails();
+    res.json({
+      success: true,
+      message: `All Gemini keys are now ${result.enabled ? 'Active (Turned ON)' : 'Turned OFF'}`,
+      enabled: result.enabled,
+      activeCount: result.activeCount,
+      totalCount: result.totalCount,
+      pool
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Toggle a specific list of Gemini keys ON or OFF
+ */
+app.post('/api/gemini/config/keys/toggle-bulk', async (req, res) => {
+  try {
+    const { indices, enabled = true } = req.body || {};
+    if (!Array.isArray(indices) || indices.length === 0) {
+      return res.status(400).json({ error: 'indices array must not be empty' });
+    }
+    const result = toggleMultipleGeminiKeys(indices, Boolean(enabled));
+    const pool = await getGeminiKeyPoolDetails();
+    res.json({
+      success: true,
+      message: `${indices.length} Gemini keys are now ${result.enabled ? 'Active (Turned ON)' : 'Turned OFF'}`,
+      enabled: result.enabled,
+      activeCount: result.activeCount,
+      totalCount: result.totalCount,
+      pool
     });
   } catch (err) {
     res.status(400).json({ error: err.message });
@@ -1140,6 +1237,186 @@ app.get('/api/dataset/export/preview', async (req, res) => {
     });
   } catch (err) {
     res.status(500).json({ error: err.message });
+  }
+});
+
+// =========================================================================
+// PAIRED EMOTION DATASET API ENDPOINTS (Kurdish TTS Training)
+// =========================================================================
+
+/**
+ * Returns available emotions and speaker presets for Paired Emotion Batch
+ */
+app.get('/api/paired/config', (req, res) => {
+  res.json({
+    requiredEmotions: REQUIRED_EMOTIONS,
+    optionalEmotions: OPTIONAL_EMOTIONS,
+    speakerPresets: SPEAKER_PRESETS
+  });
+});
+
+/**
+ * Synthesizes a single emotion clip for a sentence/family
+ */
+app.post('/api/paired/generate-emotion', async (req, res) => {
+  try {
+    const {
+      speakerId = 'spk01',
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      language = 'ckb',
+      sentence,
+      sentenceIndex = 1,
+      familyId,
+      emotion = 'neutral',
+      intensity,
+      model = 'gemini-3.1-flash-tts-preview',
+      apiKey = ''
+    } = req.body;
+
+    if (!sentence || !sentence.trim()) {
+      return res.status(400).json({ error: 'Sentence text is required' });
+    }
+
+    const result = await generatePairedEmotionClip({
+      speakerId,
+      voiceName,
+      dialect,
+      language,
+      sentence,
+      sentenceIndex,
+      familyId,
+      emotion,
+      intensity,
+      model,
+      apiKey
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[Paired API] Error generating clip:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Synthesizes an entire family (all required/selected emotions for one sentence)
+ */
+app.post('/api/paired/generate-family', async (req, res) => {
+  try {
+    const {
+      speakerId = 'spk01',
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      sentence,
+      sentenceIndex = 1,
+      emotions = [],
+      model = 'gemini-3.1-flash-tts-preview',
+      apiKey = ''
+    } = req.body;
+
+    if (!sentence || !sentence.trim()) {
+      return res.status(400).json({ error: 'Sentence text is required' });
+    }
+
+    const result = await generateFullFamilySet({
+      speakerId,
+      voiceName,
+      dialect,
+      sentence,
+      sentenceIndex,
+      emotions,
+      model,
+      apiKey
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[Paired API] Error generating family:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Synthesizes all required emotions for one sentence in 1 Gemini call and slices them (83% quota savings)
+ */
+app.post('/api/paired/generate-family-sliced', async (req, res) => {
+  try {
+    const {
+      speakerId = 'spk01',
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      language = 'ckb',
+      sentence,
+      sentenceIndex = 1,
+      familyId = null,
+      emotions = [],
+      model = 'gemini-3.1-flash-tts-preview',
+      apiKey = ''
+    } = req.body;
+
+    if (!sentence || !sentence.trim()) {
+      return res.status(400).json({ error: 'Sentence text is required' });
+    }
+
+    const result = await generatePairedFamilySliced({
+      speakerId,
+      voiceName,
+      dialect,
+      language,
+      sentence,
+      sentenceIndex,
+      familyId,
+      emotions,
+      model,
+      apiKey
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[Paired API] Error generating sliced family:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Validates dataset compliance for Paired Emotion rule
+ */
+app.get('/api/paired/validate', async (req, res) => {
+  try {
+    const report = await validatePairedDataset();
+    res.json(report);
+  } catch (err) {
+    console.error('[Paired API] Error validating dataset:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Exports metadata.csv with exact required schema:
+ * audio_file|text|speaker_name|language|emotion|emotion_intensity|family_id
+ */
+app.get('/api/paired/export-csv', async (req, res) => {
+  try {
+    const csv = await generatePairedMetadataCsv();
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Disposition', 'attachment; filename="metadata.csv"');
+    res.send(csv);
+  } catch (err) {
+    console.error('[Paired API] Error exporting CSV:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Downloads full Paired Emotion dataset as a ZIP archive
+ */
+app.get('/api/paired/export-zip', async (req, res) => {
+  try {
+    await exportPairedZipArchive(res);
+  } catch (err) {
+    console.error('[Paired API] Error exporting ZIP:', err);
+    if (!res.headersSent) res.status(500).json({ error: err.message });
   }
 });
 

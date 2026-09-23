@@ -216,6 +216,9 @@ export function getSampleAudio(id) {
  */
 export async function saveSample({
   id,
+  family_id,
+  emotion_intensity,
+  speaker_name,
   text,
   dialect = 'sorani',
   emotion = 'neutral',
@@ -225,6 +228,7 @@ export async function saveSample({
   voiceName = '',
   modelId = '',
   generationId = '',
+  language = 'ckb',
   characters = [],
   alignment = null,
   audioBuffer,
@@ -236,7 +240,7 @@ export async function saveSample({
   ensureDatasetDir();
 
   // If no custom ID was specified and duplicates are disallowed, check if already exists
-  if (!id && !allowDuplicateText) {
+  if (!id && !allowDuplicateText && !family_id) {
     const existing = await findSampleByText(text);
     if (existing) {
       console.log(`[Dataset] Sample with matching Kurdish text already exists (#${existing.id}). Returning existing sample to prevent duplicates.`);
@@ -260,9 +264,24 @@ export async function saveSample({
     audioSize = audioBuffer.length;
   }
 
+  const resolvedFamilyId = family_id || customMetadata.family_id || undefined;
+  const resolvedIntensity = emotion_intensity !== undefined && emotion_intensity !== null
+    ? parseFloat(emotion_intensity)
+    : (customMetadata.emotion_intensity !== undefined ? parseFloat(customMetadata.emotion_intensity) : 0.0);
+  const resolvedSpeaker = speaker_name || customMetadata.speaker_name || voiceName || undefined;
+  const resolvedLang = language || customMetadata.language || 'ckb';
+
+  let calculatedDuration = customMetadata.duration_seconds || customMetadata.durationSeconds || 0;
+  if (!calculatedDuration && audioBuffer && Buffer.isBuffer(audioBuffer) && audioBuffer.length > 44) {
+    calculatedDuration = Math.round(((Math.max(0, audioBuffer.length - 44) / (24000 * 2)) + Number.EPSILON) * 100) / 100;
+  }
+
   // Construct structured metadata
   const metadata = {
     id: safeId,
+    family_id: resolvedFamilyId,
+    emotion_intensity: resolvedIntensity,
+    speaker_name: resolvedSpeaker,
     text: String(text || '').trim(),
     dialect: dialect || 'sorani',
     emotion: String(emotion || 'neutral').toLowerCase(),
@@ -272,7 +291,7 @@ export async function saveSample({
     model_id: modelId || undefined,
     generation_id: generationId || undefined,
     method: method || 'elevenlabs_api',
-    language: 'ku',
+    language: resolvedLang,
     script: dialect === 'badini' ? 'Kurmanji' : 'Sorani',
     characters: characters || [],
     alignment: alignment || null,
@@ -285,6 +304,7 @@ export async function saveSample({
     },
     notes: notes || undefined,
     audio_size: audioSize,
+    duration_seconds: calculatedDuration,
     created_at: new Date().toISOString(),
     audio_filename: wavFileName,
     json_filename: jsonFileName,
@@ -299,12 +319,17 @@ export async function saveSample({
     try {
       await saveDbSample({
         ...metadata,
+        family_id: resolvedFamilyId,
+        emotion_intensity: resolvedIntensity,
+        speaker_name: resolvedSpeaker,
+        language: resolvedLang,
         rating: metadata.ratings?.overall || 0,
         rating_clarity: metadata.ratings?.pronunciation || 0,
         rating_naturalness: metadata.ratings?.naturalness || 0,
         rating_emotion: metadata.ratings?.emotion || 0,
         rating_notes: metadata.ratings?.notes || metadata.notes || null,
-        audio_size: audioSize
+        audio_size: audioSize,
+        duration_seconds: calculatedDuration
       });
     } catch (err) {
       console.error(`[MySQL] Failed to save sample ${safeId} to database:`, err.message);

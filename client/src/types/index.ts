@@ -29,11 +29,13 @@ export interface GeminiKeyPoolItem {
   id: string;
   index: number;
   maskedKey: string;
-  status: 'ready' | 'exhausted' | 'daily_exhausted' | 'invalid';
+  status: 'ready' | 'exhausted' | 'daily_exhausted' | 'invalid' | 'disabled';
+  isEnabled: boolean;
   quotaType?: 'daily' | 'minute';
   quotaLimit?: string;
-  dailyResetInfo?: string;
+  dailyResetInfo?: string | null;
   isValid: boolean;
+  hasQuota?: boolean;
   error: string | null;
   totalRequests?: number;
   successCount?: number;
@@ -47,6 +49,8 @@ export interface GeminiKeyPoolItem {
 export interface GeminiKeyPoolResponse {
   pool: GeminiKeyPoolItem[];
   poolSize: number;
+  activeCount?: number;
+  disabledCount?: number;
   activeKeyIndex: number;
   readyCount?: number;
 }
@@ -132,6 +136,9 @@ export interface SampleRatings {
 
 export interface Sample {
   id: string;
+  family_id?: string;
+  emotion_intensity?: number;
+  speaker_name?: string;
   text: string;
   cleanText?: string;
   durationSeconds?: number;

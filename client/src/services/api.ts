@@ -147,6 +147,54 @@ export async function deleteGeminiKeyFromPool(index: number): Promise<{ success:
   return await parseResponse(res, 'Failed to delete Gemini key');
 }
 
+export async function toggleGeminiKey(index: number, enabled?: boolean): Promise<{
+  success: boolean;
+  message: string;
+  isEnabled: boolean;
+  activeCount: number;
+  totalCount: number;
+  pool: GeminiKeyPoolItem[];
+}> {
+  const res = await fetch(`${API_BASE}/gemini/config/keys/${index}/toggle`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(typeof enabled === 'boolean' ? { enabled } : {})
+  });
+  return await parseResponse(res, 'Failed to toggle Gemini key state');
+}
+
+export async function toggleAllGeminiKeys(enabled: boolean): Promise<{
+  success: boolean;
+  message: string;
+  enabled: boolean;
+  activeCount: number;
+  totalCount: number;
+  pool: GeminiKeyPoolItem[];
+}> {
+  const res = await fetch(`${API_BASE}/gemini/config/keys/toggle-all`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ enabled })
+  });
+  return await parseResponse(res, 'Failed to toggle all Gemini keys');
+}
+
+export async function toggleBulkGeminiKeys(indices: number[], enabled: boolean): Promise<{
+  success: boolean;
+  message: string;
+  enabled: boolean;
+  activeCount: number;
+  totalCount: number;
+  pool: GeminiKeyPoolItem[];
+}> {
+  const res = await fetch(`${API_BASE}/gemini/config/keys/toggle-bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ indices, enabled })
+  });
+  return await parseResponse(res, 'Failed to toggle selected Gemini keys');
+}
+
 export async function saveGeminiKey(apiKey: string): Promise<{ success: boolean; message: string; maskedKey: string }> {
   const res = await fetch(`${API_BASE}/gemini/key`, {
     method: 'POST',
@@ -387,3 +435,22 @@ export function getAudioDownloadUrl(id: string): string {
 export function getJsonDownloadUrl(id: string): string {
   return `${API_BASE}/dataset/${encodeURIComponent(id)}/download/json`;
 }
+
+export async function fetchPairedConfig(): Promise<any> {
+  const res = await fetch(`${API_BASE}/paired/config`);
+  return await parseResponse(res, 'Failed to fetch paired config');
+}
+
+export async function validatePairedDataset(): Promise<any> {
+  const res = await fetch(`${API_BASE}/paired/validate`);
+  return await parseResponse(res, 'Failed to validate paired dataset');
+}
+
+export function getPairedZipExportUrl(): string {
+  return `${API_BASE}/paired/export-zip`;
+}
+
+export function getPairedCsvExportUrl(): string {
+  return `${API_BASE}/paired/export-csv`;
+}
+
