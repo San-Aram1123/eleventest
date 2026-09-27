@@ -44,6 +44,23 @@ export const App: React.FC = () => {
   // Initial load of config and dataset
   useEffect(() => {
     loadInitialData();
+
+    // Real-time synchronization: keep dataset live across all tabs without manual refresh
+    const interval = setInterval(async () => {
+      try {
+        const datasetList = await fetchDataset().catch(() => null);
+        if (datasetList && Array.isArray(datasetList)) {
+          setSamples((prev) => {
+            if (prev.length !== datasetList.length || datasetList.some((s, idx) => s.id !== prev[idx]?.id)) {
+              return datasetList;
+            }
+            return prev;
+          });
+        }
+      } catch {}
+    }, 2500);
+
+    return () => clearInterval(interval);
   }, []);
 
   const loadInitialData = async () => {
@@ -126,6 +143,7 @@ export const App: React.FC = () => {
             onSampleUpdated={handleSampleUpdated}
             onSampleDeleted={handleSampleDeleted}
             onBatchDeleted={handleBatchDeleted}
+            onSamplesRefreshed={(fresh) => setSamples(fresh)}
             addToast={addToast}
           />
         </div>

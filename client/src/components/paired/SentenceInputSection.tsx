@@ -24,17 +24,31 @@ export const SentenceInputSection: React.FC<SentenceInputSectionProps> = ({
     .map(s => s.trim())
     .filter(Boolean);
 
-  const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = event.target?.result;
-      if (typeof content === 'string') {
-        onChange(content.trim());
-      }
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const fileList = Array.from(e.target.files || []);
+    if (fileList.length === 0) return;
+
+    const readText = (file: File): Promise<string> => {
+      return new Promise((resolve) => {
+        const reader = new FileReader();
+        reader.onload = (event) => resolve(typeof event.target?.result === 'string' ? event.target.result : '');
+        reader.onerror = () => resolve('');
+        reader.readAsText(file, 'utf-8');
+      });
     };
-    reader.readAsText(file, 'utf-8');
+
+    const contents = await Promise.all(fileList.map(readText));
+    const allLines: string[] = [];
+    contents.forEach(content => {
+      content.split(/\r?\n/).forEach(line => {
+        const trimmed = line.trim();
+        if (trimmed) allLines.push(trimmed);
+      });
+    });
+
+    if (allLines.length > 0) {
+      onChange(allLines.join('\n'));
+    }
     e.target.value = '';
   };
 
@@ -64,6 +78,7 @@ export const SentenceInputSection: React.FC<SentenceInputSectionProps> = ({
           </h3>
           <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', fontWeight: 700 }}>
             {sentences.length} {sentences.length === 1 ? 'sentence' : 'sentences'}
+            {sentences.length > 0 && ` (${Math.ceil(sentences.length / 6)} batches of 6)`}
           </span>
         </div>
 
@@ -73,6 +88,7 @@ export const SentenceInputSection: React.FC<SentenceInputSectionProps> = ({
             type="file"
             ref={fileInputRef}
             accept=".txt"
+            multiple
             style={{ display: 'none' }}
             onChange={handleFileUpload}
           />
@@ -80,10 +96,10 @@ export const SentenceInputSection: React.FC<SentenceInputSectionProps> = ({
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={() => fileInputRef.current?.click()}
-            title="Upload .txt sentence list"
+            title="Upload one or multiple .txt files (each line = one sentence)"
             style={{ fontSize: '0.78rem' }}
           >
-            <Upload size={14} /> Upload .txt
+            <Upload size={14} /> Upload .txt File(s)
           </button>
 
           <button

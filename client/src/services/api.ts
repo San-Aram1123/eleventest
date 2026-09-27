@@ -140,6 +140,21 @@ export async function addGeminiKeyToPool(apiKey: string): Promise<{ success: boo
   return await parseResponse(res, 'Failed to add Gemini key to pool');
 }
 
+export async function addBulkGeminiKeysToPool(keys: string | string[]): Promise<{
+  success: boolean;
+  message: string;
+  addedCount: number;
+  poolSize: number;
+  pool: GeminiKeyPoolItem[];
+}> {
+  const res = await fetch(`${API_BASE}/gemini/config/keys/bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(typeof keys === 'string' ? { text: keys } : { keys })
+  });
+  return await parseResponse(res, 'Failed to bulk-add Gemini keys');
+}
+
 export async function deleteGeminiKeyFromPool(index: number): Promise<{ success: boolean; message: string; poolSize: number }> {
   const res = await fetch(`${API_BASE}/gemini/config/keys/${index}`, {
     method: 'DELETE'

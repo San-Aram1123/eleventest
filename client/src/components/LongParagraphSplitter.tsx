@@ -2069,7 +2069,9 @@ export const LongParagraphSplitter: React.FC<LongParagraphSplitterProps> = ({
                   className="select"
                   style={{ width: '100%', padding: '6px 8px', fontSize: '0.84rem' }}
                 >
-                  <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS (Default)</option>
+                  <option value="gemini-3.8-flash-tts">Gemini 3.8 Flash TTS (Default)</option>
+                  <option value="gemini-3.8-flash-lite-tts">Gemini 3.8 Flash-Lite TTS</option>
+                  <option value="gemini-3.1-flash-tts-preview">Gemini 3.1 Flash TTS</option>
                   <option value="gemini-2.5-flash-preview-tts">Gemini 2.5 Flash TTS</option>
                 </select>
                 <div style={{ fontSize: '0.7rem', color: 'var(--text-dim)', marginTop: '4px' }}>

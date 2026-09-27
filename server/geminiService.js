@@ -217,8 +217,9 @@ function getOrCreateKeyMetric(key) {
 }
 
 export const GEMINI_VOICES = [
-  // --- Male Voices (12) ---
+  // --- Male Voices (29) ---
   { id: 'Puck', name: 'Puck', gender: 'Male', description: 'Upbeat and lively tone (Recommended Default)' },
+  { id: 'Charon', name: 'Charon', gender: 'Male', description: 'Informative, authoritative, and measured narrator tone' },
   { id: 'Fenrir', name: 'Fenrir', gender: 'Male', description: 'Passionate, strong, energetic tone' },
   { id: 'Orus', name: 'Orus', gender: 'Male', description: 'Calm, steady, firm tone' },
   { id: 'Enceladus', name: 'Enceladus', gender: 'Male', description: 'Soft, breathy, gentle tone' },
@@ -230,8 +231,24 @@ export const GEMINI_VOICES = [
   { id: 'Pulcherrima', name: 'Pulcherrima', gender: 'Male', description: 'Forward, enterprising, dynamic tone' },
   { id: 'Achird', name: 'Achird', gender: 'Male', description: 'Friendly, warm, kind tone' },
   { id: 'Zubenelgenubi', name: 'Zubenelgenubi', gender: 'Male', description: 'Casual, relaxed, conversational tone' },
+  { id: 'Algenib', name: 'Algenib', gender: 'Male', description: 'Gravelly, textured, hearty tone' },
+  { id: 'Alnilam', name: 'Alnilam', gender: 'Male', description: 'Firm, confident, commanding tone' },
+  { id: 'Sadachbia', name: 'Sadachbia', gender: 'Male', description: 'Lively, animated, engaging tone' },
+  { id: 'Sadaltager', name: 'Sadaltager', gender: 'Male', description: 'Knowledgeable, wise, steady tone' },
+  { id: 'Arlo', name: 'Arlo', gender: 'Male', description: 'Warm, approachable, natural tone' },
+  { id: 'Knox', name: 'Knox', gender: 'Male', description: 'Conversational, dry humor, warm tone' },
+  { id: 'Koda', name: 'Koda', gender: 'Male', description: 'Objective, direct, helpful tone' },
+  { id: 'Ludo', name: 'Ludo', gender: 'Male', description: 'Confident, clear, instructional tone' },
+  { id: 'Mako', name: 'Mako', gender: 'Male', description: 'Energetic, colorful, fast-paced tone' },
+  { id: 'Milo', name: 'Milo', gender: 'Male', description: 'Intimate, conversational talkshow tone' },
+  { id: 'Neno', name: 'Neno', gender: 'Male', description: 'Deep, velvety, unhurried tone' },
+  { id: 'Olin', name: 'Olin', gender: 'Male', description: 'Light, airy, precise tone' },
+  { id: 'Rami', name: 'Rami', gender: 'Male', description: 'Professional, modern interviewer tone' },
+  { id: 'Riko', name: 'Riko', gender: 'Male', description: 'Clear, confident documentary narrator tone' },
+  { id: 'Varo', name: 'Varo', gender: 'Male', description: 'Laid-back, encouraging, chill tone' },
+  { id: 'Zeno', name: 'Zeno', gender: 'Male', description: 'Cool, confident, collaborative tone' },
 
-  // --- Female Voices (10) ---
+  // --- Female Voices (26) ---
   { id: 'Aoede', name: 'Aoede', gender: 'Female', description: 'Relaxed, natural, gentle tone (Recommended Default)' },
   { id: 'Zephyr', name: 'Zephyr', gender: 'Female', description: 'Bright, clear, vibrant tone' },
   { id: 'Leda', name: 'Leda', gender: 'Female', description: 'Youthful, energetic, cheerful tone' },
@@ -241,11 +258,29 @@ export const GEMINI_VOICES = [
   { id: 'Erinome', name: 'Erinome', gender: 'Female', description: 'Clear, articulate, refined tone' },
   { id: 'Laomedeia', name: 'Laomedeia', gender: 'Female', description: 'Positive, upbeat, sunny tone' },
   { id: 'Achernar', name: 'Achernar', gender: 'Female', description: 'Soft, warm, delicate tone' },
-  { id: 'Vindemiatrix', name: 'Vindemiatrix', gender: 'Female', description: 'Gentle, delicate, intimate tone' }
+  { id: 'Vindemiatrix', name: 'Vindemiatrix', gender: 'Female', description: 'Gentle, delicate, intimate tone' },
+  { id: 'Kore', name: 'Kore', gender: 'Female', description: 'Firm, direct, authoritative tone' },
+  { id: 'Sulafat', name: 'Sulafat', gender: 'Female', description: 'Warm, inviting, comforting tone' },
+  { id: 'Gacrux', name: 'Gacrux', gender: 'Female', description: 'Mature, authoritative, professional tone' },
+  { id: 'Lora', name: 'Lora', gender: 'Female', description: 'Clear, friendly, medium-pitch tone' },
+  { id: 'Lumi', name: 'Lumi', gender: 'Female', description: 'Professional, approachable teacher tone' },
+  { id: 'Nika', name: 'Nika', gender: 'Female', description: 'Professional, creative, approachable tone' },
+  { id: 'Nyla', name: 'Nyla', gender: 'Female', description: 'Confident, clear, modern tone' },
+  { id: 'Rina', name: 'Rina', gender: 'Female', description: 'Relaxed, friendly host tone' },
+  { id: 'Sami', name: 'Sami', gender: 'Female', description: 'Cool, confident, collaborative narrator tone' },
+  { id: 'Sola', name: 'Sola', gender: 'Female', description: 'Relaxed, pleasant, clear tone' },
+  { id: 'Tari', name: 'Tari', gender: 'Female', description: 'Confident, expressive, cinematic tone' },
+  { id: 'Tavi', name: 'Tavi', gender: 'Female', description: 'Intimate, stylish talkshow tone' },
+  { id: 'Tova', name: 'Tova', gender: 'Female', description: 'Textured, resonant, soothing tone' },
+  { id: 'Veda', name: 'Veda', gender: 'Female', description: 'Highly approachable, warm radio host tone' },
+  { id: 'Zali', name: 'Zali', gender: 'Female', description: 'Engaging, empathic, lively tone' },
+  { id: 'Zuri', name: 'Zuri', gender: 'Female', description: 'Natural, clear, articulate advisor tone' }
 ];
 
 export const KNOWN_AUDIO_MODELS = [
-  { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS (Default)', isDefault: true },
+  { id: 'gemini-3.8-flash-tts', name: 'Gemini 3.8 Flash TTS (Default)', isDefault: true },
+  { id: 'gemini-3.8-flash-lite-tts', name: 'Gemini 3.8 Flash-Lite TTS' },
+  { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS' },
   { id: 'gemini-2.5-flash-preview-tts', name: 'Gemini 2.5 Flash TTS' },
   { id: 'gemini-2.5-pro-preview-tts', name: 'Gemini 2.5 Pro Preview TTS' },
   { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
@@ -260,20 +295,21 @@ export const KNOWN_AUDIO_MODELS = [
  */
 export function getAllGeminiKeys() {
   const keys = new Set();
+  const disabled = getDisabledGeminiKeys();
 
   // 1. From process.env.GEMINI_API_KEYS (comma separated)
   if (process.env.GEMINI_API_KEYS) {
     const parts = process.env.GEMINI_API_KEYS.split(',');
     for (const p of parts) {
       const trimmed = p.trim();
-      if (trimmed) keys.add(trimmed);
+      if (trimmed && !disabled.has(trimmed)) keys.add(trimmed);
     }
   }
 
   // 2. From process.env.GEMINI_API_KEY (single fallback)
   if (process.env.GEMINI_API_KEY) {
     const single = process.env.GEMINI_API_KEY.trim();
-    if (single) keys.add(single);
+    if (single && !disabled.has(single)) keys.add(single);
   }
 
   // 3. From gemini_keys.json if exists
@@ -283,7 +319,7 @@ export function getAllGeminiKeys() {
       const parsed = JSON.parse(raw);
       if (Array.isArray(parsed)) {
         for (const k of parsed) {
-          if (typeof k === 'string' && k.trim()) {
+          if (typeof k === 'string' && k.trim() && !disabled.has(k.trim())) {
             keys.add(k.trim());
           }
         }
@@ -647,19 +683,71 @@ export async function addGeminiKeyToPool(newKey) {
     throw new Error('Gemini API key cannot be empty.');
   }
 
-  // Validate key against Google API
+  // If input contains multiple keys (newlines/commas), route to bulk adder
+  if (/[\r\n,;]/.test(trimmed)) {
+    return await addMultipleGeminiKeysToPool(trimmed);
+  }
+
+  // Validate single key against Google API
   await validateGeminiApiKey(trimmed);
 
   const currentPool = getAllGeminiKeys();
+  const disabledKeys = getDisabledGeminiKeys();
   if (!currentPool.includes(trimmed)) {
     currentPool.push(trimmed);
+    disabledKeys.delete(trimmed);
     saveGeminiKeyPool(currentPool);
+    saveDisabledGeminiKeys(disabledKeys);
   }
 
   return {
     success: true,
     maskedKey: `${trimmed.slice(0, 4)}...${trimmed.slice(-4)}`,
     poolSize: currentPool.length
+  };
+}
+
+/**
+ * Adds multiple Gemini keys to the pool in bulk (supporting newline, comma, space, or JSON array format).
+ */
+export async function addMultipleGeminiKeysToPool(input) {
+  let keys = [];
+  if (Array.isArray(input)) {
+    keys = input;
+  } else if (typeof input === 'string') {
+    keys = input.split(/[\r\n,;'"\[\]\s]+/).filter(Boolean);
+  }
+
+  const cleanKeys = keys
+    .map(k => String(k || '').trim())
+    .filter(k => k.length >= 20 && !k.startsWith('{') && !k.startsWith('//'));
+
+  if (cleanKeys.length === 0) {
+    throw new Error('No valid API keys found in input. Please paste keys (e.g. AIzaSy... or AQ.Ab8...).');
+  }
+
+  const currentPool = getAllGeminiKeys();
+  const disabledKeys = getDisabledGeminiKeys();
+  let addedCount = 0;
+
+  for (const k of cleanKeys) {
+    if (!currentPool.includes(k)) {
+      currentPool.push(k);
+      disabledKeys.delete(k); // Ensure newly added keys are enabled
+      addedCount++;
+    }
+  }
+
+  if (addedCount > 0) {
+    saveGeminiKeyPool(currentPool);
+    saveDisabledGeminiKeys(disabledKeys);
+  }
+
+  return {
+    success: true,
+    addedCount,
+    poolSize: currentPool.length,
+    totalInput: cleanKeys.length
   };
 }
 
@@ -1039,10 +1127,12 @@ export async function getAvailableGeminiModels(overrideKey) {
           };
         });
 
-      // Prioritize 3.1 Flash TTS, 2.5 Flash TTS, and Audio models
+      // Prioritize 3.8 Flash TTS, 3.8 Flash-Lite TTS, 3.1 Flash TTS, 2.5 Flash TTS, and Audio models
       const sorted = discovered.sort((a, b) => {
         const getScore = (m) => {
           let s = 0;
+          if (m.id === 'gemini-3.8-flash-tts') s += 40;
+          if (m.id.includes('3.8') && m.id.includes('tts')) s += 35;
           if (m.id === 'gemini-3.1-flash-tts-preview') s += 30;
           if (m.id.includes('3.1') && m.id.includes('tts')) s += 25;
           if (m.id === 'gemini-2.5-flash-preview-tts') s += 20;
@@ -1072,17 +1162,105 @@ export async function getAvailableGeminiModels(overrideKey) {
   return KNOWN_AUDIO_MODELS;
 }
 
+let cachedGeminiVoices = null;
+let cachedGeminiVoicesExpiresAt = 0;
+
+/**
+ * Retrieves the full list of available Gemini TTS voices.
+ * Uses in-memory cache and live API discovery with robust fallback to GEMINI_VOICES.
+ * @param {string|null} overrideKey
+ * @returns {Promise<Array<{id: string, name: string, gender: string, description: string}>>}
+ */
+export async function getAvailableGeminiVoices(overrideKey = null) {
+  const now = Date.now();
+  if (!overrideKey && cachedGeminiVoices && now < cachedGeminiVoicesExpiresAt) {
+    return cachedGeminiVoices;
+  }
+
+  const pool = overrideKey ? [overrideKey] : getGeminiKeyPool();
+  if (pool.length === 0) {
+    return GEMINI_VOICES;
+  }
+
+  for (const activeKey of pool) {
+    const metric = getOrCreateKeyMetric(activeKey);
+    if (metric.lastStatus === 'invalid') continue;
+    if (metric.retryAvailableAt && now < metric.retryAvailableAt) continue;
+
+    try {
+      let pageToken = '';
+      const dynamicVoices = new Map();
+      
+      // Seed with static GEMINI_VOICES first so curated descriptions and order are preserved
+      for (const v of GEMINI_VOICES) {
+        dynamicVoices.set(v.id.toLowerCase(), { ...v });
+      }
+
+      // Fetch from Google Gemini Voices API
+      let pageCount = 0;
+      do {
+        const url = `${GEMINI_API_BASE}/voices?pageSize=1000${pageToken ? `&pageToken=${encodeURIComponent(pageToken)}` : ''}&key=${activeKey}`;
+        const res = await fetch(url);
+        if (!res.ok) break;
+
+        const data = await res.json();
+        if (data.voices && Array.isArray(data.voices)) {
+          for (const v of data.voices) {
+            const rawName = v.display_name || v.id;
+            if (!rawName) continue;
+            const keyName = rawName.toLowerCase();
+            let gender = v.gender ? (v.gender.charAt(0).toUpperCase() + v.gender.slice(1).toLowerCase()) : 'Male';
+            if (gender === 'Neutral') gender = 'Male';
+            
+            if (dynamicVoices.has(keyName)) {
+              const existing = dynamicVoices.get(keyName);
+              if (v.description && existing.description.length < v.description.length) {
+                existing.description = v.description;
+              }
+            } else {
+              dynamicVoices.set(keyName, {
+                id: rawName,
+                name: rawName,
+                gender,
+                description: v.description || `${rawName} voice`
+              });
+            }
+          }
+        }
+        pageToken = data.next_page_token || '';
+        pageCount++;
+      } while (pageToken && pageCount < 3);
+
+      const voiceList = Array.from(dynamicVoices.values());
+      if (voiceList.length > 0) {
+        if (!overrideKey) {
+          cachedGeminiVoices = voiceList;
+          cachedGeminiVoicesExpiresAt = now + (60 * 60 * 1000); // 1 hour cache
+        }
+        return voiceList;
+      }
+    } catch (err) {
+      console.warn('Could not fetch dynamic voices list for key:', err.message);
+    }
+  }
+
+  return GEMINI_VOICES;
+}
+
 /**
  * Generates speech with automatic multi-key failover and inline emotion parsing.
  * If one key hits a rate limit, quota exhaustion, or error, it automatically moves to the next key.
  */
 export async function generateGeminiSpeech({
   text,
+  speechParts = null,
+  speechStyle = '',
   voiceName = 'Puck',
   dialect = 'sorani',
   promptInstruction = '',
   apiKey = '',
-  model = 'gemini-3.1-flash-tts-preview'
+  model = 'gemini-3.8-flash-tts',
+  _autoWaitAttempt = 0
 }) {
   const pool = apiKey ? [apiKey] : getGeminiKeyPool();
   if (pool.length === 0) {
@@ -1107,7 +1285,7 @@ export async function generateGeminiSpeech({
   if (cleanVoice.startsWith('gemini_')) cleanVoice = cleanVoice.replace(/^gemini_/, '');
   if (cleanVoice.startsWith('Gemini (')) cleanVoice = cleanVoice.replace(/^Gemini\s*\(([^)]+)\)$/, '$1');
   const matchedVoice = GEMINI_VOICES.find(v => v.id.toLowerCase() === cleanVoice.toLowerCase());
-  cleanVoice = matchedVoice ? matchedVoice.id : 'Puck';
+  cleanVoice = matchedVoice ? matchedVoice.id : cleanVoice;
 
   // Extract any inline tags in text (e.g. [laugh], [whisper], [sigh], [gasp], [crying], [shouting], [happy], [angry])
   const inlineTags = (sanitizedText.match(/\[([a-zA-Z0-9_\s-]+)\]/g) || []);
@@ -1145,15 +1323,47 @@ export async function generateGeminiSpeech({
     }
   }
 
-  const prompt = promptInstruction
-    ? `${baseInstruction}\n\n${normalizedText}`
-    : `${baseInstruction}${codeSwitchingDirective}${emotionDirective}\n\n${normalizedText}`;
+  const rawModel = model || 'gemini-3.8-flash-tts';
+  const primaryModel = rawModel === 'gemini-3.8-flash-tts-preview' ? 'gemini-3.8-flash-tts' : rawModel;
+  // Strictly enforce single model requested by user - NEVER use fallback to 2.5
+  const candidateModels = [primaryModel];
+
+  const is38Model = primaryModel.startsWith('gemini-3.8');
+  let contentParts = [];
+
+  if (is38Model) {
+    if (Array.isArray(speechParts) && speechParts.length > 0) {
+      // Native Gemini 3.8 multi-part structured payload: each part has text and speech_metadata.style
+      contentParts = speechParts.map(p => {
+        const item = { text: String(p.text || '').trim() };
+        const style = p.style || p.speech_metadata?.style || speechStyle || promptInstruction;
+        if (style) {
+          item.speech_metadata = { style: String(style).trim() };
+        }
+        return item;
+      });
+    } else {
+      // Native Gemini 3.8 single-part payload with speech_metadata.style
+      const effectiveStyle = speechStyle || promptInstruction;
+      const part = { text: normalizedText };
+      if (effectiveStyle) {
+        part.speech_metadata = { style: String(effectiveStyle).trim() };
+      }
+      contentParts = [part];
+    }
+  } else {
+    // Legacy Gemini 3.1 fallback
+    const prompt = promptInstruction
+      ? `${baseInstruction}\n\n${normalizedText}`
+      : `${baseInstruction}${codeSwitchingDirective}${emotionDirective}\n\n${normalizedText}`;
+    contentParts = [{ text: prompt }];
+  }
 
   const requestBody = {
     contents: [
       {
         role: 'user',
-        parts: [{ text: prompt }]
+        parts: contentParts
       }
     ],
     generationConfig: {
@@ -1167,10 +1377,6 @@ export async function generateGeminiSpeech({
       }
     }
   };
-
-  const primaryModel = model || 'gemini-3.1-flash-tts-preview';
-  // Strictly enforce single model requested by user - NEVER use fallback to 2.5
-  const candidateModels = [primaryModel];
 
   let hasVoiceFallback = false;
   let keyErrors = [];
@@ -1234,12 +1440,12 @@ export async function generateGeminiSpeech({
       sortedPool = [...readyKeys, ...cooldownKeys];
     } else if (cooldownKeys.length > 0) {
       // If ALL keys in pool are in rate-limit cooldown:
-      // Check if the soonest key recovers within 75 seconds:
+      // Check if the soonest key recovers within 75 seconds (only on first attempt):
       const soonestKey = cooldownKeys[0];
       const soonestMetric = getOrCreateKeyMetric(soonestKey);
       const waitMs = Math.max(0, (soonestMetric.retryAvailableAt || 0) - Date.now());
 
-      if (waitMs <= 75000 && soonestMetric.quotaType !== 'daily') {
+      if (_autoWaitAttempt === 0 && waitMs <= 75000 && soonestMetric.quotaType !== 'daily') {
         console.log(`[Gemini Auto-Wait] All ${validKeys.length} keys in rate-limit cooldown. Soonest key (${soonestMetric.maskedKey}) recovers in ${(waitMs / 1000).toFixed(1)}s. Auto-waiting...`);
         await new Promise(r => setTimeout(r, waitMs + 600));
         soonestMetric.retryAvailableAt = null;
@@ -1266,10 +1472,15 @@ export async function generateGeminiSpeech({
       if (metric.lastStatus === 'invalid') {
         continue;
       }
-      const hasAvailableModelOnThisKey = candidateModels.some(cm => !metric.exhaustedModels?.has(cm));
-      if (!hasAvailableModelOnThisKey && metric.retryAvailableAt && loopNow < metric.retryAvailableAt) {
+      // If key is currently in an active quota/rate-limit cooldown, skip it immediately in 0ms!
+      if (metric.retryAvailableAt && loopNow < metric.retryAvailableAt) {
         const remainingSec = Math.ceil((metric.retryAvailableAt - loopNow) / 1000);
         keyErrors.push(`Key ${maskedKey}: in quota cooldown (${remainingSec}s remaining)`);
+        continue;
+      }
+      // If candidate model is exhausted on this key for today, skip it immediately in 0ms!
+      if (metric.exhaustedModels?.has(candidateModels[0])) {
+        keyErrors.push(`Key ${maskedKey}: daily quota exhausted for ${candidateModels[0]}`);
         continue;
       }
     }
@@ -1296,7 +1507,8 @@ export async function generateGeminiSpeech({
           headers: {
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify(requestBody)
+          body: JSON.stringify(requestBody),
+          signal: AbortSignal.timeout(45000)
         });
 
         if (!response.ok) {
@@ -1472,6 +1684,17 @@ export async function generateGeminiSpeech({
           break; // Break model loop, jump to next key in pool
         }
 
+        if (err.name === 'TimeoutError' || err.name === 'AbortError' || err.message?.includes('timeout') || err.message?.includes('abort')) {
+          metric.failureCount++;
+          metric.lastStatus = 'exhausted';
+          metric.lastError = 'Request timed out after 45s';
+          metric.retryAvailableAt = Date.now() + 60000;
+          metric.cooldownDurationSeconds = 60;
+          console.warn(`[Gemini Request Timeout] Key #${keyIdx + 1}/${sortedPool.length} (${maskedKey}) connection timed out after 45s. Cooling down 60s and rotating to next key...`);
+          keyErrors.push(`Key ${maskedKey}: Request timed out (45s)`);
+          break; // Break model loop, jump to next key in pool
+        }
+
         metric.failureCount++;
         metric.lastError = err.message;
         if (!err.message.includes('not found') && !err.message.includes('no longer available') && !err.message.includes('not supported')) {
@@ -1487,8 +1710,8 @@ export async function generateGeminiSpeech({
 
   if (!audioBuffer) {
     // If all keys in pool hit quota limits, but the soonest key recovers within 65 seconds:
-    // Auto-wait directly and retry to fulfill the synthesis without throwing an error!
-    if (!apiKey) {
+    // Auto-wait directly ONCE and retry to fulfill the synthesis without throwing an error!
+    if (!apiKey && _autoWaitAttempt === 0) {
       const cooldownMetrics = pool.map(k => getOrCreateKeyMetric(k)).filter(m => m.retryAvailableAt && m.retryAvailableAt > Date.now() && m.quotaType !== 'daily');
       cooldownMetrics.sort((a, b) => (a.retryAvailableAt || 0) - (b.retryAvailableAt || 0));
       if (cooldownMetrics.length > 0) {
@@ -1504,7 +1727,8 @@ export async function generateGeminiSpeech({
             voiceName,
             dialect,
             promptInstruction,
-            model
+            model,
+            _autoWaitAttempt: 1
           });
         }
       }

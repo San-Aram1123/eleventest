@@ -6,6 +6,7 @@ interface BatchBottomActionBarProps {
   emotionCount: number;
   totalClips: number;
   mode: 'sliced' | 'individual';
+  chunkSize?: number;
   randomizeVoices: boolean;
   isActive: boolean;
   isPaused: boolean;
@@ -19,6 +20,7 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
   emotionCount,
   totalClips,
   mode,
+  chunkSize = 6,
   randomizeVoices,
   isActive,
   isPaused,
@@ -26,6 +28,10 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
   onStop,
   onStart
 }) => {
+  const activeChunkSize = chunkSize || 6;
+  const totalCalls = mode === 'sliced'
+    ? Math.ceil(sentenceCount / activeChunkSize) * emotionCount
+    : totalClips;
   return (
     <div
       className="glass-card"
@@ -48,7 +54,7 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
       <div style={{ fontSize: '0.88rem', color: '#94a3b8' }}>
         Total Batch: <strong style={{ color: '#f8fafc' }}>{sentenceCount} sentences</strong> × <strong style={{ color: '#f8fafc' }}>{emotionCount} emotions</strong> = <strong style={{ color: '#38bdf8', fontSize: '1.1rem' }}>{totalClips} audio clips</strong>
         <span style={{ marginLeft: '0.75rem', color: mode === 'sliced' ? '#c084fc' : '#38bdf8', fontWeight: 600 }}>
-          ({mode === 'sliced' ? `${sentenceCount} API Calls` : `${totalClips} API Calls`})
+          ({totalCalls} API Calls)
         </span>
         {randomizeVoices && (
           <span style={{ marginLeft: '0.75rem', color: '#06b6d4', fontWeight: 600 }}>

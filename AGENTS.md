@@ -1,9 +1,10 @@
 # Project Rules & Guidelines
 
 ## Strict Model Policy: Never Fallback to Gemini 2.5
-Under NO circumstances should any speech generation, batch system, or service automatically downgrade or fallback to `gemini-2.5-flash-preview-tts` (or any Gemini 2.5 model) when a Gemini 3.1 model (`gemini-3.1-flash-tts-preview`) or any other model hits rate limits or quota exhaustion.
+Under NO circumstances should any speech generation, batch system, or service automatically downgrade or fallback to `gemini-2.5-flash-preview-tts` (or any Gemini 2.5 model) when a Gemini 3.8 model (`gemini-3.8-flash-tts`), Gemini 3.1 model (`gemini-3.1-flash-tts-preview`), or any other model hits rate limits or quota exhaustion.
 
 - Strictly honor the exact model selected or requested by the user.
+- If the user or system requests `gemini-3.8-flash-tts`, candidate models must ONLY contain `gemini-3.8-flash-tts`.
 - If the user or system requests `gemini-3.1-flash-tts-preview`, candidate models must ONLY contain `gemini-3.1-flash-tts-preview`.
 - Never inject `gemini-2.5-flash-preview-tts` into the candidate models array as a silent fallback.
 - When a project key hits a quota or rate limit on the requested model, rotate to the next key in the multi-project pool.

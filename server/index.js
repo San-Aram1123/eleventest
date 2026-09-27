@@ -52,6 +52,7 @@ import {
   setAllGeminiKeysEnabled,
   toggleMultipleGeminiKeys,
   addGeminiKeyToPool,
+  addMultipleGeminiKeysToPool,
   removeGeminiKeyFromPool,
   getGeminiKeyPoolDetails,
   reloadAndValidateGeminiKeys,
@@ -59,6 +60,7 @@ import {
   probeAllGeminiKeys,
   clearGeminiCooldowns,
   getAvailableGeminiModels,
+  getAvailableGeminiVoices,
   GEMINI_VOICES,
   KNOWN_AUDIO_MODELS
 } from './geminiService.js';
@@ -77,14 +79,23 @@ import {
 } from './emotionUtils.js';
 import {
   generatePairedEmotionClip,
-  generateFullFamilySet
+  generateFullFamilySet,
+  getNextFamilyIndex
 } from './pairedBatchService.js';
 import { validatePairedDataset } from './pairedValidation.js';
 import {
   generatePairedMetadataCsv,
   exportPairedZipArchive
 } from './pairedExporter.js';
-import { generatePairedFamilySliced } from './pairedSlicingService.js';
+import { repairDatasetBoundaries } from './repairDatasetBoundaries.js';
+import {
+  generatePairedFamilySliced,
+  generateTransposedEmotionBatch,
+  getLatestMasterAudio,
+  getMasterAudioHistory,
+  getMasterAudioById,
+  clearMasterAudioHistory
+} from './pairedSlicingService.js';
 import {
   REQUIRED_EMOTIONS,
   OPTIONAL_EMOTIONS,
@@ -410,14 +421,15 @@ app.get('/api/gemini/config', async (req, res) => {
   const isKeyConfigured = pool.length > 0;
   const key = pool[0] || allKeys[0] || '';
   const models = await getAvailableGeminiModels();
+  const voices = await getAvailableGeminiVoices();
   res.json({
     isKeyConfigured,
     poolSize: pool.length,
     totalKeys: allKeys.length,
     maskedKey: (key) ? `${key.slice(0, 4)}...${key.slice(-4)}` : null,
-    voices: GEMINI_VOICES,
+    voices,
     models,
-    defaultModel: 'gemini-3.1-flash-tts-preview',
+    defaultModel: 'gemini-3.8-flash-tts',
     defaultVoice: 'Puck'
   });
 });
@@ -528,15 +540,50 @@ app.post('/api/gemini/config/keys/:index/probe', async (req, res) => {
  */
 app.post('/api/gemini/config/keys', async (req, res) => {
   try {
-    const { apiKey } = req.body;
-    if (!apiKey || typeof apiKey !== 'string' || !apiKey.trim()) {
-      return res.status(400).json({ error: 'Gemini API key string is required' });
+    const { apiKey, text, keys } = req.body;
+    const input = apiKey || text || keys;
+    if (!input || (typeof input !== 'string' && !Array.isArray(input))) {
+      return res.status(400).json({ error: 'Gemini API key string or array is required' });
     }
-    const result = await addGeminiKeyToPool(apiKey.trim());
+
+    // Auto-detect bulk keys (array or multi-line/comma-separated)
+    if (Array.isArray(input) || (typeof input === 'string' && /[\r\n,;]/.test(input.trim()))) {
+      const result = await addMultipleGeminiKeysToPool(input);
+      const pool = await getGeminiKeyPoolDetails();
+      return res.json({
+        success: true,
+        message: `Successfully added ${result.addedCount} new key(s) to pool. Total keys: ${result.poolSize}`,
+        addedCount: result.addedCount,
+        poolSize: result.poolSize,
+        pool
+      });
+    }
+
+    const result = await addGeminiKeyToPool(String(input).trim());
     const pool = await getGeminiKeyPoolDetails();
     res.json({
       success: true,
       message: `Gemini API key (${result.maskedKey}) added to pool. Total keys: ${result.poolSize}`,
+      pool
+    });
+  } catch (err) {
+    res.status(400).json({ error: err.message });
+  }
+});
+
+/**
+ * Bulk add Gemini API keys to the pool
+ */
+app.post('/api/gemini/config/keys/bulk', async (req, res) => {
+  try {
+    const { input, text, keys } = req.body;
+    const result = await addMultipleGeminiKeysToPool(input || text || keys);
+    const pool = await getGeminiKeyPoolDetails();
+    res.json({
+      success: true,
+      message: `Successfully added ${result.addedCount} new key(s) to pool. Total keys: ${result.poolSize}`,
+      addedCount: result.addedCount,
+      poolSize: result.poolSize,
       pool
     });
   } catch (err) {
@@ -671,7 +718,7 @@ app.post('/api/gemini/generate', async (req, res) => {
       emotions = [],
       promptInstruction = '',
       apiKey = '',
-      model = 'gemini-3.1-flash-tts-preview',
+      model = 'gemini-3.8-flash-tts',
       saveToDataset = true,
       customId,
       forceRegenerate = false
@@ -798,7 +845,7 @@ app.post('/api/gemini/generate-long-split', async (req, res) => {
       emotion = 'neutral',
       promptInstruction = '',
       apiKey = '',
-      model = 'gemini-3.1-flash-tts-preview'
+      model = 'gemini-3.8-flash-tts'
     } = req.body;
 
     let cleanParagraphs = [];
@@ -895,7 +942,7 @@ app.post('/api/gemini/save-split-chunks', async (req, res) => {
       chunks = [],
       voiceName = 'Puck',
       dialect = 'sorani',
-      model = 'gemini-3.1-flash-tts-preview',
+      model = 'gemini-3.8-flash-tts',
       allowDuplicateText = false
     } = req.body;
 
@@ -1256,6 +1303,19 @@ app.get('/api/paired/config', (req, res) => {
 });
 
 /**
+ * Returns next available family index for a given speaker
+ */
+app.get('/api/paired/next-index', async (req, res) => {
+  try {
+    const speakerId = req.query.speakerId || 'spk01';
+    const nextIndex = await getNextFamilyIndex(speakerId);
+    res.json({ speakerId, nextIndex });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
  * Synthesizes a single emotion clip for a sentence/family
  */
 app.post('/api/paired/generate-emotion', async (req, res) => {
@@ -1270,7 +1330,7 @@ app.post('/api/paired/generate-emotion', async (req, res) => {
       familyId,
       emotion = 'neutral',
       intensity,
-      model = 'gemini-3.1-flash-tts-preview',
+      model = 'gemini-3.8-flash-tts',
       apiKey = ''
     } = req.body;
 
@@ -1311,7 +1371,7 @@ app.post('/api/paired/generate-family', async (req, res) => {
       sentence,
       sentenceIndex = 1,
       emotions = [],
-      model = 'gemini-3.1-flash-tts-preview',
+      model = 'gemini-3.8-flash-tts',
       apiKey = ''
     } = req.body;
 
@@ -1351,7 +1411,7 @@ app.post('/api/paired/generate-family-sliced', async (req, res) => {
       sentenceIndex = 1,
       familyId = null,
       emotions = [],
-      model = 'gemini-3.1-flash-tts-preview',
+      model = 'gemini-3.8-flash-tts',
       apiKey = ''
     } = req.body;
 
@@ -1379,6 +1439,136 @@ app.post('/api/paired/generate-family-sliced', async (req, res) => {
   }
 });
 
+let activeBatchMutex = Promise.resolve();
+
+/**
+ * Synthesizes a batch of sentences for one emotion using spoken English markers & faster-whisper alignment
+ */
+app.post('/api/paired/generate-transposed-batch', async (req, res) => {
+  try {
+    const {
+      speakerId = 'spk01',
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      language = 'ckb',
+      sentences = [],
+      startIdx = 1,
+      emotion = 'neutral',
+      intensity = 0.8,
+      model = 'gemini-3.8-flash-tts',
+      apiKey = '',
+      slicingStrategy = 'markers'
+    } = req.body;
+
+    if (!Array.isArray(sentences) || sentences.length === 0) {
+      return res.status(400).json({ error: 'Sentences array is required' });
+    }
+
+    // Mutex: serialize batch generation calls so concurrent requests/tabs don't race against key pool
+    const result = await new Promise((resolve, reject) => {
+      activeBatchMutex = activeBatchMutex.catch(() => {}).then(async () => {
+        try {
+          const resBatch = await generateTransposedEmotionBatch({
+            speakerId,
+            voiceName,
+            dialect,
+            language,
+            sentences,
+            startIdx,
+            emotion,
+            intensity,
+            model,
+            apiKey,
+            slicingStrategy
+          });
+          resolve(resBatch);
+        } catch (err) {
+          reject(err);
+        }
+      });
+    });
+
+    res.json(result);
+  } catch (err) {
+    console.error('[Paired API] Error generating transposed marker batch:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Streams an in-memory master audio take directly to browser for user preview.
+ * Supports ?id=... to stream any specific stacked master take from history.
+ * Defaults to the latest take if no id is specified.
+ */
+app.get('/api/paired/master-audio/stream', (req, res) => {
+  const master = req.query.id ? getMasterAudioById(String(req.query.id)) : getLatestMasterAudio();
+  if (!master || !master.audioBuffer) {
+    return res.status(404).json({ error: 'Master audio take not found or expired from memory.' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'audio/wav',
+    'Content-Length': master.audioBuffer.length,
+    'Accept-Ranges': 'bytes',
+    'Cache-Control': 'no-cache, no-store, must-revalidate'
+  });
+  res.end(master.audioBuffer);
+});
+
+/**
+ * Returns stacked list of all recent in-memory master audio takes (newest first).
+ */
+app.get('/api/paired/master-audio/list', (req, res) => {
+  const history = getMasterAudioHistory();
+  const items = history.map(item => ({
+    id: item.id,
+    emotion: item.emotion,
+    voiceName: item.voiceName,
+    speakerId: item.speakerId,
+    sentenceCount: item.sentenceCount,
+    model: item.model,
+    audioBytes: item.audioBytes || item.audioBuffer?.length || 0,
+    createdAt: item.createdAt,
+    streamUrl: `/api/paired/master-audio/stream?id=${item.id}&t=${item.createdAt}`
+  }));
+
+  res.json({
+    count: items.length,
+    items
+  });
+});
+
+/**
+ * Clears the in-memory master audio history.
+ */
+app.post('/api/paired/master-audio/clear', (req, res) => {
+  clearMasterAudioHistory();
+  res.json({ success: true, count: 0 });
+});
+
+/**
+ * Returns metadata about the latest in-memory master audio take (backward-compatible).
+ */
+app.get('/api/paired/master-audio/info', (req, res) => {
+  const master = getLatestMasterAudio();
+  if (!master || !master.audioBuffer) {
+    return res.json({ available: false });
+  }
+
+  return res.json({
+    available: true,
+    id: master.id,
+    emotion: master.emotion,
+    voiceName: master.voiceName,
+    speakerId: master.speakerId,
+    sentenceCount: master.sentenceCount,
+    model: master.model,
+    audioBytes: master.audioBuffer.length,
+    createdAt: master.createdAt,
+    streamUrl: `/api/paired/master-audio/stream?id=${master.id}&t=${master.createdAt}`
+  });
+});
+
 /**
  * Validates dataset compliance for Paired Emotion rule
  */
@@ -1398,7 +1588,8 @@ app.get('/api/paired/validate', async (req, res) => {
  */
 app.get('/api/paired/export-csv', async (req, res) => {
   try {
-    const csv = await generatePairedMetadataCsv();
+    const onlyTrainingReady = req.query.include_all !== 'true';
+    const csv = await generatePairedMetadataCsv(null, { onlyTrainingReady });
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Content-Disposition', 'attachment; filename="metadata.csv"');
     res.send(csv);
@@ -1413,10 +1604,25 @@ app.get('/api/paired/export-csv', async (req, res) => {
  */
 app.get('/api/paired/export-zip', async (req, res) => {
   try {
-    await exportPairedZipArchive(res);
+    const onlyTrainingReady = req.query.include_all !== 'true';
+    await exportPairedZipArchive(res, { onlyTrainingReady });
   } catch (err) {
     console.error('[Paired API] Error exporting ZIP:', err);
     if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Runs dataset-wide waveform boundary audit & repair
+ */
+app.post('/api/paired/repair-boundaries', async (req, res) => {
+  try {
+    const { dryRun = false, force = false } = req.body || {};
+    const report = await repairDatasetBoundaries({ dryRun: Boolean(dryRun), forceAll: Boolean(force) });
+    res.json(report);
+  } catch (err) {
+    console.error('[Paired API] Error repairing boundaries:', err);
+    res.status(500).json({ error: err.message });
   }
 });
 

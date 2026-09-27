@@ -1138,3 +1138,84 @@ h1, h2, h3, h4, h5, h6 {
   border-color: rgba(100, 116, 139, 0.5) !important;
 }
 
+/* ==========================================================================
+   Real-Time Dataset Manager & Paired Family Animations
+   ========================================================================== */
+
+@keyframes emotionArrivePop {
+  0% {
+    transform: scale(0.65);
+    opacity: 0;
+    box-shadow: 0 0 25px rgba(16, 185, 129, 0.9);
+  }
+  40% {
+    transform: scale(1.18);
+    box-shadow: 0 0 30px rgba(52, 211, 153, 0.8), 0 0 10px rgba(255, 255, 255, 0.6);
+  }
+  70% {
+    transform: scale(0.96);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 14px rgba(16, 185, 129, 0.5);
+  }
+}
+
+@keyframes borderGlowPulse {
+  0%, 100% {
+    border-color: rgba(16, 185, 129, 0.5);
+    box-shadow: 0 0 12px rgba(16, 185, 129, 0.25);
+  }
+  50% {
+    border-color: rgba(52, 211, 153, 0.95);
+    box-shadow: 0 0 24px rgba(16, 185, 129, 0.55), 0 0 8px rgba(56, 189, 248, 0.3);
+  }
+}
+
+@keyframes liveDotPulse {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 1;
+    box-shadow: 0 0 6px rgba(16, 185, 129, 0.8);
+  }
+  50% {
+    transform: scale(1.35);
+    opacity: 0.6;
+    box-shadow: 0 0 14px rgba(52, 211, 153, 1);
+  }
+}
+
+.emotion-pill-newly-added {
+  animation: emotionArrivePop 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) forwards, borderGlowPulse 2.2s ease-in-out infinite 0.6s !important;
+  background: linear-gradient(135deg, rgba(16, 185, 129, 0.35) 0%, rgba(5, 150, 105, 0.55) 100%) !important;
+  border: 1.5px solid #34d399 !important;
+  color: #ecfdf5 !important;
+  z-index: 2;
+}
+
+.family-card-active-glow {
+  animation: borderGlowPulse 3s ease-in-out infinite;
+  background: linear-gradient(180deg, rgba(16, 185, 129, 0.08) 0%, rgba(255, 255, 255, 0.02) 100%) !important;
+}
+
+.badge-recently-active {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.45);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  animation: emotionArrivePop 0.5s ease-out;
+}
+
+.live-sync-indicator-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background-color: #10b981;
+  display: inline-block;
+  animation: liveDotPulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+

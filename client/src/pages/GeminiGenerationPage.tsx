@@ -68,6 +68,7 @@ import {
   resetGeminiCooldowns,
   probeGeminiKeys,
   addGeminiKeyToPool, 
+  addBulkGeminiKeysToPool,
   deleteGeminiKeyFromPool, 
   toggleGeminiKey,
   toggleAllGeminiKeys,
@@ -85,8 +86,9 @@ interface GeminiGenerationPageProps {
 }
 
 export const FALLBACK_GEMINI_VOICES: GeminiVoice[] = [
-  // --- Male Voices (12) ---
+  // --- Male Voices (29) ---
   { id: 'Puck', name: 'Puck', gender: 'Male', description: 'Upbeat and lively tone (Recommended Default)' },
+  { id: 'Charon', name: 'Charon', gender: 'Male', description: 'Informative, authoritative, and measured narrator tone' },
   { id: 'Fenrir', name: 'Fenrir', gender: 'Male', description: 'Passionate, strong, energetic tone' },
   { id: 'Orus', name: 'Orus', gender: 'Male', description: 'Calm, steady, firm tone' },
   { id: 'Enceladus', name: 'Enceladus', gender: 'Male', description: 'Soft, breathy, gentle tone' },
@@ -98,8 +100,24 @@ export const FALLBACK_GEMINI_VOICES: GeminiVoice[] = [
   { id: 'Pulcherrima', name: 'Pulcherrima', gender: 'Male', description: 'Forward, enterprising, dynamic tone' },
   { id: 'Achird', name: 'Achird', gender: 'Male', description: 'Friendly, warm, kind tone' },
   { id: 'Zubenelgenubi', name: 'Zubenelgenubi', gender: 'Male', description: 'Casual, relaxed, conversational tone' },
+  { id: 'Algenib', name: 'Algenib', gender: 'Male', description: 'Gravelly, textured, hearty tone' },
+  { id: 'Alnilam', name: 'Alnilam', gender: 'Male', description: 'Firm, confident, commanding tone' },
+  { id: 'Sadachbia', name: 'Sadachbia', gender: 'Male', description: 'Lively, animated, engaging tone' },
+  { id: 'Sadaltager', name: 'Sadaltager', gender: 'Male', description: 'Knowledgeable, wise, steady tone' },
+  { id: 'Arlo', name: 'Arlo', gender: 'Male', description: 'Warm, approachable, natural tone' },
+  { id: 'Knox', name: 'Knox', gender: 'Male', description: 'Conversational, dry humor, warm tone' },
+  { id: 'Koda', name: 'Koda', gender: 'Male', description: 'Objective, direct, helpful tone' },
+  { id: 'Ludo', name: 'Ludo', gender: 'Male', description: 'Confident, clear, instructional tone' },
+  { id: 'Mako', name: 'Mako', gender: 'Male', description: 'Energetic, colorful, fast-paced tone' },
+  { id: 'Milo', name: 'Milo', gender: 'Male', description: 'Intimate, conversational talkshow tone' },
+  { id: 'Neno', name: 'Neno', gender: 'Male', description: 'Deep, velvety, unhurried tone' },
+  { id: 'Olin', name: 'Olin', gender: 'Male', description: 'Light, airy, precise tone' },
+  { id: 'Rami', name: 'Rami', gender: 'Male', description: 'Professional, modern interviewer tone' },
+  { id: 'Riko', name: 'Riko', gender: 'Male', description: 'Clear, confident documentary narrator tone' },
+  { id: 'Varo', name: 'Varo', gender: 'Male', description: 'Laid-back, encouraging, chill tone' },
+  { id: 'Zeno', name: 'Zeno', gender: 'Male', description: 'Cool, confident, collaborative tone' },
 
-  // --- Female Voices (10) ---
+  // --- Female Voices (26) ---
   { id: 'Aoede', name: 'Aoede', gender: 'Female', description: 'Relaxed, natural, gentle tone (Recommended Default)' },
   { id: 'Zephyr', name: 'Zephyr', gender: 'Female', description: 'Bright, clear, vibrant tone' },
   { id: 'Leda', name: 'Leda', gender: 'Female', description: 'Youthful, energetic, cheerful tone' },
@@ -109,7 +127,23 @@ export const FALLBACK_GEMINI_VOICES: GeminiVoice[] = [
   { id: 'Erinome', name: 'Erinome', gender: 'Female', description: 'Clear, articulate, refined tone' },
   { id: 'Laomedeia', name: 'Laomedeia', gender: 'Female', description: 'Positive, upbeat, sunny tone' },
   { id: 'Achernar', name: 'Achernar', gender: 'Female', description: 'Soft, warm, delicate tone' },
-  { id: 'Vindemiatrix', name: 'Vindemiatrix', gender: 'Female', description: 'Gentle, delicate, intimate tone' }
+  { id: 'Vindemiatrix', name: 'Vindemiatrix', gender: 'Female', description: 'Gentle, delicate, intimate tone' },
+  { id: 'Kore', name: 'Kore', gender: 'Female', description: 'Firm, direct, authoritative tone' },
+  { id: 'Sulafat', name: 'Sulafat', gender: 'Female', description: 'Warm, inviting, comforting tone' },
+  { id: 'Gacrux', name: 'Gacrux', gender: 'Female', description: 'Mature, authoritative, professional tone' },
+  { id: 'Lora', name: 'Lora', gender: 'Female', description: 'Clear, friendly, medium-pitch tone' },
+  { id: 'Lumi', name: 'Lumi', gender: 'Female', description: 'Professional, approachable teacher tone' },
+  { id: 'Nika', name: 'Nika', gender: 'Female', description: 'Professional, creative, approachable tone' },
+  { id: 'Nyla', name: 'Nyla', gender: 'Female', description: 'Confident, clear, modern tone' },
+  { id: 'Rina', name: 'Rina', gender: 'Female', description: 'Relaxed, friendly host tone' },
+  { id: 'Sami', name: 'Sami', gender: 'Female', description: 'Cool, confident, collaborative narrator tone' },
+  { id: 'Sola', name: 'Sola', gender: 'Female', description: 'Relaxed, pleasant, clear tone' },
+  { id: 'Tari', name: 'Tari', gender: 'Female', description: 'Confident, expressive, cinematic tone' },
+  { id: 'Tavi', name: 'Tavi', gender: 'Female', description: 'Intimate, stylish talkshow tone' },
+  { id: 'Tova', name: 'Tova', gender: 'Female', description: 'Textured, resonant, soothing tone' },
+  { id: 'Veda', name: 'Veda', gender: 'Female', description: 'Highly approachable, warm radio host tone' },
+  { id: 'Zali', name: 'Zali', gender: 'Female', description: 'Engaging, empathic, lively tone' },
+  { id: 'Zuri', name: 'Zuri', gender: 'Female', description: 'Natural, clear, articulate advisor tone' }
 ];
 
 const GEMINI_EMOTION_TAGS = [
@@ -275,7 +309,7 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
   
   // Voice & Model selection
   const [selectedVoice, setSelectedVoice] = useState(() => initialSaved?.selectedVoice || 'Puck');
-  const [selectedModel, setSelectedModel] = useState(() => initialSaved?.selectedModel || 'gemini-3.1-flash-tts-preview');
+  const [selectedModel, setSelectedModel] = useState(() => initialSaved?.selectedModel || 'gemini-3.8-flash-tts');
   const [customInstruction, setCustomInstruction] = useState(() => initialSaved?.customInstruction || '');
   const [customKeyInput, setCustomKeyInput] = useState('');
   const [isSavingKey, setIsSavingKey] = useState(false);
@@ -292,7 +326,9 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
   // Computed voices and models lists available across all component handlers
   const voices = geminiConfig?.voices?.length ? geminiConfig.voices : FALLBACK_GEMINI_VOICES;
   const models = geminiConfig?.models?.length ? geminiConfig.models : [
-    { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS (Default / Recommended)' },
+    { id: 'gemini-3.8-flash-tts', name: 'Gemini 3.8 Flash TTS (Default / Recommended)', isDefault: true },
+    { id: 'gemini-3.8-flash-lite-tts', name: 'Gemini 3.8 Flash-Lite TTS' },
+    { id: 'gemini-3.1-flash-tts-preview', name: 'Gemini 3.1 Flash TTS' },
     { id: 'gemini-2.5-flash-preview-tts', name: 'Gemini 2.5 Flash TTS' },
     { id: 'gemini-2.5-pro-preview-tts', name: 'Gemini 2.5 Pro Preview TTS' },
     { id: 'gemini-2.5-flash', name: 'Gemini 2.5 Flash' },
@@ -501,7 +537,7 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
         setGeminiConfig(cfg);
         // Only apply system default if user hasn't already restored or chosen a custom voice/model
         setSelectedVoice(prev => (prev && prev !== 'Puck') ? prev : (initialSaved?.selectedVoice || cfg.defaultVoice || 'Puck'));
-        setSelectedModel(prev => (prev && prev !== 'gemini-3.1-flash-tts-preview') ? prev : (initialSaved?.selectedModel || cfg.defaultModel || 'gemini-3.1-flash-tts-preview'));
+        setSelectedModel(prev => (prev && prev !== 'gemini-3.1-flash-tts-preview' && prev !== 'gemini-3.8-flash-tts') ? prev : (initialSaved?.selectedModel || cfg.defaultModel || 'gemini-3.8-flash-tts'));
       }
       setKeyPool(poolData.pool || []);
     } catch (err: any) {
@@ -622,6 +658,25 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
       addToast({ type: 'error', title: 'Failed to Add Gemini Key', message: err.message });
     } finally {
       setIsSavingKey(false);
+    }
+  };
+
+  const handleBulkAddKeys = async (keysText: string) => {
+    try {
+      const res = await addBulkGeminiKeysToPool(keysText);
+      addToast({
+        type: 'success',
+        title: 'Gemini Keys Imported',
+        message: res.message || `Successfully added ${res.addedCount} new key(s) to pool.`
+      });
+      await loadConfigAndPool();
+    } catch (err: any) {
+      addToast({
+        type: 'error',
+        title: 'Failed to Import Keys',
+        message: err.message || 'Could not add bulk keys to pool'
+      });
+      throw err;
     }
   };
 
@@ -1982,6 +2037,7 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
           isSavingKey={isSavingKey}
           onKeyInputChange={setCustomKeyInput}
           onAddKey={handleAddKey}
+          onBulkAddKeys={handleBulkAddKeys}
           onDeleteKey={handleDeleteKey}
           onToggleKey={handleToggleKey}
           onToggleAllKeys={handleToggleAllKeys}

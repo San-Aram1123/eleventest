@@ -27,10 +27,33 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
   const [sentencesText, setSentencesText] = useState('');
   const [language, setLanguage] = useState<'ckb' | 'kmr' | 'ar' | 'en'>('ckb');
   const [speakerId, setSpeakerId] = useState('spk01');
-  const [voiceName, setVoiceName] = useState('Puck');
+  const [voiceName, setVoiceName] = useState('Arlo');
+  const [selectedModel, setSelectedModel] = useState('gemini-3.8-flash-tts');
   const [startIdx, setStartIdx] = useState(1);
   const [mode, setMode] = useState<'sliced' | 'individual'>('individual');
   const [randomizeVoices, setRandomizeVoices] = useState(false);
+
+  const [isRefreshingIndex, setIsRefreshingIndex] = useState(false);
+
+  const fetchNextIndex = React.useCallback(async () => {
+    setIsRefreshingIndex(true);
+    try {
+      const res = await fetch(`/api/paired/next-index?speakerId=${encodeURIComponent(speakerId)}`);
+      const data = await res.json();
+      if (data && typeof data.nextIndex === 'number' && Number.isFinite(data.nextIndex)) {
+        setStartIdx(data.nextIndex);
+      }
+    } catch {
+    } finally {
+      setIsRefreshingIndex(false);
+    }
+  }, [speakerId]);
+
+  React.useEffect(() => {
+    if (isOpen) {
+      fetchNextIndex();
+    }
+  }, [isOpen, fetchNextIndex]);
 
   const [emotions, setEmotions] = useState<Record<string, SelectedEmotion>>(() => {
     const map: Record<string, SelectedEmotion> = {};
@@ -119,7 +142,9 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
           const resData = await runFamilySlicedApi({
             speakerId: curSpeaker, voiceName: curVoice, language, sentence,
             sentenceIndex: startIdx + sIdx, familyId,
-            emotions: enabledEmotionsList, signal: abortControllerRef.current.signal
+            emotions: enabledEmotionsList,
+            model: selectedModel,
+            signal: abortControllerRef.current.signal
           });
           const samples = resData.samples || [];
           samples.forEach(s => onSampleCreated(s));
@@ -143,6 +168,7 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
               speakerId: curSpeaker, voiceName: curVoice, language, sentence,
               sentenceIndex: startIdx + sIdx, familyId,
               emotion: target.emotion, intensity: target.intensity,
+              model: selectedModel,
               signal: abortControllerRef.current.signal
             });
             if (sample) onSampleCreated(sample);
@@ -203,6 +229,10 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
             onStartIdxChange={setStartIdx}
             randomizeVoices={randomizeVoices}
             onRandomizeVoicesChange={setRandomizeVoices}
+            selectedModel={selectedModel}
+            onSelectedModelChange={setSelectedModel}
+            onRefreshNextIndex={fetchNextIndex}
+            isRefreshingNextIndex={isRefreshingIndex}
           />
           <EmotionSelectorSection emotions={emotions} onChange={setEmotions} />
         </div>

@@ -1,6 +1,16 @@
+import fs from 'fs';
 import { generateGeminiSpeech } from './geminiService.js';
-import { saveSample } from './datasetService.js';
-import { getEmotionPromptDirective, REQUIRED_EMOTIONS } from './pairedEmotionConfig.js';
+import { saveSample, ensureDatasetDir } from './datasetService.js';
+import {
+  getEmotionPromptDirective,
+  getEmotionSpeechStyle,
+  REQUIRED_EMOTIONS,
+  EMOTION_PROFILE_VERSION,
+  EMOTION_STYLE_PROFILES,
+  evaluateQcConfidence
+} from './pairedEmotionConfig.js';
+import { refineWavSlice } from './waveformBoundaryRefiner.js';
+import { isDbConnected, getAllDbSamples } from './db.js';
 
 /**
  * Formats a sentence index into a standard 3-digit string: 1 -> '001'.
@@ -26,6 +36,67 @@ export function buildClipId(familyId, emotion) {
 }
 
 /**
+ * Scans dataset and database to find the absolute highest existing sentence/family index globally
+ * across all speakers (e.g. spk01_001, spk02_012), ensuring each new batch creates brand new
+ * sequential families without ever overwriting past runs.
+ */
+export async function getNextFamilyIndex(speakerId = null) {
+  const cleanSpk = speakerId ? String(speakerId).trim() : null;
+  const dir = ensureDatasetDir();
+  let maxIndex = 0;
+
+  // 1. Scan filesystem for all family indices
+  try {
+    const files = fs.readdirSync(dir);
+    // Matches any family: e.g. spk01_006_angry.wav, spk02_012_happy.json
+    const regexGlobal = /^[a-zA-Z0-9_-]+?_(\d+)_[a-zA-Z0-9_-]+/;
+    for (const f of files) {
+      const match = f.match(regexGlobal);
+      if (match) {
+        const num = parseInt(match[1], 10);
+        if (num > maxIndex) maxIndex = num;
+      }
+    }
+
+    if (cleanSpk) {
+      const regexSpk = new RegExp(`^${cleanSpk}_(\\d+)_`, 'i');
+      for (const f of files) {
+        const match = f.match(regexSpk);
+        if (match) {
+          const num = parseInt(match[1], 10);
+          if (num > maxIndex) maxIndex = num;
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[Paired] Error scanning family index from disk:`, err.message);
+  }
+
+  // 2. Scan MySQL database if connected
+  try {
+    if (isDbConnected()) {
+      const dbSamples = await getAllDbSamples();
+      if (Array.isArray(dbSamples)) {
+        for (const s of dbSamples) {
+          const fId = s.family_id || s.metadata_extra?.family_id;
+          if (fId) {
+            const m = String(fId).match(/_(\d+)$/);
+            if (m) {
+              const num = parseInt(m[1], 10);
+              if (num > maxIndex) maxIndex = num;
+            }
+          }
+        }
+      }
+    }
+  } catch (err) {
+    console.warn(`[Paired] Error scanning family index from DB:`, err.message);
+  }
+
+  return maxIndex + 1;
+}
+
+/**
  * Generates a single emotion take for a given sentence and family.
  */
 export async function generatePairedEmotionClip({
@@ -38,7 +109,7 @@ export async function generatePairedEmotionClip({
   familyId = null,
   emotion = 'neutral',
   intensity = null,
-  model = 'gemini-3.1-flash-tts-preview',
+  model = 'gemini-3.8-flash-tts',
   apiKey = ''
 }) {
   const cleanSentence = String(sentence || '').trim();
@@ -59,18 +130,30 @@ export async function generatePairedEmotionClip({
   }
   finalIntensity = Math.max(0.0, Math.min(1.0, parseFloat(finalIntensity) || 0.0));
 
+  const emoKey = String(clipEmotion || 'neutral').toLowerCase();
+  const styleDirective = getEmotionSpeechStyle(emoKey, finalIntensity, targetLang);
   const instruction = getEmotionPromptDirective(clipEmotion, finalIntensity, targetLang);
 
-  console.log(`[Paired Batch] Synthesizing clip "${clipId}.wav" (${clipEmotion}, lang=${targetLang}, intensity=${finalIntensity}) with voice "${voiceName}"...`);
+  console.log(`[Paired Batch] Synthesizing clip "${clipId}.wav" (${clipEmotion}, lang=${targetLang}, intensity=${finalIntensity}) with voice "${voiceName}" using speech_metadata.style...`);
 
   const genResult = await generateGeminiSpeech({
     text: cleanSentence,
+    speechStyle: styleDirective,
     voiceName,
     dialect: targetLang === 'kmr' ? 'badini' : 'sorani',
     promptInstruction: instruction,
     apiKey,
     model
   });
+
+  // Automatically refine audio boundaries against the actual audio waveform
+  const { refinedBuffer, boundaryMetrics: bMetrics } = refineWavSlice(genResult.audioBuffer, {
+    isWhisper: clipEmotion === 'whisper',
+    emotion: clipEmotion
+  });
+
+  const finalDurationSeconds = bMetrics?.final_duration_seconds || genResult.durationSeconds || 0;
+  const qcEval = evaluateQcConfidence(1.0, bMetrics);
 
   const sample = await saveSample({
     id: clipId,
@@ -87,14 +170,34 @@ export async function generatePairedEmotionClip({
     voiceName: `Gemini (${voiceName})`,
     modelId: genResult.modelId || model,
     characters: genResult.characters || [],
-    audioBuffer: genResult.audioBuffer,
+    audioBuffer: refinedBuffer,
     allowDuplicateText: true,
+    training_ready: qcEval.training_ready,
+    qc_status: qcEval.status,
+    qc_grade: qcEval.grade,
     customMetadata: {
       family_id: fId,
       speaker_name: speakerId,
       emotion_intensity: finalIntensity,
-      duration_seconds: genResult.durationSeconds || 0,
+      duration_seconds: finalDurationSeconds,
       language: targetLang,
+      rendered_tts_text: cleanSentence,
+      speech_style: EMOTION_STYLE_PROFILES[clipEmotion]?.style || clipEmotion,
+      vocal_events: [],
+      segmentation_strategy: 'individual_1to1',
+      segmentation_confidence: 1.0,
+      boundary_metrics: bMetrics,
+      leading_silence_ms: bMetrics?.leading_silence_ms ?? 0,
+      trailing_silence_ms: bMetrics?.trailing_silence_ms ?? 0,
+      boundary_qc_pass: bMetrics?.boundary_qc_pass ?? true,
+      was_waveform_trimmed: bMetrics?.was_trimmed ?? false,
+      qc_status: qcEval.status,
+      qc_grade: qcEval.grade,
+      training_ready: qcEval.training_ready,
+      review_required: qcEval.review_required,
+      emotion_profile_version: EMOTION_PROFILE_VERSION,
+      api_generation_mode: 'individual_1to1',
+      model: genResult.modelId || model,
       generator: `Google Gemini TTS (${genResult.modelId || model}) - Paired Emotion Mode`,
       audio_filename: `${clipId}.wav`
     }
@@ -106,7 +209,7 @@ export async function generatePairedEmotionClip({
     familyId: fId,
     clipId,
     audioUrl: sample.audioUrl || `/api/dataset/${clipId}/audio`,
-    durationSeconds: genResult.durationSeconds || 0
+    durationSeconds: finalDurationSeconds
   };
 }
 
@@ -121,7 +224,7 @@ export async function generateFullFamilySet({
   sentence = '',
   sentenceIndex = 1,
   emotions = [],
-  model = 'gemini-3.1-flash-tts-preview',
+  model = 'gemini-3.8-flash-tts',
   apiKey = '',
   onProgress = null
 }) {

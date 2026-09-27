@@ -1,18 +1,23 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Pause, CheckCircle2, AlertCircle, Volume2, User, Search, Filter } from 'lucide-react';
+import { Search } from 'lucide-react';
 import { Sample } from '../../types';
 import { REQUIRED_EMOTIONS } from './pairedConstants';
+import { FamilyCard, FamilyGroup } from './FamilyCard';
 
 interface PairedFamiliesViewProps {
   samples: Sample[];
   onPlayAudio?: (url: string, sampleId: string) => void;
   activeAudioId?: string | null;
+  recentSampleIds?: Set<string>;
+  isLiveSyncActive?: boolean;
 }
 
 export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
   samples,
   onPlayAudio,
-  activeAudioId
+  activeAudioId,
+  recentSampleIds,
+  isLiveSyncActive = false
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState<'all' | 'complete' | 'incomplete'>('all');
@@ -148,8 +153,29 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           </div>
         </div>
 
-        <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
-          Showing <strong style={{ color: '#38bdf8' }}>{filteredFamilies.length}</strong> families
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          {isLiveSyncActive && (
+            <div
+              style={{
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontSize: '0.75rem',
+                color: '#10b981',
+                background: 'rgba(16, 185, 129, 0.12)',
+                border: '1px solid rgba(16, 185, 129, 0.3)',
+                borderRadius: '16px',
+                padding: '2px 8px'
+              }}
+              title="Real-time dataset listener active. New emotion takes will animate into their families automatically."
+            >
+              <span className="live-sync-indicator-dot" />
+              <span style={{ fontWeight: 600 }}>Live Sync</span>
+            </div>
+          )}
+          <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+            Showing <strong style={{ color: '#38bdf8' }}>{filteredFamilies.length}</strong> families
+          </div>
         </div>
       </div>
 
@@ -160,108 +186,16 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
         </div>
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          {filteredFamilies.map((f) => {
-            const presentCount = REQUIRED_EMOTIONS.filter(e => !!f.clips[e.id]).length;
-            const isComplete = presentCount === REQUIRED_EMOTIONS.length;
-
-            return (
-              <div
-                key={f.familyId}
-                className="glass-card"
-                style={{
-                  padding: '1rem 1.25rem',
-                  borderLeft: `4px solid ${isComplete ? '#10b981' : '#f59e0b'}`
-                }}
-              >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.6rem' }}>
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
-                    <code style={{ fontSize: '0.95rem', fontWeight: 700, color: '#38bdf8' }}>{f.familyId}</code>
-                    <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                      <User size={12} /> {f.speaker}
-                    </span>
-                    <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8' }}>
-                      {f.dialect === 'badini' ? 'Badini (kmr)' : 'Sorani (ckb)'}
-                    </span>
-                  </div>
-
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                    {isComplete ? (
-                      <span className="badge" style={{ background: 'rgba(16, 185, 129, 0.15)', color: '#34d399', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <CheckCircle2 size={13} /> 6/6 Complete
-                      </span>
-                    ) : (
-                      <span className="badge" style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '3px' }}>
-                        <AlertCircle size={13} /> {presentCount}/6 Emotions
-                      </span>
-                    )}
-                  </div>
-                </div>
-
-                {/* Kurdish Spoken Text */}
-                <div
-                  dir="rtl"
-                  style={{
-                    fontSize: '1.05rem',
-                    fontWeight: 500,
-                    color: '#f8fafc',
-                    fontFamily: "'Rabar', 'Vazirmatn', sans-serif",
-                    marginBottom: '0.85rem',
-                    lineHeight: 1.6
-                  }}
-                >
-                  {f.text}
-                </div>
-
-                {/* 6 Required Emotion Pills with Interactive Audio Playback */}
-                <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
-                  {REQUIRED_EMOTIONS.map((req) => {
-                    const clip = f.clips[req.id];
-                    const isPlaying = (activeAudioId === clip?.id) || (playingClipId === clip?.id);
-
-                    if (!clip) {
-                      return (
-                        <div
-                          key={req.id}
-                          style={{
-                            border: '1px dashed rgba(255,255,255,0.15)',
-                            borderRadius: '6px',
-                            padding: '0.35rem 0.65rem',
-                            fontSize: '0.75rem',
-                            color: '#64748b'
-                          }}
-                        >
-                          Missing: {req.name}
-                        </div>
-                      );
-                    }
-
-                    const intensity = clip.emotion_intensity ?? (clip as any).customMetadata?.emotion_intensity ?? req.defaultIntensity;
-
-                    return (
-                      <button
-                        key={req.id}
-                        type="button"
-                        onClick={() => handlePlay(clip)}
-                        className={`btn btn-sm ${isPlaying ? 'btn-primary' : 'btn-secondary'}`}
-                        style={{
-                          fontSize: '0.78rem',
-                          padding: '0.35rem 0.65rem',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: '0.35rem'
-                        }}
-                        title={`${clip.id}.wav (${Number(intensity).toFixed(1)})`}
-                      >
-                        {isPlaying ? <Pause size={13} /> : <Play size={13} />}
-                        <span style={{ fontWeight: 600 }}>{req.name}</span>
-                        <span style={{ fontSize: '0.7rem', opacity: 0.75 }}>({Number(intensity).toFixed(1)})</span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
+          {filteredFamilies.map((f) => (
+            <FamilyCard
+              key={f.familyId}
+              family={f}
+              activeAudioId={activeAudioId}
+              playingClipId={playingClipId}
+              recentSampleIds={recentSampleIds}
+              onPlay={handlePlay}
+            />
+          ))}
         </div>
       )}
     </div>

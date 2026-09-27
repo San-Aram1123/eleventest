@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import { getAllSamples } from './datasetService.js';
-import { REQUIRED_EMOTIONS } from './pairedEmotionConfig.js';
+import { REQUIRED_EMOTIONS, evaluateQcConfidence } from './pairedEmotionConfig.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -49,6 +49,9 @@ export async function validatePairedDataset(customSamples = null) {
   let incompleteFamiliesCount = 0;
   let errorCount = 0;
   let totalPairedClips = 0;
+  let totalPassClips = 0;
+  let totalWarningClips = 0;
+  let totalFailClips = 0;
 
   for (const [fId, familySamples] of familiesMap.entries()) {
     totalPairedClips += familySamples.length;
@@ -111,6 +114,35 @@ export async function validatePairedDataset(customSamples = null) {
       }
     }
 
+    // 5. Check QC Confidence, Waveform Boundaries & Training-Readiness:
+    // >= 0.85        PASS
+    // 0.70 - 0.849   WARNING / review
+    // < 0.70         FAIL — do not mark training-ready
+    // AND leading_silence_ms <= 250, trailing_silence_ms <= 300, speech_start_clipped !== true
+    let familyQcGrade = 'PASS';
+    for (const s of familySamples) {
+      const conf = Number(s.segmentation_confidence ?? s.customMetadata?.segmentation_confidence ?? 1.0);
+      const bMetrics = s.boundary_metrics || s.customMetadata?.boundary_metrics || null;
+      const qc = evaluateQcConfidence(conf, bMetrics);
+      const isTrainingReady = (s.training_ready !== undefined && s.training_ready !== null)
+        ? Boolean(s.training_ready)
+        : (s.customMetadata?.training_ready !== undefined ? Boolean(s.customMetadata.training_ready) : qc.training_ready);
+
+      if (qc.status === 'FAIL' || !isTrainingReady || conf < 0.70 || qc.boundaryPass === false) {
+        familyQcGrade = 'FAIL';
+        totalFailClips++;
+        const failReason = (qc.boundaryIssues && qc.boundaryIssues.length > 0)
+          ? qc.boundaryIssues.join('; ')
+          : `confidence check (${conf.toFixed(2)} < 0.70)`;
+        issues.push(`Clip ${s.id} failed QC (${failReason}) — FAIL / not training-ready`);
+      } else if (qc.status === 'WARNING') {
+        if (familyQcGrade !== 'FAIL') familyQcGrade = 'WARNING';
+        totalWarningClips++;
+      } else {
+        totalPassClips++;
+      }
+    }
+
     const isComplete = missingEmotions.length === 0;
     const hasFatalIssues = issues.length > 0;
 
@@ -130,6 +162,8 @@ export async function validatePairedDataset(customSamples = null) {
       speaker: primarySpeaker,
       text: sampleText,
       status,
+      qcGrade: familyQcGrade,
+      trainingReady: familyQcGrade !== 'FAIL',
       presentCount: familySamples.length,
       requiredCount: requiredEmotionsList.length,
       presentEmotions: Array.from(presentEmotions),
@@ -152,6 +186,12 @@ export async function validatePairedDataset(customSamples = null) {
     incompleteFamiliesCount,
     errorCount,
     totalPairedClips,
+    qcSummary: {
+      passClips: totalPassClips,
+      warningClips: totalWarningClips,
+      failClips: totalFailClips,
+      trainingReadyClips: totalPassClips + totalWarningClips
+    },
     requiredEmotions: requiredEmotionsList,
     isCompliant: isAllValid,
     completionPercentage: totalFamilies > 0 ? Math.round((validFamiliesCount / totalFamilies) * 100) : 0,

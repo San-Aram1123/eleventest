@@ -13,6 +13,7 @@ interface BatchProgressBarProps {
   currentSpeaker: string;
   currentVoice: string;
   mode: 'sliced' | 'individual';
+  chunkSize?: number;
   startTime: number | null;
   onTogglePause: () => void;
   onStop: () => void;
@@ -30,6 +31,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
   currentSpeaker,
   currentVoice,
   mode,
+  chunkSize = 3,
   startTime,
   onTogglePause,
   onStop
@@ -65,18 +67,28 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
   if (isPaused) {
     liveActionText = 'Paused by user';
   } else if (isActive) {
-    if (tickerSec < 4) {
-      liveActionText = mode === 'sliced'
-        ? '📡 Slicing mode: Requesting all emotions in 1 master take...'
-        : `🎙️ Synthesizing [${currentEmotion || 'take'}] take... (${tickerSec}s)`;
-    } else if (tickerSec < 12) {
-      liveActionText = mode === 'sliced'
-        ? `🎙️ Generating master audio & detecting silence boundaries... (${tickerSec}s)`
-        : `🎙️ Processing speech with Gemini for [${currentEmotion}]... (${tickerSec}s)`;
-    } else if (tickerSec < 22) {
-      liveActionText = `⚡ Awaiting Gemini response (${tickerSec}s)...`;
+    if (mode === 'sliced') {
+      if (tickerSec < 6) {
+        liveActionText = `📡 Requesting [${currentEmotion || 'batch'}] multi-sentence master take... (${tickerSec}s)`;
+      } else if (tickerSec < 18) {
+        liveActionText = `🎙️ Gemini synthesizing multi-sentence audio for [${currentEmotion}]... (${tickerSec}s)`;
+      } else if (tickerSec < 38) {
+        liveActionText = `⚡ Streaming & receiving master audio from Gemini (${tickerSec}s)...`;
+      } else if (tickerSec < 55) {
+        liveActionText = `✂️ Slicing & aligning sentence speech boundaries (${tickerSec}s)...`;
+      } else {
+        liveActionText = `⏳ High-load queue or key rotating (${tickerSec}s) — auto-recovering...`;
+      }
     } else {
-      liveActionText = `⏳ Gemini key rotating or rate-limit cooldown active (${tickerSec}s) — auto-recovering...`;
+      if (tickerSec < 5) {
+        liveActionText = `🎙️ Synthesizing [${currentEmotion || 'take'}] take... (${tickerSec}s)`;
+      } else if (tickerSec < 14) {
+        liveActionText = `🎙️ Processing speech with Gemini for [${currentEmotion}]... (${tickerSec}s)`;
+      } else if (tickerSec < 28) {
+        liveActionText = `⚡ Awaiting Gemini response (${tickerSec}s)...`;
+      } else {
+        liveActionText = `⏳ Gemini key rotating or rate-limit cooldown active (${tickerSec}s)...`;
+      }
     }
   }
 
@@ -123,7 +135,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
               : 'Batch Completed'}
           </span>
           <span className="badge" style={{ background: mode === 'sliced' ? '#7e22ce' : '#0284c7', color: '#fff', fontSize: '0.72rem' }}>
-            {mode === 'sliced' ? '6-in-1 Sliced' : '1:1 Individual'}
+            {mode === 'sliced' ? (chunkSize === 6 ? 'Adaptive 6-in-1 Sliced' : `${chunkSize || 3}-in-1 Sliced`) : '1:1 Individual'}
           </span>
         </div>
 

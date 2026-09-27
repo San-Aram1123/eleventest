@@ -1,17 +1,9 @@
 import React, { useState } from 'react';
-import {
-  Layers,
-  RotateCcw,
-  RefreshCw,
-  Plus,
-  AlertCircle,
-  ExternalLink,
-  Power,
-  PowerOff
-} from 'lucide-react';
+import { Layers, RotateCcw, RefreshCw, Plus, AlertCircle, ExternalLink, Power, PowerOff, Zap } from 'lucide-react';
 import { GeminiKeyPoolItem } from '../types';
 import { GeminiKeyItem } from './GeminiKeyItem';
 import { GeminiKeyToolbar } from './GeminiKeyToolbar';
+import { BulkKeyAddModal } from './BulkKeyAddModal';
 
 interface GeminiKeyManagerProps {
   keyPool: GeminiKeyPoolItem[];
@@ -22,6 +14,7 @@ interface GeminiKeyManagerProps {
   isSavingKey: boolean;
   onKeyInputChange: (val: string) => void;
   onAddKey: (e: React.FormEvent) => void;
+  onBulkAddKeys?: (keysText: string) => Promise<void>;
   onDeleteKey: (index: number) => void;
   onToggleKey: (index: number, enabled?: boolean) => Promise<void> | void;
   onToggleAllKeys?: (enabled: boolean) => Promise<void> | void;
@@ -41,6 +34,7 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
   isSavingKey,
   onKeyInputChange,
   onAddKey,
+  onBulkAddKeys,
   onDeleteKey,
   onToggleKey,
   onToggleAllKeys,
@@ -52,6 +46,7 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
 }) => {
   const [selectedIndices, setSelectedIndices] = useState<Set<number>>(new Set());
   const [isBulkOperating, setIsBulkOperating] = useState(false);
+  const [showBulkModal, setShowBulkModal] = useState(false);
 
   const activeKeys = keyPool.filter(k => k.isEnabled !== false);
   const disabledKeys = keyPool.filter(k => k.isEnabled === false);
@@ -63,18 +58,13 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
   const someSelected = selectedIndices.size > 0 && selectedIndices.size < keyPool.length;
 
   const handleSelectAllToggle = () => {
-    if (allSelected) {
-      setSelectedIndices(new Set());
-    } else {
-      setSelectedIndices(new Set(keyPool.map((_, idx) => idx)));
-    }
+    setSelectedIndices(allSelected ? new Set() : new Set(keyPool.map((_, idx) => idx)));
   };
 
   const handleKeySelect = (idx: number, isChecked: boolean) => {
     setSelectedIndices(prev => {
       const next = new Set(prev);
-      if (isChecked) next.add(idx);
-      else next.delete(idx);
+      isChecked ? next.add(idx) : next.delete(idx);
       return next;
     });
   };
@@ -88,9 +78,7 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
       } else if (onToggleBulkKeys) {
         await onToggleBulkKeys(Array.from(selectedIndices), enable);
       } else {
-        for (const idx of selectedIndices) {
-          await onToggleKey(idx, enable);
-        }
+        for (const idx of selectedIndices) await onToggleKey(idx, enable);
       }
       setSelectedIndices(new Set());
     } finally {
@@ -110,58 +98,28 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
           {onToggleAllKeys && (
             <>
               {activeKeys.length > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => onToggleAllKeys(false)}
-                  disabled={isBulkOperating}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.3)' }}
-                  title="Turn off all keys so you can selectively turn on only the ones you want"
-                >
-                  <PowerOff size={13} />
-                  <span>Turn Off All</span>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => onToggleAllKeys(false)} disabled={isBulkOperating} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#F87171', borderColor: 'rgba(239, 68, 68, 0.3)' }} title="Turn off all keys">
+                  <PowerOff size={13} /><span>Turn Off All</span>
                 </button>
               )}
               {disabledKeys.length > 0 && (
-                <button
-                  type="button"
-                  className="btn btn-sm btn-ghost"
-                  onClick={() => onToggleAllKeys(true)}
-                  disabled={isBulkOperating}
-                  style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)' }}
-                  title="Turn on all Gemini API keys in the pool"
-                >
-                  <Power size={13} />
-                  <span>Turn On All</span>
+                <button type="button" className="btn btn-sm btn-ghost" onClick={() => onToggleAllKeys(true)} disabled={isBulkOperating} style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', color: '#10B981', borderColor: 'rgba(16, 185, 129, 0.3)' }} title="Turn on all keys">
+                  <Power size={13} /><span>Turn On All</span>
                 </button>
               )}
             </>
           )}
 
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={onResetCooldowns}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.3)' }}
-            title="Reset active cooldowns across all keys and restore them to Ready status"
-          >
-            <RotateCcw size={13} />
-            <span>Reset Cooldowns</span>
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onResetCooldowns} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px', color: '#38BDF8', borderColor: 'rgba(56, 189, 248, 0.3)' }} title="Reset cooldowns">
+            <RotateCcw size={13} /><span>Reset Cooldowns</span>
           </button>
 
-          <button
-            type="button"
-            className="btn btn-sm btn-ghost"
-            onClick={onReloadKeys}
-            disabled={isReloadingKeys}
-            title="Verify all enabled Gemini API keys in the pool (Uses 0 speech generation quota)"
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-          >
+          <button type="button" className="btn btn-sm btn-ghost" onClick={onReloadKeys} disabled={isReloadingKeys} style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }} title="Verify all keys (0 Quota)">
             <RefreshCw size={13} className={isReloadingKeys ? 'spin' : ''} />
             <span>{isReloadingKeys ? 'Checking Keys...' : 'Check All Keys (0 Quota)'}</span>
           </button>
 
-          <span className="badge badge-cyan" title={`${activeKeys.length} active, ${disabledKeys.length} turned off`}>
+          <span className="badge badge-cyan" title={`${activeKeys.length} active, ${disabledKeys.length} off`}>
             {activeKeys.length}/{poolCount} Active {disabledKeys.length > 0 && `(${disabledKeys.length} Off)`}
           </span>
         </div>
@@ -173,33 +131,21 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
 
       {/* Daily Limit Warning Banner */}
       {dailyExhaustedKeys.length > 0 && (
-        <div style={{
-          background: 'rgba(239, 68, 68, 0.12)',
-          border: '1px solid rgba(239, 68, 68, 0.35)',
-          borderRadius: 'var(--radius-sm)',
-          padding: '12px 16px',
-          marginTop: '12px',
-          fontSize: '0.8rem',
-          color: '#FCA5A5',
-          display: 'flex',
-          alignItems: 'flex-start',
-          gap: '12px'
-        }}>
+        <div style={{ background: 'rgba(239, 68, 68, 0.12)', border: '1px solid rgba(239, 68, 68, 0.35)', borderRadius: 'var(--radius-sm)', padding: '12px 16px', marginTop: '12px', fontSize: '0.8rem', color: '#FCA5A5', display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
           <AlertCircle size={18} style={{ color: '#F87171', flexShrink: 0, marginTop: '2px' }} />
           <div>
             <strong style={{ color: '#FECACA', fontSize: '0.84rem' }}>
               Free Tier Daily Limit Reached ({dailyExhaustedKeys.length}/{activeKeys.length} active keys exhausted today):
             </strong>
             <div style={{ marginTop: '4px', color: 'rgba(255, 255, 255, 0.88)', fontSize: '0.78rem', lineHeight: 1.45 }}>
-              Google limits <code>gemini-3.1-flash-tts-preview</code> to <strong>10 requests per day per project</strong> on Free Tier.
-              These keys reset at <strong>Midnight US Pacific Time (PT) (~10:00 AM Local Time)</strong>.
+              Google limits <code>gemini-3.8-flash-tts</code> / <code>gemini-3.1-flash-tts-preview</code> to <strong>10 requests per day per project</strong> on Free Tier. Resets at Midnight PT.
             </div>
           </div>
         </div>
       )}
 
-      {/* Add Key Form */}
-      <form onSubmit={onAddKey} className="key-input-row" style={{ marginTop: '12px' }}>
+      {/* Add Key Form with Quick Add Keys Button */}
+      <form onSubmit={onAddKey} className="key-input-row" style={{ marginTop: '12px', display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
         <input
           type="password"
           className="input-control"
@@ -207,16 +153,32 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
           value={customKeyInput}
           onChange={(e) => onKeyInputChange(e.target.value)}
           disabled={isSavingKey}
+          style={{ flex: 1, minWidth: '240px' }}
         />
-        <button
-          type="submit"
-          className="btn btn-primary"
-          disabled={isSavingKey || !customKeyInput.trim()}
-          style={{ whiteSpace: 'nowrap' }}
-        >
+        <button type="submit" className="btn btn-primary" disabled={isSavingKey || !customKeyInput.trim()} style={{ whiteSpace: 'nowrap' }}>
           <Plus size={15} />
-          <span>{isSavingKey ? 'Verifying...' : 'Add to Key Pool'}</span>
+          <span>{isSavingKey ? 'Verifying...' : 'Add Key'}</span>
         </button>
+        {onBulkAddKeys && (
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowBulkModal(true)}
+            style={{
+              whiteSpace: 'nowrap',
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '6px',
+              background: 'linear-gradient(135deg, rgba(14, 165, 233, 0.2) 0%, rgba(59, 130, 246, 0.2) 100%)',
+              color: '#38bdf8',
+              borderColor: 'rgba(56, 189, 248, 0.4)'
+            }}
+            title="Paste multiple keys (e.g. 30 keys) at once"
+          >
+            <Zap size={15} />
+            <span>⚡ Quick Add (30+ Keys)</span>
+          </button>
+        )}
       </form>
 
       {/* Select All & Bulk Actions Toolbar */}
@@ -255,24 +217,24 @@ export const GeminiKeyManager: React.FC<GeminiKeyManagerProps> = ({
 
       {/* Footer */}
       <div style={{ marginTop: '12px', fontSize: '0.78rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <a
-          href="https://aistudio.google.com/app/apikey"
-          target="_blank"
-          rel="noreferrer"
-          style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}
-        >
+        <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noreferrer" style={{ color: '#38BDF8', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
           <span>Get Free Gemini API Keys from Google AI Studio</span>
           <ExternalLink size={12} />
         </a>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={onClose}
-          style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}
-        >
+        <button type="button" className="btn btn-ghost btn-sm" onClick={onClose} style={{ fontSize: '0.76rem', color: 'var(--text-dim)' }}>
           Close Monitor
         </button>
       </div>
+
+      {/* Bulk Key Add Modal */}
+      {onBulkAddKeys && (
+        <BulkKeyAddModal
+          isOpen={showBulkModal}
+          onClose={() => setShowBulkModal(false)}
+          onBulkAdd={onBulkAddKeys}
+          existingMaskedKeys={keyPool.map(k => k.maskedKey || '')}
+        />
+      )}
     </div>
   );
 };

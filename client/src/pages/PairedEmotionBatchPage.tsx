@@ -7,6 +7,7 @@ import { GenerationModeSelector } from '../components/paired/GenerationModeSelec
 import { BatchProgressBar } from '../components/paired/BatchProgressBar';
 import { BatchErrorInspector } from '../components/paired/BatchErrorInspector';
 import { BatchBottomActionBar } from '../components/paired/BatchBottomActionBar';
+import { MasterAudioPreviewPlayer } from '../components/paired/MasterAudioPreviewPlayer';
 import { usePairedBatchEngine } from '../components/paired/usePairedBatchEngine';
 import { REQUIRED_EMOTIONS, OPTIONAL_EMOTIONS } from '../components/paired/pairedConstants';
 import { SelectedEmotion } from '../components/paired/types';
@@ -24,10 +25,62 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
   const [sentencesText, setSentencesText] = useState('');
   const [language, setLanguage] = useState<'ckb' | 'kmr' | 'ar' | 'en'>('ckb');
   const [speakerId, setSpeakerId] = useState('spk01');
-  const [voiceName, setVoiceName] = useState('Puck');
+  const [voiceName, setVoiceName] = useState('Arlo');
   const [startIdx, setStartIdx] = useState(1);
-  const [mode, setMode] = useState<'sliced' | 'individual'>('individual');
-  const [randomizeVoices, setRandomizeVoices] = useState(false);
+  const [isRefreshingIndex, setIsRefreshingIndex] = useState(false);
+  const [mode, setMode] = useState<'sliced' | 'individual'>('sliced');
+  const [chunkSize, setChunkSize] = useState<number>(6);
+  const [slicingStrategy, setSlicingStrategy] = useState<'markers' | 'silence'>(() => {
+    try {
+      return (localStorage.getItem('paired_slicing_strategy') as any) || 'markers';
+    } catch {
+      return 'markers';
+    }
+  });
+  const [randomizeVoices, setRandomizeVoices] = useState(true);
+
+  const handleSlicingStrategyChange = (st: 'markers' | 'silence') => {
+    setSlicingStrategy(st);
+    try {
+      localStorage.setItem('paired_slicing_strategy', st);
+    } catch {}
+  };
+
+  const [selectedModel, setSelectedModel] = useState<string>(() => {
+    try {
+      return localStorage.getItem('paired_selected_model_v1') || 'gemini-3.8-flash-tts';
+    } catch {
+      return 'gemini-3.8-flash-tts';
+    }
+  });
+
+  const handleModelChange = (m: string) => {
+    setSelectedModel(m);
+    try {
+      localStorage.setItem('paired_selected_model_v1', m);
+    } catch {}
+  };
+
+  // Auto-fetch the next available sentence index globally from server
+  const fetchNextIndex = React.useCallback(async () => {
+    setIsRefreshingIndex(true);
+    try {
+      const res = await fetch(`/api/paired/next-index?speakerId=${encodeURIComponent(speakerId)}`);
+      const data = await res.json();
+      if (data && typeof data.nextIndex === 'number' && Number.isFinite(data.nextIndex)) {
+        setStartIdx(data.nextIndex);
+      }
+    } catch (err) {
+      console.warn('[Paired Studio] Failed to auto-fetch next index:', err);
+    } finally {
+      setIsRefreshingIndex(false);
+    }
+  }, [speakerId]);
+
+  // Initial fetch on mount and whenever speaker changes
+  React.useEffect(() => {
+    fetchNextIndex();
+  }, [fetchNextIndex]);
 
   const [emotions, setEmotions] = useState<Record<string, SelectedEmotion>>(() => {
     const map: Record<string, SelectedEmotion> = {};
@@ -41,14 +94,23 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
 
   const engine = usePairedBatchEngine({
     sentences, enabledEmotionsList, startIdx, speakerId, voiceName,
-    language, mode, randomizeVoices, onSampleCreated, addToast
+    language, mode, model: selectedModel, chunkSize, slicingStrategy, randomizeVoices, onSampleCreated, addToast
   });
+
+  // Re-fetch next index whenever a batch run finishes or halts
+  const prevActiveRef = React.useRef(engine.batchState.isActive);
+  React.useEffect(() => {
+    if (prevActiveRef.current && !engine.batchState.isActive) {
+      fetchNextIndex();
+    }
+    prevActiveRef.current = engine.batchState.isActive;
+  }, [engine.batchState.isActive, fetchNextIndex]);
 
   return (
     <div style={{ maxWidth: '1100px', margin: '0 auto', padding: '1.5rem 1rem' }}>
       {/* Top Hero Banner */}
       <div style={{ marginBottom: '1.5rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', marginBottom: '0.25rem', flexWrap: 'wrap' }}>
           <div style={{ padding: '6px', borderRadius: '8px', background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)', color: '#fff' }}>
             <Layers size={22} />
           </div>
@@ -57,6 +119,9 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
           </h1>
           <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', border: '1px solid rgba(168, 85, 247, 0.4)' }}>
             TTS Training Pipeline
+          </span>
+          <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38bdf8', border: '1px solid rgba(56, 189, 248, 0.35)', fontWeight: 600 }}>
+            Model: {selectedModel} (Default: 3.8 Flash TTS)
           </span>
         </div>
         <p style={{ margin: 0, fontSize: '0.85rem', color: '#94a3b8' }}>
@@ -77,10 +142,14 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
         currentSpeaker={engine.currentSpeakerInfo.speaker}
         currentVoice={engine.currentSpeakerInfo.voice}
         mode={mode}
+        chunkSize={chunkSize}
         startTime={engine.startTime}
         onTogglePause={engine.togglePause}
         onStop={engine.handleStop}
       />
+
+      {/* Master Audio Preview (Raw Pre-Sliced Audio - Not Saved to Dataset) */}
+      <MasterAudioPreviewPlayer isBatchActive={engine.batchState.isActive} />
 
       <BatchErrorInspector
         stopReason={engine.stopReason}
@@ -92,6 +161,10 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
       <GenerationModeSelector
         mode={mode}
         onChange={setMode}
+        chunkSize={chunkSize}
+        onChunkSizeChange={setChunkSize}
+        slicingStrategy={slicingStrategy}
+        onSlicingStrategyChange={handleSlicingStrategyChange}
         sentenceCount={sentences.length}
         emotionCount={enabledEmotionsList.length}
         disabled={engine.batchState.isActive}
@@ -114,6 +187,10 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
         onStartIdxChange={setStartIdx}
         randomizeVoices={randomizeVoices}
         onRandomizeVoicesChange={setRandomizeVoices}
+        selectedModel={selectedModel}
+        onSelectedModelChange={handleModelChange}
+        onRefreshNextIndex={fetchNextIndex}
+        isRefreshingNextIndex={isRefreshingIndex}
       />
 
       <EmotionSelectorSection emotions={emotions} onChange={setEmotions} />
@@ -124,6 +201,7 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
         emotionCount={enabledEmotionsList.length}
         totalClips={engine.totalClips}
         mode={mode}
+        chunkSize={chunkSize}
         randomizeVoices={randomizeVoices}
         isActive={engine.batchState.isActive}
         isPaused={engine.batchState.isPaused}

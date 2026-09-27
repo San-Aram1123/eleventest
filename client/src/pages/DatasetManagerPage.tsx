@@ -45,6 +45,7 @@ interface DatasetManagerProps {
   onSampleUpdated: (sample: Sample) => void;
   onSampleDeleted: (id: string) => void;
   onBatchDeleted?: (ids: string[]) => void;
+  onSamplesRefreshed?: (samples: Sample[]) => void;
   addToast: (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => void;
 }
 
@@ -53,6 +54,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   onSampleUpdated,
   onSampleDeleted,
   onBatchDeleted,
+  onSamplesRefreshed,
   addToast
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
@@ -79,6 +81,58 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families'>('cards');
 
   const pageTopRef = useRef<HTMLDivElement | null>(null);
+
+  const prevIdsRef = useRef<Set<string>>(new Set(samples.map(s => s.id)));
+  const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set());
+
+  // Detect newly added samples from live updates to trigger glow/pop animations
+  useEffect(() => {
+    const currentIds = new Set(samples.map(s => s.id));
+    const newItems = samples.filter(s => !prevIdsRef.current.has(s.id));
+
+    if (newItems.length > 0 && prevIdsRef.current.size > 0) {
+      const newIdSet = new Set(newItems.map(s => s.id));
+      setRecentlyAddedIds(curr => new Set([...curr, ...newIdSet]));
+
+      // Auto-clear highlight after 6 seconds
+      setTimeout(() => {
+        setRecentlyAddedIds(curr => {
+          const next = new Set(curr);
+          newIdSet.forEach(id => next.delete(id));
+          return next;
+        });
+      }, 6000);
+    }
+    prevIdsRef.current = currentIds;
+  }, [samples]);
+
+  // Real-time polling listener: refreshes dataset every 2.5s while user views Dataset Manager
+  useEffect(() => {
+    let isMounted = true;
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch('/api/dataset');
+        if (!res.ok) return;
+        const data = await res.json();
+        const freshList: Sample[] = data.samples || [];
+
+        if (isMounted && freshList.length > 0) {
+          const currentIds = new Set(samples.map(s => s.id));
+          const hasChanges = freshList.length !== samples.length || freshList.some(s => !currentIds.has(s.id));
+          if (hasChanges) {
+            onSamplesRefreshed?.(freshList);
+          }
+        }
+      } catch {
+        // silent polling catch
+      }
+    }, 2500);
+
+    return () => {
+      isMounted = false;
+      clearInterval(interval);
+    };
+  }, [samples, onSamplesRefreshed]);
 
   // Helper to extract voice name/identifier consistently
   const getSampleVoice = (s: Sample): string => {
@@ -897,7 +951,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
 
       {/* Dataset List / Grid */}
       {viewMode === 'families' ? (
-        <PairedFamiliesView samples={samples} />
+        <PairedFamiliesView samples={samples} recentSampleIds={recentlyAddedIds} isLiveSyncActive={true} />
       ) : totalItems === 0 ? (
         <div className="glass-card empty-dataset-state">
           <Database size={40} className="text-dim" />
