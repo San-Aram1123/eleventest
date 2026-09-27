@@ -141,7 +141,7 @@ export interface RunTransposedParams {
   emotion: string;
   intensity: number;
   model?: string;
-  slicingStrategy?: 'markers' | 'silence';
+  slicingStrategy?: 'kurdish_align' | 'markers' | 'silence';
   signal: AbortSignal;
 }
 
@@ -173,7 +173,7 @@ export async function runTransposedBatchApi(params: RunTransposedParams): Promis
         startIdx: params.startIdx,
         emotion: params.emotion,
         intensity: params.intensity,
-        slicingStrategy: params.slicingStrategy || 'markers',
+        slicingStrategy: params.slicingStrategy || 'kurdish_align',
         ...(params.model ? { model: params.model } : {})
       }),
       signal

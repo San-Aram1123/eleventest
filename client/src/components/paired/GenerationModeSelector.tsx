@@ -6,8 +6,8 @@ interface GenerationModeSelectorProps {
   onChange: (mode: 'sliced' | 'individual') => void;
   chunkSize?: number;
   onChunkSizeChange?: (size: number) => void;
-  slicingStrategy?: 'markers' | 'silence';
-  onSlicingStrategyChange?: (strategy: 'markers' | 'silence') => void;
+  slicingStrategy?: 'kurdish_align' | 'markers' | 'silence';
+  onSlicingStrategyChange?: (strategy: 'kurdish_align' | 'markers' | 'silence') => void;
   sentenceCount: number;
   emotionCount: number;
   disabled?: boolean;
@@ -18,7 +18,7 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
   onChange,
   chunkSize = 3,
   onChunkSizeChange,
-  slicingStrategy = 'markers',
+  slicingStrategy = 'kurdish_align',
   onSlicingStrategyChange,
   sentenceCount,
   emotionCount,
@@ -76,28 +76,46 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
               }}
               onClick={(e) => e.stopPropagation()}
             >
-              {/* Slicing Strategy (Markers vs Silence) */}
+              {/* Slicing Strategy (Kurdish Word Alignment vs Markers vs Silence) */}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '0.4rem' }}>
                 <span style={{ fontSize: '0.75rem', color: '#cbd5e1', fontWeight: 600 }}>
                   Boundary Anchor:
                 </span>
-                <div style={{ display: 'flex', gap: '0.35rem' }}>
+                <div style={{ display: 'flex', gap: '0.35rem', flexWrap: 'wrap' }}>
                   <button
                     type="button"
                     disabled={disabled}
-                    onClick={() => onSlicingStrategyChange?.('markers')}
-                    className={`btn btn-sm ${slicingStrategy !== 'silence' ? 'btn-primary' : 'btn-secondary'}`}
+                    onClick={() => onSlicingStrategyChange?.('kurdish_align')}
+                    className={`btn btn-sm ${slicingStrategy === 'kurdish_align' ? 'btn-primary' : 'btn-secondary'}`}
                     style={{
                       fontSize: '0.72rem',
                       padding: '2px 8px',
                       borderRadius: '5px',
-                      background: slicingStrategy !== 'silence' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(255,255,255,0.06)',
-                      color: slicingStrategy !== 'silence' ? '#fff' : '#94a3b8',
-                      border: slicingStrategy !== 'silence' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.1)'
+                      background: slicingStrategy === 'kurdish_align' ? 'linear-gradient(135deg, #10b981 0%, #059669 100%)' : 'rgba(255,255,255,0.06)',
+                      color: slicingStrategy === 'kurdish_align' ? '#fff' : '#94a3b8',
+                      border: slicingStrategy === 'kurdish_align' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.1)',
+                      fontWeight: slicingStrategy === 'kurdish_align' ? 700 : 500
                     }}
-                    title="Spoken Markers: Gemini speaks neutral 'ژمارە یەک.' before each sentence. Whisper detects exact marker timestamps and slices cleanly with 0 overlaps or drops."
+                    title="Kurdish Word Alignment: Whisper maps known Kurdish words to exact timestamps. 100% pure Kurdish with 0 marker words, and immune to laughter in pauses."
                   >
-                    🎯 Spoken Markers (Bulletproof)
+                    🎯 Kurdish Alignment (Best)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onSlicingStrategyChange?.('markers')}
+                    className={`btn btn-sm ${slicingStrategy === 'markers' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{
+                      fontSize: '0.72rem',
+                      padding: '2px 8px',
+                      borderRadius: '5px',
+                      background: slicingStrategy === 'markers' ? 'linear-gradient(135deg, #0284c7 0%, #0369a1 100%)' : 'rgba(255,255,255,0.06)',
+                      color: slicingStrategy === 'markers' ? '#fff' : '#94a3b8',
+                      border: slicingStrategy === 'markers' ? '1px solid #38bdf8' : '1px solid rgba(255,255,255,0.1)'
+                    }}
+                    title="Spoken Markers: Gemini speaks English markers (Marker One, Marker Two...). High precision but introduces English markers into audio."
+                  >
+                    🏷️ Markers
                   </button>
                   <button
                     type="button"

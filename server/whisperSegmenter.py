@@ -1,6 +1,8 @@
 import sys
 import os
 import json
+import re
+import difflib
 from faster_whisper import WhisperModel
 
 def group_chunks_into_sentences(raw_chunks, expected_count):
@@ -238,22 +240,187 @@ def segment_with_markers(audio_path, expected_count):
         "strategy": "spoken_markers"
     }
 
+def normalize_kurdish_token(w):
+    if not w:
+        return ""
+    w = w.lower()
+    # Normalize Arabic/Kurdish letter variants
+    w = re.sub(r'[\u064a\u0649\u06cc\u06ce]', 'ی', w)
+    w = re.sub(r'[\u0643]', 'ک', w)
+    w = re.sub(r'[\u0629]', 'ە', w)
+    w = re.sub(r'[\u200c\u200b\u0640]', '', w)
+    w = re.sub(r'[\u064b-\u065f]', '', w)
+    w = re.sub(r'[^\w\s]', '', w)
+    return w.strip()
+
+def segment_kurdish_alignment(audio_path, sentences, expected_count=None):
+    if not os.path.exists(audio_path):
+        return {"success": False, "error": f"Audio file not found: {audio_path}"}
+    if not sentences or len(sentences) == 0:
+        return {"success": False, "error": "No reference sentences provided for Kurdish alignment"}
+
+    target_count = expected_count or len(sentences)
+
+    # Use small model with int8 quantization on CPU for robust word alignment
+    model = WhisperModel("small", device="cpu", compute_type="int8")
+
+    # Kurdish prompt biasing ensures vocabulary and orthography are prioritized
+    prompt_context = " ".join(sentences)[:600]
+    segments, info = model.transcribe(
+        audio_path,
+        word_timestamps=True,
+        initial_prompt=prompt_context,
+        vad_filter=False
+    )
+
+    words = []
+    for s in segments:
+        if s.words:
+            for w in s.words:
+                cleaned_word = w.word.strip()
+                if cleaned_word:
+                    words.append({
+                        "word": cleaned_word,
+                        "start": round(w.start, 3),
+                        "end": round(w.end, 3),
+                        "prob": round(getattr(w, 'probability', 1.0), 3)
+                    })
+
+    if not words:
+        return {"success": False, "error": "No speech detected in audio file"}
+
+    total_dur = round(info.duration, 3) if hasattr(info, 'duration') and info.duration else words[-1]["end"]
+
+    # Flatten reference tokens and track sentence mapping
+    all_ref_tokens = []
+    token_to_sent = []
+    sent_tokens = []
+    for s_idx, s in enumerate(sentences):
+        tokens_in_s = [normalize_kurdish_token(w) for w in s.split() if normalize_kurdish_token(w)]
+        sent_tokens.append(tokens_in_s)
+        for tok in tokens_in_s:
+            all_ref_tokens.append(tok)
+            token_to_sent.append(s_idx)
+
+    hyp_tokens = [normalize_kurdish_token(w["word"]) for w in words]
+
+    # Global sequence matcher for exact sequential matches
+    matcher = difflib.SequenceMatcher(None, all_ref_tokens, hyp_tokens)
+    blocks = matcher.get_matching_blocks()
+
+    sent_matches = {i: [] for i in range(len(sentences))}
+    for b in blocks:
+        for offset in range(b.size):
+            ref_idx = b.a + offset
+            hyp_idx = b.b + offset
+            s_idx = token_to_sent[ref_idx]
+            sent_matches[s_idx].append(hyp_idx)
+
+    # Monotonic fallback/expansion for any sentence with low or missing matches
+    for s_idx in range(len(sentences)):
+        if not sent_matches[s_idx]:
+            prev_max = max(sent_matches[s_idx - 1]) if (s_idx > 0 and sent_matches[s_idx - 1]) else -1
+            next_min = min(sent_matches[s_idx + 1]) if (s_idx < len(sentences) - 1 and sent_matches[s_idx + 1]) else len(hyp_tokens)
+            for h_idx in range(prev_max + 1, next_min):
+                ht = hyp_tokens[h_idx]
+                if not ht:
+                    continue
+                for rt in sent_tokens[s_idx]:
+                    if difflib.SequenceMatcher(None, rt, ht).ratio() >= 0.55:
+                        sent_matches[s_idx].append(h_idx)
+                        break
+
+    # Verify every sentence was matched
+    missing_indices = [i + 1 for i in range(len(sentences)) if not sent_matches[i]]
+    if missing_indices:
+        return {
+            "success": False,
+            "error": f"Failed to align {len(missing_indices)} sentence(s) in audio (Sentence(s) #{missing_indices}). Gemini dropped or merged takes.",
+            "expectedCount": len(sentences),
+            "detectedCount": len(sentences) - len(missing_indices),
+            "missingSentences": missing_indices
+        }
+
+    # Resolve monotonic boundary timestamps with acoustic safety buffers
+    segments_out = []
+    last_end_cut = 0.0
+
+    for s_idx in range(len(sentences)):
+        matches = sorted(set(sent_matches[s_idx]))
+        start_w = words[matches[0]]
+        end_w = words[matches[-1]]
+
+        w_start = start_w["start"]
+        w_end = end_w["end"]
+
+        # Inter-sentence gap spacing
+        prev_w_end = words[max(sent_matches[s_idx - 1])]["end"] if s_idx > 0 else 0.0
+        next_w_start = words[min(sent_matches[s_idx + 1])]["start"] if s_idx < len(sentences) - 1 else total_dur
+
+        pre_gap = max(0.0, w_start - prev_w_end)
+        post_gap = max(0.0, next_w_start - w_end)
+
+        start_pad = min(0.12, pre_gap * 0.4)
+        end_pad = min(0.15, post_gap * 0.4)
+
+        seg_start = round(max(last_end_cut, w_start - start_pad), 3)
+        seg_end = round(min(next_w_start - 0.05, w_end + end_pad), 3)
+
+        if seg_end <= seg_start:
+            seg_end = round(seg_start + 0.6, 3)
+
+        dur = round(seg_end - seg_start, 3)
+        last_end_cut = seg_end
+
+        segments_out.append({
+            "index": s_idx + 1,
+            "start": seg_start,
+            "end": seg_end,
+            "duration": dur,
+            "word_range": {
+                "start_word": start_w["word"],
+                "end_word": end_w["word"],
+                "start_t": w_start,
+                "end_t": w_end
+            },
+            "matched_word_count": len(matches),
+            "total_sentence_tokens": len(sent_tokens[s_idx])
+        })
+
+    return {
+        "success": True,
+        "error": None,
+        "expectedCount": len(sentences),
+        "detectedCount": len(segments_out),
+        "segments": segments_out,
+        "confidence": 1.0,
+        "strategy": "kurdish_align"
+    }
+
 if __name__ == "__main__":
     if len(sys.argv) < 2:
-        print(json.dumps({"success": False, "error": "Usage: python whisperSegmenter.py <audio_file> [expected_count] [--mode=markers|silence]"}))
+        print(json.dumps({"success": False, "error": "Usage: python whisperSegmenter.py <audio_file> [expected_count] [--mode=markers|silence|kurdish_align] [--sentences-file=path]"}))
         sys.exit(1)
 
     audio_file = sys.argv[1]
     expected = None
     mode = "silence"
+    sentences = []
 
     for arg in sys.argv[2:]:
         if arg.startswith("--mode="):
             mode = arg.split("=")[1].strip().lower()
+        elif arg.startswith("--sentences-file="):
+            s_file = arg.split("=", 1)[1].strip()
+            if os.path.exists(s_file):
+                with open(s_file, "r", encoding="utf-8") as f:
+                    sentences = json.load(f)
         elif arg.isdigit():
             expected = int(arg)
 
-    if mode == "markers":
+    if mode == "kurdish_align":
+        result = segment_kurdish_alignment(audio_file, sentences, expected)
+    elif mode == "markers":
         result = segment_with_markers(audio_file, expected)
     else:
         result = segment_sentences(audio_file, expected)

@@ -30,16 +30,16 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
   const [isRefreshingIndex, setIsRefreshingIndex] = useState(false);
   const [mode, setMode] = useState<'sliced' | 'individual'>('sliced');
   const [chunkSize, setChunkSize] = useState<number>(6);
-  const [slicingStrategy, setSlicingStrategy] = useState<'markers' | 'silence'>(() => {
+  const [slicingStrategy, setSlicingStrategy] = useState<'kurdish_align' | 'markers' | 'silence'>(() => {
     try {
-      return (localStorage.getItem('paired_slicing_strategy') as any) || 'markers';
+      return (localStorage.getItem('paired_slicing_strategy') as any) || 'kurdish_align';
     } catch {
-      return 'markers';
+      return 'kurdish_align';
     }
   });
   const [randomizeVoices, setRandomizeVoices] = useState(true);
 
-  const handleSlicingStrategyChange = (st: 'markers' | 'silence') => {
+  const handleSlicingStrategyChange = (st: 'kurdish_align' | 'markers' | 'silence') => {
     setSlicingStrategy(st);
     try {
       localStorage.setItem('paired_slicing_strategy', st);

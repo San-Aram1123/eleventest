@@ -54,7 +54,7 @@ export function getLatestMasterAudio() {
  * Builds an optimized multi-sentence prompt for one emotion with Gemini 3.8 <long pause> separators.
  * Constructs structured parts with native speech_metadata.style.
  */
-export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, language = 'ckb', slicingStrategy = 'markers') {
+export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, language = 'ckb', slicingStrategy = 'kurdish_align') {
   const isBadini = language === 'kmr';
   const targetLang = language || (isBadini ? 'kmr' : 'ckb');
   const styleDirective = getEmotionSpeechStyle(emotion, intensity, targetLang);
@@ -83,7 +83,7 @@ export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, 
       return `${marker}: ${s.trim()}`;
     }).join('\n\n');
   } else {
-    // Acoustic silence format with <long pause>
+    // Kurdish word boundary alignment or acoustic silence format with <long pause>
     speechParts = sentences.map((s, idx) => {
       const trimmed = s.trim();
       const text = idx < sentences.length - 1 ? `${trimmed} <long pause>` : trimmed;
@@ -103,6 +103,8 @@ export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, 
   let instruction = getEmotionPromptDirective(emotion, intensity, targetLang);
   if (slicingStrategy === 'markers') {
     instruction += " Pronounce each English marker (Marker One, Marker Two, ...) clearly, crisply, and neutrally. Immediately after each marker, speak the Kurdish sentence in the requested emotional style without omitting any words.";
+  } else {
+    instruction += " Speak each Kurdish sentence naturally in the requested emotional style without omitting any words. Pause clearly between sentences.";
   }
 
   return {
@@ -129,7 +131,7 @@ export async function generateTransposedEmotionBatch({
   intensity = 0.8,
   model = 'gemini-3.8-flash-tts',
   apiKey = '',
-  slicingStrategy = 'markers'
+  slicingStrategy = 'kurdish_align'
 }) {
   const cleanSentences = (sentences || []).map(s => String(s || '').trim()).filter(Boolean);
   if (cleanSentences.length === 0) {
@@ -182,9 +184,9 @@ export async function generateTransposedEmotionBatch({
       createdAt: Date.now()
     });
 
-    // Step 1: Detect sentence segments using chosen strategy (markers or silence)
+    // Step 1: Detect sentence segments using chosen strategy (kurdish_align, markers, or silence)
     console.log(`[Transposed Batch] Segmenting audio with strategy "${slicingStrategy}" (expecting ${cleanSentences.length} sentences)...`);
-    const segResult = await detectWhisperSegments(tempMaster, cleanSentences.length, { slicingStrategy });
+    const segResult = await detectWhisperSegments(tempMaster, cleanSentences.length, { slicingStrategy, sentences: cleanSentences });
 
     const segConfidence = Number(segResult.confidence || 0.95);
     if (!segResult.success || segResult.hasOutlier || segConfidence < 0.70) {

@@ -275,8 +275,9 @@ async function detectViaSilence(audioPath, expectedCount) {
  * Fallback to Whisper Python segmenter if silence detection is inconclusive.
  */
 function detectViaWhisper(audioPath, expectedCount) {
+  const pythonBin = process.env.PYTHON || 'python3';
   return new Promise((resolve) => {
-    const proc = spawn('python', [SEGMENTER_SCRIPT, audioPath, String(expectedCount)]);
+    const proc = spawn(pythonBin, [SEGMENTER_SCRIPT, audioPath, String(expectedCount)]);
     let stdout = '', stderr = '';
 
     proc.stdout.on('data', d => { stdout += d.toString(); });
@@ -300,8 +301,9 @@ function detectViaWhisper(audioPath, expectedCount) {
  * Whisper word-timestamp alignment guarantees 100% precision even with laughter or erratic pauses.
  */
 export function detectMarkerSegments(audioPath, expectedCount) {
+  const pythonBin = process.env.PYTHON || 'python3';
   return new Promise((resolve) => {
-    const proc = spawn('python', [SEGMENTER_SCRIPT, audioPath, String(expectedCount), '--mode=markers']);
+    const proc = spawn(pythonBin, [SEGMENTER_SCRIPT, audioPath, String(expectedCount), '--mode=markers']);
     let stdout = '', stderr = '';
 
     proc.stdout.on('data', d => { stdout += d.toString(); });
@@ -321,11 +323,77 @@ export function detectMarkerSegments(audioPath, expectedCount) {
 }
 
 /**
+ * Detects sentence segments using Kurdish Word Boundary Alignment with Whisper word-timestamps.
+ * Completely eliminates English verbal markers and isolates speech from inter-sentence giggles/laughter.
+ */
+export function detectKurdishBoundarySegments(audioPath, sentences, expectedCount) {
+  const pythonBin = process.env.PYTHON || 'python3';
+  return new Promise((resolve) => {
+    const tmpSentencesFile = path.resolve(os.tmpdir(), `kurdish_sents_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`);
+    try {
+      fs.writeFileSync(tmpSentencesFile, JSON.stringify(sentences || []), 'utf8');
+    } catch (err) {
+      return resolve({ success: false, error: `Failed to write temporary sentences file: ${err.message}` });
+    }
+
+    const proc = spawn(pythonBin, [
+      SEGMENTER_SCRIPT,
+      audioPath,
+      String(expectedCount || (sentences ? sentences.length : 6)),
+      '--mode=kurdish_align',
+      `--sentences-file=${tmpSentencesFile}`
+    ]);
+
+    let stdout = '', stderr = '';
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+
+    proc.on('close', (code) => {
+      try {
+        if (fs.existsSync(tmpSentencesFile)) fs.unlinkSync(tmpSentencesFile);
+      } catch (_) {}
+
+      if (code !== 0) {
+        return resolve({ success: false, error: `Whisper Kurdish alignment exited with code ${code}: ${stderr}` });
+      }
+
+      try {
+        resolve(JSON.parse(stdout.trim()));
+      } catch (err) {
+        resolve({ success: false, error: `Failed to parse Whisper JSON output: ${stdout || stderr}` });
+      }
+    });
+
+    proc.on('error', (err) => {
+      try {
+        if (fs.existsSync(tmpSentencesFile)) fs.unlinkSync(tmpSentencesFile);
+      } catch (_) {}
+      resolve({ success: false, error: err.message });
+    });
+  });
+}
+
+/**
  * Main sentence segmentation function:
- * Supports 'markers' (spoken verbal markers) and 'silence' (inter-sentence pause detection).
+ * Supports 'kurdish_align' (Whisper word boundary alignment), 'markers' (spoken verbal markers), and 'silence' (inter-sentence pause detection).
  */
 export async function detectWhisperSegments(audioPath, expectedCount, options = {}) {
-  const strategy = options.slicingStrategy || 'markers';
+  const strategy = options.slicingStrategy || 'kurdish_align';
+
+  // Strategy 0: Kurdish Word Boundary Alignment (Recommended - zero markers, immune to laugh breaks)
+  if (strategy === 'kurdish_align' && Array.isArray(options.sentences) && options.sentences.length > 0) {
+    console.log(`[Marker Alignment] Running Kurdish word alignment (expecting ${expectedCount} sentences)...`);
+    const alignResult = await detectKurdishBoundarySegments(audioPath, options.sentences, expectedCount);
+    if (alignResult.success && alignResult.segments && alignResult.segments.length === expectedCount) {
+      return alignResult;
+    }
+    const err = alignResult.error || `Expected ${expectedCount} sentences, but only aligned ${alignResult.detectedCount || 0}`;
+    console.error(`[Marker Alignment] Kurdish word alignment failed: ${err}`);
+    return {
+      success: false,
+      error: `Kurdish word alignment failed: ${err}. Take aborted to prevent bad boundary cuts.`
+    };
+  }
 
   // Strategy 1: Spoken verbal markers (bulletproof alignment with Whisper)
   if (strategy === 'markers') {

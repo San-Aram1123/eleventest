@@ -16,7 +16,7 @@ interface BatchEngineParams {
   mode: 'sliced' | 'individual';
   model?: string;
   chunkSize?: number;
-  slicingStrategy?: 'markers' | 'silence';
+  slicingStrategy?: 'kurdish_align' | 'markers' | 'silence';
   randomizeVoices: boolean;
   onSampleCreated: (sample: Sample) => void;
   addToast: (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => void;
@@ -25,7 +25,7 @@ interface BatchEngineParams {
 export function usePairedBatchEngine(params: BatchEngineParams) {
   const {
     sentences, enabledEmotionsList, startIdx, speakerId, voiceName,
-    language, mode, model, chunkSize = 3, slicingStrategy = 'markers', randomizeVoices, onSampleCreated, addToast
+    language, mode, model, chunkSize = 3, slicingStrategy = 'kurdish_align', randomizeVoices, onSampleCreated, addToast
   } = params;
 
   const [batchState, setBatchState] = useState<PairedBatchState>({

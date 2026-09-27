@@ -34,14 +34,14 @@ async function runTests() {
   console.log('--- TEST 1: Kurdish Sorani Character Coverage ---');
   const kurdishAlphabetSnippet = 'ئ ێ ڕ ڵ ڤ ۆ ێ ی ک';
   const dummyWav = createWavHeader(100);
-  const testSample1 = saveSample({
+  const testSample1 = await saveSample({
     id: 'test_kurdish_chars',
     text: kurdishAlphabetSnippet,
     emotion: 'neutral',
     audioBuffer: dummyWav
   });
 
-  const retrieved1 = getSample('test_kurdish_chars');
+  const retrieved1 = await getSample('test_kurdish_chars');
   assert(retrieved1 !== null, 'Sample was saved and retrieved successfully');
   assert(retrieved1.text === kurdishAlphabetSnippet, `Kurdish characters match byte-for-byte: "${retrieved1.text}" === "${kurdishAlphabetSnippet}"`);
 
@@ -59,15 +59,15 @@ async function runTests() {
   for (let i = 0; i < testSentences.length; i++) {
     const text = testSentences[i];
     const testId = `test_sentence_${i + 1}`;
-    saveSample({
+    await saveSample({
       id: testId,
       text,
       emotion: 'happy',
       audioBuffer: dummyWav
     });
-    const retrieved = getSample(testId);
+    const retrieved = await getSample(testId);
     assert(retrieved.text === text, `Sentence ${i + 1} preserved exactly without corruption`);
-    deleteSample(testId);
+    await deleteSample(testId);
   }
 
   // ----------------------------------------------------
@@ -77,7 +77,7 @@ async function runTests() {
   const spokenText = 'ئەمە چییە؟ بۆچی هەمیشە ئەمە ڕوودەدات؟';
   const emotionTag = '[angry]';
 
-  const testSample3 = saveSample({
+  const testSample3 = await saveSample({
     id: 'test_emotion_separation',
     text: spokenText,
     emotion: 'angry',
@@ -85,7 +85,7 @@ async function runTests() {
     audioBuffer: dummyWav
   });
 
-  const retrieved3 = getSample('test_emotion_separation');
+  const retrieved3 = await getSample('test_emotion_separation');
   assert(!retrieved3.text.includes('[angry]'), 'Spoken transcript does NOT contain the emotion tag [angry]');
   assert(retrieved3.text === spokenText, 'Spoken transcript matches original clean Kurdish text');
   assert(retrieved3.emotion === 'angry', 'Emotion metadata correctly stored as "angry"');
@@ -111,8 +111,8 @@ async function runTests() {
   assert(decodedString.includes('ئ ێ ڕ ڵ ڤ ۆ ێ ی ک'), 'Raw file on disk is valid UTF-8 containing Kurdish characters');
 
   // Cleanup test artifacts
-  deleteSample('test_kurdish_chars');
-  deleteSample('test_emotion_separation');
+  await deleteSample('test_kurdish_chars');
+  await deleteSample('test_emotion_separation');
 
   console.log('\n====================================================');
   console.log(` 🎉 ALL ${passedTests}/${totalTests} TESTS PASSED SUCCESSFULLY!`);

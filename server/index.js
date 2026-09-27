@@ -1457,7 +1457,7 @@ app.post('/api/paired/generate-transposed-batch', async (req, res) => {
       intensity = 0.8,
       model = 'gemini-3.8-flash-tts',
       apiKey = '',
-      slicingStrategy = 'markers'
+      slicingStrategy = 'kurdish_align'
     } = req.body;
 
     if (!Array.isArray(sentences) || sentences.length === 0) {
