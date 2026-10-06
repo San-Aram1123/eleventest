@@ -7,7 +7,8 @@ import {
   REQUIRED_EMOTIONS,
   EMOTION_PROFILE_VERSION,
   EMOTION_STYLE_PROFILES,
-  evaluateQcConfidence
+  evaluateQcConfidence,
+  injectMidSentenceLaugh
 } from './pairedEmotionConfig.js';
 import { refineWavSlice } from './waveformBoundaryRefiner.js';
 import { isDbConnected, getAllDbSamples } from './db.js';
@@ -131,13 +132,18 @@ export async function generatePairedEmotionClip({
   finalIntensity = Math.max(0.0, Math.min(1.0, parseFloat(finalIntensity) || 0.0));
 
   const emoKey = String(clipEmotion || 'neutral').toLowerCase();
+  const isCackle = emoKey === 'cackle' || emoKey === 'laugh';
+  const promptText = isCackle ? injectMidSentenceLaugh(cleanSentence) : cleanSentence;
   const styleDirective = getEmotionSpeechStyle(emoKey, finalIntensity, targetLang);
-  const instruction = getEmotionPromptDirective(clipEmotion, finalIntensity, targetLang);
+  let instruction = getEmotionPromptDirective(clipEmotion, finalIntensity, targetLang);
+  if (isCackle) {
+    instruction += " When you encounter [laugh], laugh or chuckle naturally out loud mid-sentence without pronouncing the bracketed word, and continue speaking in a lively, amused cackling tone.";
+  }
 
   console.log(`[Paired Batch] Synthesizing clip "${clipId}.wav" (${clipEmotion}, lang=${targetLang}, intensity=${finalIntensity}) with voice "${voiceName}" using speech_metadata.style...`);
 
   const genResult = await generateGeminiSpeech({
-    text: cleanSentence,
+    text: promptText,
     speechStyle: styleDirective,
     voiceName,
     dialect: targetLang === 'kmr' ? 'badini' : 'sorani',
@@ -181,9 +187,9 @@ export async function generatePairedEmotionClip({
       emotion_intensity: finalIntensity,
       duration_seconds: finalDurationSeconds,
       language: targetLang,
-      rendered_tts_text: cleanSentence,
+      rendered_tts_text: promptText,
       speech_style: EMOTION_STYLE_PROFILES[clipEmotion]?.style || clipEmotion,
-      vocal_events: [],
+      vocal_events: isCackle ? ['[laugh]'] : [],
       segmentation_strategy: 'individual_1to1',
       segmentation_confidence: 1.0,
       boundary_metrics: bMetrics,

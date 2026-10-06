@@ -175,6 +175,7 @@ export interface DatasetExportFilters {
   gender?: 'all' | 'male' | 'female' | string;
   voice?: string;
   dialect?: 'all' | 'sorani' | 'badini' | string;
+  language?: string;
   emotion?: string;
   method?: string;
   ids?: string[] | string;

@@ -46,6 +46,13 @@ export function isDbConnected() {
 }
 
 /**
+ * Returns active database connection pool.
+ */
+export function getDbPool() {
+  return pool;
+}
+
+/**
  * Returns current database connection and health status.
  */
 export function getDbStatus() {
@@ -148,6 +155,12 @@ export async function initDatabase() {
     } catch (e) {}
     try {
       await pool.query("ALTER TABLE samples ADD COLUMN language VARCHAR(32) DEFAULT 'ckb'");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN gender VARCHAR(16) DEFAULT NULL");
+    } catch (e) {}
+    try {
+      await pool.query("ALTER TABLE samples ADD COLUMN voice_gender VARCHAR(16) DEFAULT NULL");
     } catch (e) {}
     try {
       await pool.query("ALTER TABLE samples ADD INDEX idx_family_id (family_id)");
@@ -343,7 +356,7 @@ export function parseDbRowToSample(r) {
   if (typeof parsedExtra === 'string') {
     try { parsedExtra = JSON.parse(parsedExtra); } catch (e) {}
   }
-  const resolvedGender = r.voice_gender || parsedExtra?.voice_gender || parsedExtra?.gender || undefined;
+  const resolvedGender = r.gender || r.voice_gender || parsedExtra?.gender || parsedExtra?.voice_gender || undefined;
   const wavPath = path.join(DATASET_ROOT, r.wav_filename || `${r.id}.wav`);
   return {
     id: r.id,
@@ -356,6 +369,7 @@ export function parseDbRowToSample(r) {
     emotion_tag: parsedTags,
     voice_id: r.voice_id,
     voice_name: r.voice_name,
+    gender: resolvedGender,
     voice_gender: resolvedGender,
     metadata_extra: parsedExtra,
     customMetadata: parsedExtra,
@@ -429,6 +443,9 @@ export async function saveDbSample(meta) {
   if ((meta.voice_gender || meta.gender) && !extraObj.voice_gender) {
     extraObj.voice_gender = meta.voice_gender || meta.gender;
   }
+  const resolvedGender = meta.gender || meta.voice_gender || extraObj.gender || extraObj.voice_gender || null;
+  if (resolvedGender && !extraObj.gender) extraObj.gender = resolvedGender;
+  if (resolvedGender && !extraObj.voice_gender) extraObj.voice_gender = resolvedGender;
   if (meta.family_id && !extraObj.family_id) extraObj.family_id = meta.family_id;
   if (meta.emotion_intensity !== undefined && extraObj.emotion_intensity === undefined) extraObj.emotion_intensity = meta.emotion_intensity;
   if (meta.speaker_name && !extraObj.speaker_name) extraObj.speaker_name = meta.speaker_name;
@@ -440,8 +457,8 @@ export async function saveDbSample(meta) {
       id, text, dialect, emotion, emotion_tag, voice_id, voice_name, model_id, method,
       rating, rating_clarity, rating_naturalness, rating_emotion, rating_dialect, rating_notes,
       wav_filename, audio_size, duration_seconds, created_at, metadata_extra,
-      family_id, emotion_intensity, speaker_name, language
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      family_id, emotion_intensity, speaker_name, language, gender, voice_gender
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     ON DUPLICATE KEY UPDATE
       text = VALUES(text),
       dialect = VALUES(dialect),
@@ -463,7 +480,9 @@ export async function saveDbSample(meta) {
       family_id = VALUES(family_id),
       emotion_intensity = VALUES(emotion_intensity),
       speaker_name = VALUES(speaker_name),
-      language = VALUES(language);`,
+      language = VALUES(language),
+      gender = VALUES(gender),
+      voice_gender = VALUES(voice_gender);`,
     [
       String(meta.id),
       meta.text,
@@ -488,7 +507,9 @@ export async function saveDbSample(meta) {
       meta.family_id || null,
       meta.emotion_intensity !== undefined && meta.emotion_intensity !== null ? meta.emotion_intensity : 0.0,
       meta.speaker_name || null,
-      meta.language || 'ckb'
+      meta.language || 'ckb',
+      resolvedGender,
+      resolvedGender
     ]
   );
 

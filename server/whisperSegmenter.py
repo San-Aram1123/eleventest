@@ -1,8 +1,16 @@
 import sys
 import os
+import io
 import json
 import re
 import difflib
+
+if sys.stdout.encoding and sys.stdout.encoding.lower() != 'utf-8':
+    try:
+        sys.stdout.reconfigure(encoding='utf-8')
+    except AttributeError:
+        sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
+
 from faster_whisper import WhisperModel
 
 def group_chunks_into_sentences(raw_chunks, expected_count):
@@ -264,10 +272,17 @@ def segment_kurdish_alignment(audio_path, sentences, expected_count=None):
     # Use small model with int8 quantization on CPU for robust word alignment
     model = WhisperModel("small", device="cpu", compute_type="int8")
 
+    # Whisper lacks native Kurdish language codes (ckb/kmr).
+    # Forcing Perso-Arabic language token ('fa') constrains Whisper decoder to Arabic/Kurdish script
+    # and prevents Whisper from misclassifying Kurdish audio as Armenian ('hy') or random alphabets.
+    has_arabic_script = any(re.search(r'[\u0600-\u06FF\u0750-\u077F\uFB50-\uFDFF\uFE70-\uFEFF]', s) for s in sentences)
+    whisper_lang = "fa" if has_arabic_script else None
+
     # Kurdish prompt biasing ensures vocabulary and orthography are prioritized
     prompt_context = " ".join(sentences)[:600]
     segments, info = model.transcribe(
         audio_path,
+        language=whisper_lang,
         word_timestamps=True,
         initial_prompt=prompt_context,
         vad_filter=False

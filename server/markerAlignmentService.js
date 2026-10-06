@@ -1,4 +1,4 @@
-import { spawn } from 'child_process';
+import { spawn, spawnSync } from 'child_process';
 import fs from 'fs';
 import path from 'path';
 import os from 'os';
@@ -8,6 +8,35 @@ import { refineWavSlice } from './waveformBoundaryRefiner.js';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SEGMENTER_SCRIPT = path.resolve(__dirname, 'whisperSegmenter.py');
+
+let cachedPythonBin = null;
+
+/**
+ * Resolves the working Python executable.
+ * Prioritizes process.env.PYTHON, then checks candidates ('python', 'py', 'python3')
+ * to verify which binary has faster_whisper installed.
+ */
+function getPythonBin() {
+  if (process.env.PYTHON) return process.env.PYTHON;
+  if (cachedPythonBin) return cachedPythonBin;
+
+  const candidates = process.platform === 'win32'
+    ? ['python', 'py', 'python3']
+    : ['python3', 'python'];
+
+  for (const bin of candidates) {
+    try {
+      const res = spawnSync(bin, ['-c', 'import faster_whisper'], { stdio: 'ignore' });
+      if (res && res.status === 0) {
+        cachedPythonBin = bin;
+        return bin;
+      }
+    } catch (_) { }
+  }
+
+  cachedPythonBin = process.platform === 'win32' ? 'python' : 'python3';
+  return cachedPythonBin;
+}
 
 /**
  * Probes total duration of audio file using ffprobe.
@@ -162,11 +191,11 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
 
       for (let i = 0; i < segments.length; i++) {
         const d = segments[i].duration;
-        // Check for suspicious repeated / merged sentences (e.g., segment > 2.2x median and > 10s)
-        if (d > Math.max(10.0, medianDur * 2.2)) {
+        // Check for suspicious repeated / merged sentences (accommodate emotional delivery and long sentences)
+        if (d > Math.max(28.0, medianDur * 3.5)) {
           suspiciousExtraSpeech = true;
           outlierDetails.push(`Clip ${i + 1} suspicious extra/repeated speech (${d}s vs median ${medianDur.toFixed(2)}s)`);
-        } else if (d > Math.max(8.0, medianDur * 2.0) || (medianDur >= 2.0 && d < Math.min(0.8, medianDur * 0.35))) {
+        } else if (d > Math.max(22.0, medianDur * 3.0) || (medianDur >= 3.0 && d < Math.min(0.6, medianDur * 0.25))) {
           hasOutlier = true;
           outlierDetails.push(`Clip ${i + 1} duration outlier: ${d}s vs median ${medianDur.toFixed(2)}s`);
         }
@@ -187,7 +216,7 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
 
       // Comprehensive multi-factor segmentation confidence (0.0 to 1.0)
       let confidence = 0.40; // Base: expected interior pause count (N-1) verified
-      
+
       const avgBoundaryDur = topSilences.reduce((acc, s) => acc + s.duration, 0) / topSilences.length;
       if (avgBoundaryDur >= 0.70) confidence += 0.20;
       else if (avgBoundaryDur >= 0.40) confidence += 0.10;
@@ -275,7 +304,7 @@ async function detectViaSilence(audioPath, expectedCount) {
  * Fallback to Whisper Python segmenter if silence detection is inconclusive.
  */
 function detectViaWhisper(audioPath, expectedCount) {
-  const pythonBin = process.env.PYTHON || 'python3';
+  const pythonBin = getPythonBin();
   return new Promise((resolve) => {
     const proc = spawn(pythonBin, [SEGMENTER_SCRIPT, audioPath, String(expectedCount)]);
     let stdout = '', stderr = '';
@@ -301,7 +330,7 @@ function detectViaWhisper(audioPath, expectedCount) {
  * Whisper word-timestamp alignment guarantees 100% precision even with laughter or erratic pauses.
  */
 export function detectMarkerSegments(audioPath, expectedCount) {
-  const pythonBin = process.env.PYTHON || 'python3';
+  const pythonBin = getPythonBin();
   return new Promise((resolve) => {
     const proc = spawn(pythonBin, [SEGMENTER_SCRIPT, audioPath, String(expectedCount), '--mode=markers']);
     let stdout = '', stderr = '';
@@ -327,7 +356,7 @@ export function detectMarkerSegments(audioPath, expectedCount) {
  * Completely eliminates English verbal markers and isolates speech from inter-sentence giggles/laughter.
  */
 export function detectKurdishBoundarySegments(audioPath, sentences, expectedCount) {
-  const pythonBin = process.env.PYTHON || 'python3';
+  const pythonBin = getPythonBin();
   return new Promise((resolve) => {
     const tmpSentencesFile = path.resolve(os.tmpdir(), `kurdish_sents_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`);
     try {
@@ -351,7 +380,7 @@ export function detectKurdishBoundarySegments(audioPath, sentences, expectedCoun
     proc.on('close', (code) => {
       try {
         if (fs.existsSync(tmpSentencesFile)) fs.unlinkSync(tmpSentencesFile);
-      } catch (_) {}
+      } catch (_) { }
 
       if (code !== 0) {
         return resolve({ success: false, error: `Whisper Kurdish alignment exited with code ${code}: ${stderr}` });
@@ -367,7 +396,7 @@ export function detectKurdishBoundarySegments(audioPath, sentences, expectedCoun
     proc.on('error', (err) => {
       try {
         if (fs.existsSync(tmpSentencesFile)) fs.unlinkSync(tmpSentencesFile);
-      } catch (_) {}
+      } catch (_) { }
       resolve({ success: false, error: err.message });
     });
   });
@@ -378,7 +407,7 @@ export function detectKurdishBoundarySegments(audioPath, sentences, expectedCoun
  * Supports 'kurdish_align' (Whisper word boundary alignment), 'markers' (spoken verbal markers), and 'silence' (inter-sentence pause detection).
  */
 export async function detectWhisperSegments(audioPath, expectedCount, options = {}) {
-  const strategy = options.slicingStrategy || 'kurdish_align';
+  const strategy = options.slicingStrategy || 'silence';
 
   // Strategy 0: Kurdish Word Boundary Alignment (Recommended - zero markers, immune to laugh breaks)
   if (strategy === 'kurdish_align' && Array.isArray(options.sentences) && options.sentences.length > 0) {
@@ -472,7 +501,7 @@ export async function sliceAudioBySegments(masterWavPath, segments, options = {}
       }
     } finally {
       if (fs.existsSync(outTmp)) {
-        try { fs.unlinkSync(outTmp); } catch (_) {}
+        try { fs.unlinkSync(outTmp); } catch (_) { }
       }
     }
   }

@@ -6,13 +6,14 @@
 export const REQUIRED_EMOTIONS = [
   { id: 'neutral', name: 'Neutral', kurdish: 'ئاسایی', defaultIntensity: 0.0, description: 'Natural, steady, conversational tone' },
   { id: 'happy', name: 'Happy', kurdish: 'دڵخۆش', defaultIntensity: 0.8, description: 'Warm, cheerful, upbeat intonation' },
-  { id: 'laugh', name: 'Laugh', kurdish: 'پێکەنین', defaultIntensity: 0.8, description: 'Playful, smiling, chuckle-infused tone' },
+  { id: 'cackle', name: 'Cackle', kurdish: 'قاقا / پێکەنین', defaultIntensity: 0.8, description: 'Playful, smiling, amused cackle-infused delivery' },
   { id: 'sad', name: 'Sad', kurdish: 'خەمبار', defaultIntensity: 0.8, description: 'Subdued, sorrowful, melancholic tone' },
   { id: 'angry', name: 'Angry', kurdish: 'تووڕە', defaultIntensity: 0.9, description: 'Sharp, forceful, agitated expression' },
   { id: 'whisper', name: 'Whisper', kurdish: 'چرپە', defaultIntensity: 0.7, description: 'Soft, quiet, breathy confidential whisper' }
 ];
 
 export const OPTIONAL_EMOTIONS = [
+  { id: 'laugh', name: 'Laugh', kurdish: 'پێکەنین', defaultIntensity: 0.8, description: 'Chuckling or smiling laughter' },
   { id: 'excited', name: 'Excited', kurdish: 'حەماسی', defaultIntensity: 0.8, description: 'High energy, enthusiastic expression' },
   { id: 'sigh', name: 'Sigh', kurdish: 'ئاخ / ئاهـ', defaultIntensity: 0.7, description: 'Weary, relieved or heavy breathy sigh' },
   { id: 'tender', name: 'Tender', kurdish: 'نەرم و میهرەبان', defaultIntensity: 0.7, description: 'Gentle, affectionate, soothing tone' },
@@ -98,6 +99,10 @@ export const EMOTION_STYLE_PROFILES = {
   happy: {
     name: 'Happy',
     style: 'Genuinely happy, warm, upbeat and smiling delivery. Bright natural intonation with increased positive energy and expressive pitch movement. Conversational and believable rather than cartoonish or exaggerated.'
+  },
+  cackle: {
+    name: 'Cackle',
+    style: 'Playful, smiling, amused cackle-infused delivery with cheerful energy while speaking each sentence. During pauses between sentences, remain completely quiet so each sentence is clearly articulated and distinctly separated.'
   },
   laugh: {
     name: 'Laugh',
@@ -254,7 +259,7 @@ export function evaluateQcConfidence(confidence, boundaryMetrics = null) {
  */
 export function getEmotionPromptDirective(emotion, intensity = 0.8, languageOrDialect = 'ckb') {
   const langKey = String(languageOrDialect || 'ckb').toLowerCase();
-  
+
   let languageDirective = '';
   let langLabel = 'Kurdish Sorani';
 
@@ -304,4 +309,42 @@ export function getEmotionSpeechStyle(emotion, intensity = 0.8, languageOrDialec
   }
 
   return `${profile.style} Dialect: ${langHint} (Intensity: ${numIntensity}).`;
+}
+
+/**
+ * Automatically injects a natural [laugh] vocal cue in the middle of a sentence
+ * if one does not already exist, allowing Gemini to chuckle/laugh mid-sentence while cackling.
+ */
+export function injectMidSentenceLaugh(sentence) {
+  if (!sentence) return '';
+  const s = String(sentence).trim();
+  if (/\[(?:laugh|chuckle|giggle|cackle)\]/i.test(s)) {
+    return s;
+  }
+
+  // Look for a natural punctuation break (، or , or ؛ or ;) in the middle 25%-75% of the sentence
+  const midStart = Math.floor(s.length * 0.25);
+  const midEnd = Math.ceil(s.length * 0.75);
+  const sub = s.slice(midStart, midEnd);
+
+  const punctMatch = sub.search(/[،,؛;\-]/);
+  if (punctMatch !== -1) {
+    const cutPos = midStart + punctMatch + 1;
+    return `${s.slice(0, cutPos)} [laugh] ${s.slice(cutPos).trim()}`.replace(/\s+/g, ' ');
+  }
+
+  // Fallback: split by words and insert after the middle word
+  const words = s.split(/\s+/).filter(Boolean);
+  if (words.length >= 4) {
+    const midIdx = Math.floor(words.length / 2);
+    const firstHalf = words.slice(0, midIdx).join(' ');
+    const secondHalf = words.slice(midIdx).join(' ');
+    return `${firstHalf}، [laugh] ${secondHalf}`.replace(/\s+/g, ' ');
+  }
+
+  if (words.length >= 2) {
+    return `${words[0]}، [laugh] ${words.slice(1).join(' ')}`.replace(/\s+/g, ' ');
+  }
+
+  return `${s} [laugh]`;
 }

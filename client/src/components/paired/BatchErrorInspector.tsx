@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { AlertTriangle, AlertCircle, Copy, Check, ChevronDown, ChevronUp, RefreshCw, XCircle } from 'lucide-react';
+import { AlertTriangle, AlertCircle, Copy, Check, ChevronDown, ChevronUp, RefreshCw, XCircle, RotateCcw } from 'lucide-react';
 
 export interface BatchErrorItem {
   timestamp: string;
@@ -12,12 +12,14 @@ interface BatchErrorInspectorProps {
   stopReason: string | null;
   errors: BatchErrorItem[];
   onClearErrors: () => void;
+  onRetryFailed?: () => void;
 }
 
 export const BatchErrorInspector: React.FC<BatchErrorInspectorProps> = ({
   stopReason,
   errors,
-  onClearErrors
+  onClearErrors,
+  onRetryFailed
 }) => {
   const [copied, setCopied] = useState(false);
   const [isExpanded, setIsExpanded] = useState(true);
@@ -59,7 +61,27 @@ export const BatchErrorInspector: React.FC<BatchErrorInspectorProps> = ({
           </h4>
         </div>
 
-        <div style={{ display: 'flex', gap: '0.5rem' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+          {errors.length > 0 && onRetryFailed && (
+            <button
+              type="button"
+              className="btn btn-sm"
+              onClick={onRetryFailed}
+              style={{
+                fontSize: '0.75rem',
+                padding: '0.25rem 0.6rem',
+                background: 'rgba(239, 68, 68, 0.25)',
+                color: '#fca5a5',
+                border: '1px solid rgba(239, 68, 68, 0.5)',
+                fontWeight: 600,
+                display: 'inline-flex',
+                alignItems: 'center',
+                gap: '4px'
+              }}
+            >
+              <RotateCcw size={12} /> Retry Failed ({errors.length})
+            </button>
+          )}
           <button
             type="button"
             className="btn btn-sm btn-secondary"

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, Play, Pause, Square } from 'lucide-react';
+import { Sparkles, Play, Pause, Square, RotateCcw } from 'lucide-react';
 
 interface BatchBottomActionBarProps {
   sentenceCount: number;
@@ -8,8 +8,13 @@ interface BatchBottomActionBarProps {
   mode: 'sliced' | 'individual';
   chunkSize?: number;
   randomizeVoices: boolean;
+  completedClips?: number;
   isActive: boolean;
   isPaused: boolean;
+  canResume?: boolean;
+  failedCount?: number;
+  onResume?: () => void;
+  onRetryFailed?: () => void;
   onTogglePause: () => void;
   onStop: () => void;
   onStart: () => void;
@@ -22,8 +27,13 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
   mode,
   chunkSize = 6,
   randomizeVoices,
+  completedClips = 0,
   isActive,
   isPaused,
+  canResume = false,
+  failedCount = 0,
+  onResume,
+  onRetryFailed,
   onTogglePause,
   onStop,
   onStart
@@ -63,7 +73,7 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
         )}
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem' }}>
+      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'center' }}>
         {isActive ? (
           <>
             <button type="button" className="btn btn-secondary" onClick={onTogglePause}>
@@ -75,22 +85,60 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
             </button>
           </>
         ) : (
-          <button
-            type="button"
-            className="btn btn-primary"
-            onClick={onStart}
-            disabled={totalClips === 0 || isActive}
-            style={{
-              background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
-              padding: '0.65rem 1.4rem',
-              fontSize: '0.95rem',
-              fontWeight: 700,
-              opacity: isActive ? 0.6 : 1,
-              cursor: isActive ? 'not-allowed' : 'pointer'
-            }}
-          >
-            <Sparkles size={18} /> Start Paired Batch ({totalClips} Clips)
-          </button>
+          <>
+            {canResume && onResume && (
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={onResume}
+                style={{
+                  background: 'linear-gradient(135deg, #0284c7 0%, #2563eb 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <Play size={16} /> Resume Batch ({completedClips}/{totalClips})
+              </button>
+            )}
+            {failedCount > 0 && onRetryFailed && (
+              <button
+                type="button"
+                className="btn btn-ghost"
+                onClick={onRetryFailed}
+                style={{
+                  color: '#f87171',
+                  borderColor: 'rgba(239, 68, 68, 0.4)',
+                  background: 'rgba(239, 68, 68, 0.1)',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '6px'
+                }}
+              >
+                <RotateCcw size={16} /> Retry Failed ({failedCount})
+              </button>
+            )}
+            <button
+              type="button"
+              className="btn btn-primary"
+              onClick={onStart}
+              disabled={totalClips === 0 || isActive}
+              style={{
+                background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)',
+                padding: '0.65rem 1.4rem',
+                fontSize: '0.95rem',
+                fontWeight: 700,
+                opacity: isActive ? 0.6 : 1,
+                cursor: isActive ? 'not-allowed' : 'pointer'
+              }}
+            >
+              <Sparkles size={18} /> {completedClips > 0 ? 'Start Fresh Batch' : `Start Paired Batch (${totalClips} Clips)`}
+            </button>
+          </>
         )}
       </div>
     </div>

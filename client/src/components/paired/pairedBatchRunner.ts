@@ -173,7 +173,7 @@ export async function runTransposedBatchApi(params: RunTransposedParams): Promis
         startIdx: params.startIdx,
         emotion: params.emotion,
         intensity: params.intensity,
-        slicingStrategy: params.slicingStrategy || 'kurdish_align',
+        slicingStrategy: params.slicingStrategy || 'silence',
         ...(params.model ? { model: params.model } : {})
       }),
       signal

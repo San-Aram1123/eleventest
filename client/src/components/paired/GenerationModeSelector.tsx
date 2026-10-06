@@ -18,7 +18,7 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
   onChange,
   chunkSize = 3,
   onChunkSizeChange,
-  slicingStrategy = 'kurdish_align',
+  slicingStrategy = 'silence',
   onSlicingStrategyChange,
   sentenceCount,
   emotionCount,
@@ -85,6 +85,24 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
                   <button
                     type="button"
                     disabled={disabled}
+                    onClick={() => onSlicingStrategyChange?.('silence')}
+                    className={`btn btn-sm ${slicingStrategy === 'silence' ? 'btn-primary' : 'btn-secondary'}`}
+                    style={{
+                      fontSize: '0.72rem',
+                      padding: '2px 8px',
+                      borderRadius: '5px',
+                      background: slicingStrategy === 'silence' ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' : 'rgba(255,255,255,0.06)',
+                      color: slicingStrategy === 'silence' ? '#fff' : '#94a3b8',
+                      border: slicingStrategy === 'silence' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)',
+                      fontWeight: slicingStrategy === 'silence' ? 700 : 500
+                    }}
+                    title="Acoustic Silence: Uses <long pause> pauses between sentences without speaking any marker words."
+                  >
+                    🌿 Acoustic Pauses (Recommended)
+                  </button>
+                  <button
+                    type="button"
+                    disabled={disabled}
                     onClick={() => onSlicingStrategyChange?.('kurdish_align')}
                     className={`btn btn-sm ${slicingStrategy === 'kurdish_align' ? 'btn-primary' : 'btn-secondary'}`}
                     style={{
@@ -96,9 +114,9 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
                       border: slicingStrategy === 'kurdish_align' ? '1px solid #34d399' : '1px solid rgba(255,255,255,0.1)',
                       fontWeight: slicingStrategy === 'kurdish_align' ? 700 : 500
                     }}
-                    title="Kurdish Word Alignment: Whisper maps known Kurdish words to exact timestamps. 100% pure Kurdish with 0 marker words, and immune to laughter in pauses."
+                    title="Kurdish Word Alignment: Whisper maps known Kurdish words to exact timestamps. 100% pure Kurdish with 0 marker words."
                   >
-                    🎯 Kurdish Alignment (Best)
+                    🎯 Kurdish Alignment
                   </button>
                   <button
                     type="button"
@@ -116,23 +134,6 @@ export const GenerationModeSelector: React.FC<GenerationModeSelectorProps> = ({
                     title="Spoken Markers: Gemini speaks English markers (Marker One, Marker Two...). High precision but introduces English markers into audio."
                   >
                     🏷️ Markers
-                  </button>
-                  <button
-                    type="button"
-                    disabled={disabled}
-                    onClick={() => onSlicingStrategyChange?.('silence')}
-                    className={`btn btn-sm ${slicingStrategy === 'silence' ? 'btn-primary' : 'btn-secondary'}`}
-                    style={{
-                      fontSize: '0.72rem',
-                      padding: '2px 8px',
-                      borderRadius: '5px',
-                      background: slicingStrategy === 'silence' ? 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' : 'rgba(255,255,255,0.06)',
-                      color: slicingStrategy === 'silence' ? '#fff' : '#94a3b8',
-                      border: slicingStrategy === 'silence' ? '1px solid #c084fc' : '1px solid rgba(255,255,255,0.1)'
-                    }}
-                    title="Acoustic Silence: Uses <long pause> pauses between sentences without speaking any marker words."
-                  >
-                    🌿 Acoustic Pauses
                   </button>
                 </div>
               </div>

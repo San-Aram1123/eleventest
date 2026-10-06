@@ -3,13 +3,14 @@ import { EmotionItem, SpeakerPreset } from './types';
 export const REQUIRED_EMOTIONS: EmotionItem[] = [
   { id: 'neutral', name: 'Neutral', kurdish: 'ئاسایی', defaultIntensity: 0.0, description: 'Natural, steady tone' },
   { id: 'happy', name: 'Happy', kurdish: 'دڵخۆش', defaultIntensity: 0.8, description: 'Warm and cheerful' },
-  { id: 'laugh', name: 'Laugh', kurdish: 'پێکەنین', defaultIntensity: 0.8, description: 'Smiling and amused' },
+  { id: 'cackle', name: 'Cackle', kurdish: 'قاقا / پێکەنین', defaultIntensity: 0.8, description: 'Playful, smiling and amused' },
   { id: 'sad', name: 'Sad', kurdish: 'خەمبار', defaultIntensity: 0.8, description: 'Subdued and sorrowful' },
   { id: 'angry', name: 'Angry', kurdish: 'تووڕە', defaultIntensity: 0.9, description: 'Forceful and irritated' },
   { id: 'whisper', name: 'Whisper', kurdish: 'چرپە', defaultIntensity: 0.7, description: 'Soft and quiet' }
 ];
 
 export const OPTIONAL_EMOTIONS: EmotionItem[] = [
+  { id: 'laugh', name: 'Laugh', kurdish: 'پێکەنین', defaultIntensity: 0.8, description: 'Chuckling or smiling laughter' },
   { id: 'excited', name: 'Excited', kurdish: 'حەماسی', defaultIntensity: 0.8, description: 'High energy and enthusiasm' },
   { id: 'sigh', name: 'Sigh', kurdish: 'ئاخ / ئاهـ', defaultIntensity: 0.7, description: 'Weary or relieved breath' },
   { id: 'tender', name: 'Tender', kurdish: 'نەرم و میهرەبان', defaultIntensity: 0.7, description: 'Gentle and affectionate' },

@@ -19,15 +19,20 @@ export const EMOTION_CANONICAL_MAP = {
   'بە چرپە': 'whisper',
   'بەچرپە': 'whisper',
 
-  // Laugh / Giggle
+  // Cackle / Laugh / Giggle
+  'cackle': 'cackle',
+  'cackling': 'cackle',
+  'قاقا': 'cackle',
+  'بە قاقا': 'cackle',
+  'بەقاقا': 'cackle',
   'laugh': 'laugh',
   'laughing': 'laugh',
   'laughter': 'laugh',
   'giggle': 'laugh',
   'chuckle': 'laugh',
-  'پێکەنین': 'laugh',
-  'بە پێکەنین': 'laugh',
-  'بەپێکەنین': 'laugh',
+  'پێکەنین': 'cackle',
+  'بە پێکەنین': 'cackle',
+  'بەپێکەنین': 'cackle',
 
   // Happy / Joy
   'happy': 'happy',

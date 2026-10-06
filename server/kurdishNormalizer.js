@@ -8,6 +8,7 @@
 export const ZWNJ = '\u200c';
 
 export const PARALINGUISTIC_TAGS = new Set([
+  '[cackle]',
   '[laugh]',
   '[sigh]',
   '[whisper]',

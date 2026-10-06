@@ -372,8 +372,8 @@ app.post('/api/generate', async (req, res) => {
     });
 
     // Formulate final emotion string
-    const finalEmotion = uniqueTags.length > 0 
-      ? uniqueTags.map(t => t.replace(/[\[\]]/g, '')).join(', ') 
+    const finalEmotion = uniqueTags.length > 0
+      ? uniqueTags.map(t => t.replace(/[\[\]]/g, '')).join(', ')
       : (Array.isArray(emotions) && emotions.length > 0 ? emotions.join(', ') : emotion);
 
     // Save sample to dataset and MySQL with clean Kurdish Unicode text
@@ -770,7 +770,7 @@ app.post('/api/gemini/generate', async (req, res) => {
       inFlightGeminiGenerations.set(inFlightKey, generationPromise);
       // Clean up when settled without generating unhandled promise rejections
       generationPromise
-        .catch(() => {})
+        .catch(() => { })
         .finally(() => {
           inFlightGeminiGenerations.delete(inFlightKey);
         });
@@ -928,7 +928,7 @@ app.post('/api/gemini/generate-long-split', async (req, res) => {
     res.status(500).json({ error: err.message || 'Failed to generate and split long audio' });
   } finally {
     if (tempMaster && fs.existsSync(tempMaster)) {
-      try { fs.unlinkSync(tempMaster); } catch (_) {}
+      try { fs.unlinkSync(tempMaster); } catch (_) { }
     }
   }
 });
@@ -1138,7 +1138,7 @@ app.get('/api/dataset/:id/audio', (req, res) => {
 
     let contentType = 'audio/wav';
     if ((buffer.length >= 3 && buffer.toString('ascii', 0, 3) === 'ID3') ||
-        (buffer.length >= 2 && buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0)) {
+      (buffer.length >= 2 && buffer[0] === 0xFF && (buffer[1] & 0xE0) === 0xE0)) {
       contentType = 'audio/mpeg';
     }
 
@@ -1457,7 +1457,7 @@ app.post('/api/paired/generate-transposed-batch', async (req, res) => {
       intensity = 0.8,
       model = 'gemini-3.8-flash-tts',
       apiKey = '',
-      slicingStrategy = 'kurdish_align'
+      slicingStrategy = 'silence'
     } = req.body;
 
     if (!Array.isArray(sentences) || sentences.length === 0) {
@@ -1466,7 +1466,7 @@ app.post('/api/paired/generate-transposed-batch', async (req, res) => {
 
     // Mutex: serialize batch generation calls so concurrent requests/tabs don't race against key pool
     const result = await new Promise((resolve, reject) => {
-      activeBatchMutex = activeBatchMutex.catch(() => {}).then(async () => {
+      activeBatchMutex = activeBatchMutex.catch(() => { }).then(async () => {
         try {
           const resBatch = await generateTransposedEmotionBatch({
             speakerId,
@@ -1642,7 +1642,7 @@ async function startServer() {
   app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n🚀 Kurdish TTS Dataset Server is running!`);
     console.log(`   ➜  Local:   http://localhost:${PORT}`);
-    
+
     // Find and display network IP addresses for Wi-Fi / LAN
     const interfaces = os.networkInterfaces();
     for (const name of Object.keys(interfaces)) {
@@ -1652,7 +1652,7 @@ async function startServer() {
         }
       }
     }
-    
+
     console.log(`   📁 Dataset folder: ${ensureDatasetDir()}`);
     const db = getDbStatus();
     if (db.connected) {

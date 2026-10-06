@@ -38,7 +38,7 @@ export const PairedExportModal: React.FC<PairedExportModalProps> = ({
   if (!isOpen) return null;
 
   const previewLines = csvPreview.split('\n').filter(Boolean);
-  const header = previewLines[0] || 'audio_file|text|speaker_name|language|emotion|emotion_intensity|family_id';
+  const header = previewLines[0] || 'audio_file|text|speaker_name|gender|language|emotion|emotion_intensity|family_id';
   const rows = previewLines.slice(1, 6);
 
   const handleCopy = () => {
@@ -63,7 +63,7 @@ export const PairedExportModal: React.FC<PairedExportModalProps> = ({
             </div>
             <div>
               <h2 className="modal-title">Export Paired Emotion Dataset</h2>
-              <p className="modal-subtitle">Format: audio_file|text|speaker_name|language|emotion|emotion_intensity|family_id</p>
+              <p className="modal-subtitle">Format: audio_file|text|speaker_name|gender|language|emotion|emotion_intensity|family_id</p>
             </div>
           </div>
           <button className="btn-close-modal" onClick={onClose}>
@@ -79,7 +79,7 @@ export const PairedExportModal: React.FC<PairedExportModalProps> = ({
               Standard Pipe-Separated Schema
             </div>
             <code style={{ fontSize: '0.85rem', color: '#f8fafc', wordBreak: 'break-all' }}>
-              audio_file|text|speaker_name|language|emotion|emotion_intensity|family_id
+              audio_file|text|speaker_name|gender|language|emotion|emotion_intensity|family_id
             </code>
           </div>
 

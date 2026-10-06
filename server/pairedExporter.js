@@ -55,11 +55,14 @@ export async function buildPairedRecords(customSamples = null, options = {}) {
     const audioFilename = `${s.id}.wav`;
     const sourceWavPath = path.join(DATASET_ROOT, audioFilename);
 
+    const gender = s.gender || s.voice_gender || s.customMetadata?.gender || s.customMetadata?.voice_gender || 'male';
+
     const record = {
       sampleId: s.id,
       audioFile: audioFilename,
       text: cleanText,
       speakerName: speaker,
+      gender,
       language: lang,
       emotion: emo,
       emotionIntensity: numIntensity,
@@ -122,11 +125,11 @@ export async function buildPairedRecords(customSamples = null, options = {}) {
  */
 export async function generatePairedMetadataCsv(customSamples = null, options = {}) {
   const records = await buildPairedRecords(customSamples, options);
-  const header = 'audio_file|text|speaker_name|language|emotion|emotion_intensity|family_id';
+  const header = 'audio_file|text|speaker_name|gender|language|emotion|emotion_intensity|family_id';
   const lines = [header];
 
   for (const r of records) {
-    lines.push(`${r.audioFile}|${r.text}|${r.speakerName}|${r.language}|${r.emotion}|${r.emotionIntensity}|${r.familyId}`);
+    lines.push(`${r.audioFile}|${r.text}|${r.speakerName}|${r.gender}|${r.language}|${r.emotion}|${r.emotionIntensity}|${r.familyId}`);
   }
 
   return lines.join('\n') + '\n';

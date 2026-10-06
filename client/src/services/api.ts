@@ -407,6 +407,7 @@ function buildExportQuery(filters?: DatasetExportFilters): string {
   if (filters.gender && filters.gender !== 'all') params.append('gender', filters.gender);
   if (filters.voice && filters.voice !== 'all') params.append('voice', filters.voice);
   if (filters.dialect && filters.dialect !== 'all') params.append('dialect', filters.dialect);
+  if (filters.language && filters.language !== 'all') params.append('language', filters.language);
   if (filters.emotion && filters.emotion !== 'all') params.append('emotion', filters.emotion);
   if (filters.method && filters.method !== 'all') params.append('method', filters.method);
   if (filters.search && filters.search.trim()) params.append('search', filters.search.trim());

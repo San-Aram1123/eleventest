@@ -88,25 +88,31 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
   // Custom filter states
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterVoice, setFilterVoice] = useState<string>('all');
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [filterDialect, setFilterDialect] = useState<string>('all');
   const [filterEmotion, setFilterEmotion] = useState<string>('all');
   const [filterMethod, setFilterMethod] = useState<string>('all');
   const [copiedLink, setCopiedLink] = useState<'raw' | 'audar' | null>(null);
 
   // Quick statistics across full dataset
-  const { maleCount, femaleCount, soraniCount, badiniCount } = useMemo(() => {
+  const { maleCount, femaleCount, soraniCount, badiniCount, ckbCount, enCount } = useMemo(() => {
     let m = 0;
     let f = 0;
     let sCount = 0;
     let bCount = 0;
+    let cCount = 0;
+    let eCount = 0;
     for (const s of samples) {
       if (getSampleGender(s) === 'male') m++;
       else f++;
       const d = String(s.dialect || 'sorani').toLowerCase();
       if (d === 'badini') bCount++;
       else sCount++;
+      const l = String(s.language || (s as any).customMetadata?.language || (d === 'badini' ? 'kmr' : 'ckb')).toLowerCase();
+      if (l === 'en') eCount++;
+      else if (l === 'ckb') cCount++;
     }
-    return { maleCount: m, femaleCount: f, soraniCount: sCount, badiniCount: bCount };
+    return { maleCount: m, femaleCount: f, soraniCount: sCount, badiniCount: bCount, ckbCount: cCount, enCount: eCount };
   }, [samples]);
 
   // When clicking a preset, update filters accordingly
@@ -115,18 +121,21 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
     if (newPreset === 'all') {
       setFilterGender('all');
       setFilterVoice('all');
+      setFilterLanguage('all');
       setFilterDialect('all');
       setFilterEmotion('all');
       setFilterMethod('all');
     } else if (newPreset === 'male') {
       setFilterGender('male');
       setFilterVoice('all');
+      setFilterLanguage('all');
       setFilterDialect('all');
       setFilterEmotion('all');
       setFilterMethod('all');
     } else if (newPreset === 'female') {
       setFilterGender('female');
       setFilterVoice('all');
+      setFilterLanguage('all');
       setFilterDialect('all');
       setFilterEmotion('all');
       setFilterMethod('all');
@@ -154,11 +163,12 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
     const f: DatasetExportFilters = {};
     if (filterGender !== 'all') f.gender = filterGender;
     if (filterVoice !== 'all') f.voice = filterVoice;
+    if (filterLanguage !== 'all') f.language = filterLanguage;
     if (filterDialect !== 'all') f.dialect = filterDialect;
     if (filterEmotion !== 'all') f.emotion = filterEmotion;
     if (filterMethod !== 'all') f.method = filterMethod;
     return f;
-  }, [preset, currentFilteredSamples, filterGender, filterVoice, filterDialect, filterEmotion, filterMethod]);
+  }, [preset, currentFilteredSamples, filterGender, filterVoice, filterLanguage, filterDialect, filterEmotion, filterMethod]);
 
   // Compute matched samples on client for instantaneous real-time preview
   const matchedSamples = useMemo(() => {
@@ -182,6 +192,10 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
         const v = String(s.voice_name || s.voice_id || '').toLowerCase();
         if (!v.includes(filterVoice.toLowerCase())) return false;
       }
+      if (filterLanguage !== 'all') {
+        const l = String(s.language || (s as any).customMetadata?.language || (s.dialect === 'badini' ? 'kmr' : 'ckb')).toLowerCase();
+        if (l !== filterLanguage.toLowerCase()) return false;
+      }
       if (filterDialect !== 'all') {
         const d = String(s.dialect || 'sorani').toLowerCase();
         if (d !== filterDialect.toLowerCase()) return false;
@@ -194,7 +208,7 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
       if (filterMethod !== 'all' && s.method !== filterMethod) return false;
       return true;
     });
-  }, [preset, samples, currentFilteredSamples, filterGender, filterVoice, filterDialect, filterEmotion, filterMethod]);
+  }, [preset, samples, currentFilteredSamples, filterGender, filterVoice, filterLanguage, filterDialect, filterEmotion, filterMethod]);
 
   // Aggregate stats of the matched samples
   const matchedStats = useMemo(() => {
@@ -485,6 +499,25 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
                         {v.name} ({v.count})
                       </option>
                     ))}
+                  </select>
+                </div>
+
+                {/* Language Selector */}
+                <div>
+                  <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+                    Language
+                  </label>
+                  <select
+                    className="select-control"
+                    value={filterLanguage}
+                    onChange={(e) => setFilterLanguage(e.target.value)}
+                    style={{ width: '100%', fontSize: '0.85rem' }}
+                  >
+                    <option value="all">All Languages ({samples.length})</option>
+                    <option value="ckb">Kurdish Sorani (ckb) ({ckbCount})</option>
+                    <option value="en">English (en) ({enCount})</option>
+                    <option value="kmr">Kurdish Badini (kmr) ({badiniCount})</option>
+                    <option value="ar">Arabic (ar)</option>
                   </select>
                 </div>
 

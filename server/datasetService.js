@@ -276,12 +276,23 @@ export async function saveSample({
     calculatedDuration = Math.round(((Math.max(0, audioBuffer.length - 44) / (24000 * 2)) + Number.EPSILON) * 100) / 100;
   }
 
+  const resolvedGender = resolveSampleGender({
+    voice_gender: customMetadata.voice_gender || customMetadata.gender,
+    gender: customMetadata.gender,
+    voice_name: voiceName,
+    voice_id: voiceId,
+    speaker_name: resolvedSpeaker,
+    id: safeId
+  });
+
   // Construct structured metadata
   const metadata = {
     id: safeId,
     family_id: resolvedFamilyId,
     emotion_intensity: resolvedIntensity,
     speaker_name: resolvedSpeaker,
+    gender: resolvedGender,
+    voice_gender: resolvedGender,
     text: String(text || '').trim(),
     dialect: dialect || 'sorani',
     emotion: String(emotion || 'neutral').toLowerCase(),
@@ -319,6 +330,8 @@ export async function saveSample({
     try {
       await saveDbSample({
         ...metadata,
+        gender: resolvedGender,
+        voice_gender: resolvedGender,
         family_id: resolvedFamilyId,
         emotion_intensity: resolvedIntensity,
         speaker_name: resolvedSpeaker,
@@ -478,14 +491,20 @@ export async function deleteSamples(ids) {
   };
 }
 
-// All 13 Google Gemini Female HD Voices
+// All 26 Google Gemini Female HD Voices (Gemini 3.8 + Gemini 3.1)
 export const GEMINI_FEMALE_VOICES = new Set([
+  // Gemini 3.8 Headline Female Voices
+  'lora', 'nyla', 'sola', 'tari', 'lumi', 'nika', 'riko', 'rina', 'tavi', 'tova', 'veda', 'zali', 'zuri',
+  // Gemini 3.1 & Classic HD Female Voices
   'aoede', 'kore', 'zephyr', 'leda', 'callirrhoe', 'autonoe', 'despina', 
   'erinome', 'laomedeia', 'achernar', 'gacrux', 'vindemiatrix', 'sulafat'
 ]);
 
-// All 17 Google Gemini Male HD Voices
+// All 26 Google Gemini Male HD Voices (Gemini 3.8 + Gemini 3.1)
 export const GEMINI_MALE_VOICES = new Set([
+  // Gemini 3.8 Headline Male Voices
+  'arlo', 'knox', 'rami', 'mako', 'milo', 'koda', 'ludo', 'neno', 'olin', 'sami', 'varo', 'zeno',
+  // Gemini 3.1 & Classic HD Male Voices
   'puck', 'charon', 'fenrir', 'orus', 'enceladus', 'iapetus', 'umbriel', 
   'algieba', 'algenib', 'rasalgethi', 'alnilam', 'schedar', 'pulcherrima', 
   'achird', 'zubenelgenubi', 'sadachbia', 'sadaltager'
@@ -501,12 +520,23 @@ export function resolveSampleGender(sample) {
     sample.voice_gender ||
     sample.gender ||
     sample.customMetadata?.voice_gender ||
+    sample.customMetadata?.gender ||
     sample.metadata_extra?.voice_gender ||
+    sample.metadata_extra?.gender ||
     ''
   ).toLowerCase().trim();
 
   if (g === 'male' || g === 'm') return 'male';
   if (g === 'female' || g === 'f') return 'female';
+
+  // Check speaker id: e.g. spk01 (male), spk02 (female)
+  const spkMatch = String(sample.speaker_name || sample.id || sample.customMetadata?.speaker_name || '').match(/spk(\d+)/i);
+  if (spkMatch) {
+    const spkNum = parseInt(spkMatch[1], 10);
+    if (!isNaN(spkNum)) {
+      return spkNum % 2 === 0 ? 'female' : 'male';
+    }
+  }
 
   const v = String(sample.voice_name || sample.voice_id || sample.voiceName || sample.voiceId || '').toLowerCase();
   const clean = v.replace(/^gemini[\s_]*\(?|\)$/gi, '').trim();
@@ -575,6 +605,20 @@ export function sampleMatchesFilter(sample, filters = {}) {
     }
   }
 
+  // 4b. Language filter (e.g. ckb, kmr, ar, en)
+  if (filters.language && filters.language !== 'all') {
+    const targetLang = String(filters.language).toLowerCase().trim();
+    const sampleLang = String(
+      sample.language || 
+      sample.customMetadata?.language || 
+      sample.metadata_extra?.language || 
+      (sample.dialect === 'badini' ? 'kmr' : 'ckb')
+    ).toLowerCase().trim();
+    if (sampleLang !== targetLang) {
+      return false;
+    }
+  }
+
   // 5. Emotion filter
   if (filters.emotion && filters.emotion !== 'all') {
     const targetEmotion = String(filters.emotion).toLowerCase().trim();
@@ -601,7 +645,8 @@ export function sampleMatchesFilter(sample, filters = {}) {
     const matchText = String(sample.text || '').toLowerCase().includes(query);
     const matchClean = String(sample.cleanText || '').toLowerCase().includes(query);
     const matchVoice = String(sample.voice_name || sample.voice_id || '').toLowerCase().includes(query);
-    if (!matchId && !matchText && !matchClean && !matchVoice) {
+    const matchLang = String(sample.language || '').toLowerCase().includes(query);
+    if (!matchId && !matchText && !matchClean && !matchVoice && !matchLang) {
       return false;
     }
   }
@@ -611,7 +656,7 @@ export function sampleMatchesFilter(sample, filters = {}) {
 
 /**
  * Streams the filtered dataset as a ZIP archive.
- * Supports filtering by gender (male/female/all), voice, dialect, emotion, method, and specific sample IDs.
+ * Supports filtering by gender (male/female/all), voice, dialect, language, emotion, method, and specific sample IDs.
  */
 export async function exportDatasetZip(res, filters = {}) {
   ensureDatasetDir();
@@ -630,6 +675,9 @@ export async function exportDatasetZip(res, filters = {}) {
   if (filters.voice && filters.voice !== 'all') {
     const safeVoice = filters.voice.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase();
     filenamePrefix += `_${safeVoice}`;
+  }
+  if (filters.language && filters.language !== 'all') {
+    filenamePrefix += `_${filters.language.toLowerCase()}`;
   }
   if (filters.dialect && filters.dialect !== 'all') {
     filenamePrefix += `_${filters.dialect.toLowerCase()}`;

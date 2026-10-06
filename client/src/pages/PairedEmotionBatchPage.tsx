@@ -22,7 +22,20 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
   onSampleCreated,
   addToast
 }) => {
-  const [sentencesText, setSentencesText] = useState('');
+  const [sentencesText, setSentencesTextState] = useState(() => {
+    try {
+      return localStorage.getItem('paired_sentences_draft') || '';
+    } catch {
+      return '';
+    }
+  });
+
+  const setSentencesText = (val: string) => {
+    setSentencesTextState(val);
+    try {
+      localStorage.setItem('paired_sentences_draft', val);
+    } catch { }
+  };
   const [language, setLanguage] = useState<'ckb' | 'kmr' | 'ar' | 'en'>('ckb');
   const [speakerId, setSpeakerId] = useState('spk01');
   const [voiceName, setVoiceName] = useState('Arlo');
@@ -32,7 +45,9 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
   const [chunkSize, setChunkSize] = useState<number>(6);
   const [slicingStrategy, setSlicingStrategy] = useState<'kurdish_align' | 'markers' | 'silence'>(() => {
     try {
-      return (localStorage.getItem('paired_slicing_strategy') as any) || 'kurdish_align';
+      const saved = localStorage.getItem('paired_slicing_strategy_v3');
+      if (saved === 'kurdish_align' || saved === 'markers' || saved === 'silence') return saved;
+      return 'kurdish_align';
     } catch {
       return 'kurdish_align';
     }
@@ -42,8 +57,8 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
   const handleSlicingStrategyChange = (st: 'kurdish_align' | 'markers' | 'silence') => {
     setSlicingStrategy(st);
     try {
-      localStorage.setItem('paired_slicing_strategy', st);
-    } catch {}
+      localStorage.setItem('paired_slicing_strategy_v3', st);
+    } catch { }
   };
 
   const [selectedModel, setSelectedModel] = useState<string>(() => {
@@ -58,7 +73,7 @@ export const PairedEmotionBatchPage: React.FC<PairedEmotionBatchPageProps> = ({
     setSelectedModel(m);
     try {
       localStorage.setItem('paired_selected_model_v1', m);
-    } catch {}
+    } catch { }
   };
 
   // Auto-fetch the next available sentence index globally from server

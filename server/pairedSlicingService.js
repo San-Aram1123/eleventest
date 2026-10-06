@@ -10,7 +10,8 @@ import {
   EMOTION_PROFILE_VERSION,
   SLICER_VERSION,
   EMOTION_STYLE_PROFILES,
-  evaluateQcConfidence
+  evaluateQcConfidence,
+  injectMidSentenceLaugh
 } from './pairedEmotionConfig.js';
 import { buildFamilyId, buildClipId } from './pairedBatchService.js';
 import { detectWhisperSegments, sliceAudioBySegments } from './markerAlignmentService.js';
@@ -54,22 +55,28 @@ export function getLatestMasterAudio() {
  * Builds an optimized multi-sentence prompt for one emotion with Gemini 3.8 <long pause> separators.
  * Constructs structured parts with native speech_metadata.style.
  */
-export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, language = 'ckb', slicingStrategy = 'kurdish_align') {
+export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, language = 'ckb', slicingStrategy = 'silence') {
   const isBadini = language === 'kmr';
   const targetLang = language || (isBadini ? 'kmr' : 'ckb');
   const styleDirective = getEmotionSpeechStyle(emotion, intensity, targetLang);
   const englishNums = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 
+  const isCackle = String(emotion || '').toLowerCase() === 'cackle' || String(emotion || '').toLowerCase() === 'laugh';
+
+  // For cackle/laugh, automatically inject [laugh] in the middle of sentences if not already present
+  const preparedSentences = (sentences || []).map(s => {
+    const trimmed = String(s || '').trim();
+    return isCackle ? injectMidSentenceLaugh(trimmed) : trimmed;
+  });
+
   let speechParts;
   let legacyPrompt;
 
   if (slicingStrategy === 'markers') {
-    // Spoken markers format: English verbal markers create distinct language transitions
-    // and crisp acoustic boundaries that never bleed into Kurdish training sentences.
-    speechParts = sentences.map((s, idx) => {
-      const trimmed = s.trim();
+    // Spoken markers format
+    speechParts = preparedSentences.map((s, idx) => {
       const marker = `Marker ${englishNums[idx] || (idx + 1)}`;
-      const text = `${marker}: ${trimmed}`;
+      const text = `${marker}: ${s}`;
       const partStyle = `${styleDirective}. Pronounce "${marker}:" in clear, neutral English, then speak the Kurdish sentence in the requested emotional style without omitting any words.`;
       return {
         text,
@@ -78,15 +85,14 @@ export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, 
       };
     });
 
-    legacyPrompt = sentences.map((s, idx) => {
+    legacyPrompt = preparedSentences.map((s, idx) => {
       const marker = `Marker ${englishNums[idx] || (idx + 1)}`;
-      return `${marker}: ${s.trim()}`;
+      return `${marker}: ${s}`;
     }).join('\n\n');
   } else {
-    // Kurdish word boundary alignment or acoustic silence format with <long pause>
-    speechParts = sentences.map((s, idx) => {
-      const trimmed = s.trim();
-      const text = idx < sentences.length - 1 ? `${trimmed} <long pause>` : trimmed;
+    // Acoustic silence format with <long pause>
+    speechParts = preparedSentences.map((s, idx) => {
+      const text = idx < preparedSentences.length - 1 ? `${s} <long pause>` : s;
       return {
         text,
         style: styleDirective,
@@ -94,13 +100,15 @@ export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, 
       };
     });
 
-    legacyPrompt = sentences.map((s, idx) => {
-      const trimmed = s.trim();
-      return idx < sentences.length - 1 ? `${trimmed} <long pause>` : trimmed;
+    legacyPrompt = preparedSentences.map((s, idx) => {
+      return idx < preparedSentences.length - 1 ? `${s} <long pause>` : s;
     }).join('\n');
   }
 
   let instruction = getEmotionPromptDirective(emotion, intensity, targetLang);
+  if (isCackle) {
+    instruction += " When you encounter [laugh], laugh or chuckle naturally out loud mid-sentence without pronouncing the bracketed word, and continue speaking in a lively, amused cackling tone.";
+  }
   if (slicingStrategy === 'markers') {
     instruction += " Pronounce each English marker (Marker One, Marker Two, ...) clearly, crisply, and neutrally. Immediately after each marker, speak the Kurdish sentence in the requested emotional style without omitting any words.";
   } else {
@@ -131,7 +139,7 @@ export async function generateTransposedEmotionBatch({
   intensity = 0.8,
   model = 'gemini-3.8-flash-tts',
   apiKey = '',
-  slicingStrategy = 'kurdish_align'
+  slicingStrategy = 'silence'
 }) {
   const cleanSentences = (sentences || []).map(s => String(s || '').trim()).filter(Boolean);
   if (cleanSentences.length === 0) {
@@ -205,15 +213,18 @@ export async function generateTransposedEmotionBatch({
       throw new Error('[Transposed Batch] Slicing validation failed: audio buffers too small.');
     }
 
-    // Guardrail: Disallow any slice with duration > 15.0s (merged sentences) or < 0.8s (dropped sentences)
+    // Guardrail: Disallow merged runaway takes or dropped takes (adaptive based on word count & emotion)
     for (let i = 0; i < slicedBuffers.length; i++) {
       const bMetrics = slicedBuffers.sliceMetrics?.[i];
       const dur = bMetrics?.final_duration_seconds || segResult.segments[i]?.duration || 0;
-      if (dur > 15.0) {
-        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (> 15.0s, multiple sentences merged). Aborting take.`);
+      const wordCount = (cleanSentences[i] || '').split(/\s+/).filter(Boolean).length;
+      // Generous ceiling to accommodate emotional delivery (sad, crying, laughing pauses) & long text
+      const maxAllowedDur = Math.max(32.0, wordCount * 2.2 + 8.0);
+      if (dur > maxAllowedDur) {
+        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (> ${maxAllowedDur.toFixed(1)}s, multiple sentences merged). Aborting take.`);
       }
-      if (dur < 0.8) {
-        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (< 0.8s, sentence dropped by Gemini). Aborting take.`);
+      if (dur < 0.6) {
+        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (< 0.6s, sentence dropped by Gemini). Aborting take.`);
       }
     }
 
@@ -256,9 +267,9 @@ export async function generateTransposedEmotionBatch({
           emotion_intensity: numIntensity,
           duration_seconds: segDuration,
           language,
-          rendered_tts_text: sentenceText + (i < cleanSentences.length - 1 ? ' <long pause>' : ''),
+          rendered_tts_text: (targetEmotion === 'cackle' || targetEmotion === 'laugh' ? injectMidSentenceLaugh(sentenceText) : sentenceText) + (i < cleanSentences.length - 1 ? ' <long pause>' : ''),
           speech_style: EMOTION_STYLE_PROFILES[targetEmotion]?.style || targetEmotion,
-          vocal_events: [],
+          vocal_events: (targetEmotion === 'cackle' || targetEmotion === 'laugh') ? ['[laugh]'] : [],
           segmentation_strategy: segResult.strategy || slicingStrategy || 'gemini38_long_pause',
           segmentation_confidence: segConfidence,
           boundary_metrics: bMetrics,
@@ -308,7 +319,7 @@ export async function generateTransposedEmotionBatch({
     };
   } finally {
     if (tempMaster && fs.existsSync(tempMaster)) {
-      try { fs.unlinkSync(tempMaster); } catch (_) {}
+      try { fs.unlinkSync(tempMaster); } catch (_) { }
     }
   }
 }

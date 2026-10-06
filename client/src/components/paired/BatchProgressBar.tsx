@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Play, Pause, Square, CheckCircle2, Clock, Loader2, Sparkles, AlertTriangle } from 'lucide-react';
+import { Play, Pause, Square, CheckCircle2, Clock, Loader2, Sparkles, AlertTriangle, RotateCcw } from 'lucide-react';
 
 interface BatchProgressBarProps {
   isActive: boolean;
@@ -15,6 +15,10 @@ interface BatchProgressBarProps {
   mode: 'sliced' | 'individual';
   chunkSize?: number;
   startTime: number | null;
+  canResume?: boolean;
+  failedCount?: number;
+  onResume?: () => void;
+  onRetryFailed?: () => void;
   onTogglePause: () => void;
   onStop: () => void;
 }
@@ -33,6 +37,10 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
   mode,
   chunkSize = 3,
   startTime,
+  canResume,
+  failedCount = 0,
+  onResume,
+  onRetryFailed,
   onTogglePause,
   onStop
 }) => {
@@ -198,7 +206,7 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
           )}
         </div>
 
-        {isActive && (
+        {isActive ? (
           <div style={{ display: 'flex', gap: '0.5rem' }}>
             <button
               type="button"
@@ -217,6 +225,49 @@ export const BatchProgressBar: React.FC<BatchProgressBarProps> = ({
             >
               <Square size={14} /> Stop Batch
             </button>
+          </div>
+        ) : (
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
+            {canResume && onResume && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={onResume}
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '0.35rem 0.75rem',
+                  background: 'linear-gradient(135deg, #0284c7 0%, #38bdf8 100%)',
+                  color: '#fff',
+                  border: 'none',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <Play size={14} /> Resume Batch ({completedClips}/{totalClips})
+              </button>
+            )}
+            {failedCount > 0 && onRetryFailed && (
+              <button
+                type="button"
+                className="btn btn-sm"
+                onClick={onRetryFailed}
+                style={{
+                  fontSize: '0.8rem',
+                  padding: '0.35rem 0.75rem',
+                  background: 'rgba(239, 68, 68, 0.2)',
+                  color: '#fca5a5',
+                  border: '1px solid rgba(239, 68, 68, 0.4)',
+                  fontWeight: 600,
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '5px'
+                }}
+              >
+                <RotateCcw size={14} /> Retry Failed ({failedCount})
+              </button>
+            )}
           </div>
         )}
       </div>

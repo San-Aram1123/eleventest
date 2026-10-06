@@ -22,6 +22,7 @@ import {
   ChevronsRight,
   ArrowUpDown,
   Globe,
+  Languages,
   Users,
   CheckSquare,
   Key,
@@ -60,6 +61,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [filterGender, setFilterGender] = useState<'all' | 'male' | 'female'>('all');
   const [filterVoice, setFilterVoice] = useState<string>('all');
+  const [filterLanguage, setFilterLanguage] = useState<string>('all');
   const [filterDialect, setFilterDialect] = useState<'all' | 'sorani' | 'badini'>('all');
   const [filterEmotion, setFilterEmotion] = useState<string>('all');
   const [filterMethod, setFilterMethod] = useState<string>('all');
@@ -137,6 +139,38 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   // Helper to extract voice name/identifier consistently
   const getSampleVoice = (s: Sample): string => {
     return (s.voice_name || (s as any).voiceName || s.voice_id || (s as any).voiceId || '').trim();
+  };
+
+  // Helper to extract language code consistently
+  const getSampleLanguage = (s: Sample): string => {
+    if (!s) return 'ckb';
+    const direct = s.language || (s as any).customMetadata?.language || (s as any).metadata_extra?.language;
+    if (direct && typeof direct === 'string') {
+      const l = direct.trim().toLowerCase();
+      if (l) return l;
+    }
+    if (s.dialect === 'badini') return 'kmr';
+    if (s.dialect === 'sorani') return 'ckb';
+    return 'ckb';
+  };
+
+  // Helper for friendly display names of language codes
+  const getLanguageLabel = (code: string): string => {
+    const c = (code || '').toLowerCase().trim();
+    switch (c) {
+      case 'ckb':
+        return 'Kurdish Sorani (ckb)';
+      case 'kmr':
+        return 'Kurdish Badini (kmr)';
+      case 'en':
+        return 'English (en)';
+      case 'ar':
+        return 'Arabic (ar)';
+      case 'ku':
+        return 'Kurdish (ku)';
+      default:
+        return `${c.toUpperCase()} (${c})`;
+    }
   };
 
   // Helper to extract which API key was used for generating the sample
@@ -228,10 +262,31 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
       .sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
   }, [samples]);
 
+  // Dynamically compute list of distinct languages in dataset with sample counts
+  const availableLanguages = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const s of samples) {
+      const l = getSampleLanguage(s);
+      if (l) {
+        counts.set(l, (counts.get(l) || 0) + 1);
+      }
+    }
+    const standardCodes = ['ckb', 'en', 'kmr', 'ar'];
+    const allCodes = new Set([...standardCodes, ...counts.keys()]);
+    return Array.from(allCodes)
+      .map((code) => ({
+        code,
+        label: getLanguageLabel(code),
+        count: counts.get(code) || 0
+      }))
+      .filter((item) => item.count > 0 || standardCodes.includes(item.code))
+      .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label));
+  }, [samples]);
+
   // Reset to page 1 whenever filters, search, or sort change
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery, filterGender, filterVoice, filterDialect, filterEmotion, filterMethod, filterKey, sortBy, pageSize]);
+  }, [searchQuery, filterGender, filterVoice, filterLanguage, filterDialect, filterEmotion, filterMethod, filterKey, sortBy, pageSize]);
 
   // Count duplicate transcript groups for the alert badge
   const duplicateGroupCount = useMemo(() => {
@@ -251,7 +306,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   // Filter & Search & Sort Logic
   const filteredAndSortedSamples = useMemo(() => {
     const result = samples.filter((s) => {
-      // Text, ID, or Voice match
+      // Text, ID, Voice, Key, or Language match
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
         const matchId = s.id.toLowerCase().includes(q);
@@ -259,7 +314,8 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         const matchClean = (s.cleanText || '').toLowerCase().includes(q);
         const matchVoice = getSampleVoice(s).toLowerCase().includes(q);
         const matchKey = getSampleUsedKey(s).toLowerCase().includes(q);
-        if (!matchId && !matchText && !matchClean && !matchVoice && !matchKey) return false;
+        const matchLang = getSampleLanguage(s).includes(q) || getLanguageLabel(getSampleLanguage(s)).toLowerCase().includes(q);
+        if (!matchId && !matchText && !matchClean && !matchVoice && !matchKey && !matchLang) return false;
       }
 
       // Gender match
@@ -272,6 +328,12 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
       if (filterVoice !== 'all') {
         const v = getSampleVoice(s);
         if (v !== filterVoice) return false;
+      }
+
+      // Language match
+      if (filterLanguage !== 'all') {
+        const l = getSampleLanguage(s);
+        if (l !== filterLanguage) return false;
       }
 
       // Dialect match
@@ -334,7 +396,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
       }
       return 0;
     });
-  }, [samples, searchQuery, filterGender, filterVoice, filterDialect, filterEmotion, filterMethod, sortBy]);
+  }, [samples, searchQuery, filterGender, filterVoice, filterLanguage, filterDialect, filterEmotion, filterMethod, filterKey, sortBy]);
 
   // Pagination calculations
   const totalItems = filteredAndSortedSamples.length;
@@ -671,6 +733,25 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             </select>
           </div>
 
+          {/* Language Filter */}
+          <div className="filter-select-group">
+            <Languages size={15} className="text-muted" />
+            <select
+              className="select-control filter-select"
+              value={filterLanguage}
+              onChange={(e) => setFilterLanguage(e.target.value)}
+              title="Filter by Target Language"
+              id="filter-language-select"
+            >
+              <option value="all">All Languages ({samples.length})</option>
+              {availableLanguages.map((l) => (
+                <option key={l.code} value={l.code}>
+                  {l.label} ({l.count})
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Dialect Filter */}
           <div className="filter-select-group">
             <Globe size={15} className="text-muted" />
@@ -836,6 +917,30 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
                 <span style={{ fontWeight: 700, marginLeft: '2px' }}>✕</span>
               </button>
             )}
+            {filterLanguage !== 'all' && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setFilterLanguage('all')}
+                style={{ 
+                  fontSize: '0.74rem', 
+                  color: '#38BDF8', 
+                  background: 'rgba(56, 189, 248, 0.1)',
+                  border: '1px solid rgba(56, 189, 248, 0.3)',
+                  borderRadius: '12px',
+                  padding: '2px 8px',
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  gap: '4px',
+                  cursor: 'pointer'
+                }}
+                title="Click to clear language filter"
+              >
+                <Languages size={11} />
+                <span>Lang: <strong>{getLanguageLabel(filterLanguage)}</strong></span>
+                <span style={{ fontWeight: 700, marginLeft: '2px' }}>✕</span>
+              </button>
+            )}
             {filterKey !== 'all' && (
               <button
                 type="button"
@@ -951,7 +1056,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
 
       {/* Dataset List / Grid */}
       {viewMode === 'families' ? (
-        <PairedFamiliesView samples={samples} recentSampleIds={recentlyAddedIds} isLiveSyncActive={true} />
+        <PairedFamiliesView samples={filteredAndSortedSamples} recentSampleIds={recentlyAddedIds} isLiveSyncActive={true} />
       ) : totalItems === 0 ? (
         <div className="glass-card empty-dataset-state">
           <Database size={40} className="text-dim" />
@@ -982,6 +1087,19 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
                     title={selectedSampleIds.has(sample.id) ? 'Deselect sample' : 'Select sample for mass delete'}
                   />
                   <span className="sample-id-pill">#{sample.id}</span>
+                  <span 
+                    className="badge badge-lang"
+                    style={{
+                      background: getSampleLanguage(sample) === 'en' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                      color: getSampleLanguage(sample) === 'en' ? '#60a5fa' : '#34d399',
+                      border: `1px solid ${getSampleLanguage(sample) === 'en' ? 'rgba(59, 130, 246, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+                      fontWeight: 700,
+                      fontSize: '0.72rem'
+                    }}
+                    title={`Language: ${getLanguageLabel(getSampleLanguage(sample))}`}
+                  >
+                    {getSampleLanguage(sample).toUpperCase()}
+                  </span>
                   {parseSampleEmotions(sample).map((em, idx) => (
                     <span key={idx} className={`badge ${getEmotionBadgeClass(em)}`}>
                       {em.toUpperCase()}
@@ -1037,9 +1155,9 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
                 </div>
               </div>
 
-              {/* Kurdish Text Box */}
+              {/* Spoken Text Box */}
               <div className="sample-kurdish-box">
-                <div className="kurdish-text sample-kurdish-text" dir="rtl">
+                <div className="kurdish-text sample-kurdish-text" dir={getSampleLanguage(sample) === 'en' ? 'ltr' : 'rtl'}>
                   {sample.text}
                 </div>
               </div>
@@ -1110,7 +1228,8 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
                     />
                   </th>
                   <th style={{ width: '80px' }}>ID</th>
-                  <th>Kurdish Transcript (RTL)</th>
+                  <th style={{ width: '75px' }}>Lang</th>
+                  <th>Spoken Transcript</th>
                   <th style={{ width: '100px' }}>Emotion</th>
                   <th style={{ width: '100px' }}>Method</th>
                   <th style={{ width: '160px' }}>Voice / Model</th>
@@ -1135,7 +1254,22 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
                     <td>
                       <span className="sample-id-pill">#{sample.id}</span>
                     </td>
-                    <td className="kurdish-table-cell" dir="rtl">
+                    <td>
+                      <span 
+                        className="badge badge-lang"
+                        style={{
+                          background: getSampleLanguage(sample) === 'en' ? 'rgba(59, 130, 246, 0.15)' : 'rgba(16, 185, 129, 0.15)',
+                          color: getSampleLanguage(sample) === 'en' ? '#60a5fa' : '#34d399',
+                          border: `1px solid ${getSampleLanguage(sample) === 'en' ? 'rgba(59, 130, 246, 0.35)' : 'rgba(16, 185, 129, 0.35)'}`,
+                          fontWeight: 700,
+                          fontSize: '0.7rem'
+                        }}
+                        title={`Language: ${getLanguageLabel(getSampleLanguage(sample))}`}
+                      >
+                        {getSampleLanguage(sample).toUpperCase()}
+                      </span>
+                    </td>
+                    <td className="kurdish-table-cell" dir={getSampleLanguage(sample) === 'en' ? 'ltr' : 'rtl'}>
                       {sample.text}
                     </td>
                     <td>

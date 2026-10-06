@@ -36,7 +36,7 @@ export function getMsUntilMidnightPT() {
 export function parseGoogleRetryDelayMs(errJson, errorText) {
   // 1. Check RetryInfo detail object in error details
   if (errJson && Array.isArray(errJson.error?.details)) {
-    const retryInfo = errJson.error.details.find(d => 
+    const retryInfo = errJson.error.details.find(d =>
       d['@type'] && d['@type'].includes('RetryInfo')
     );
     if (retryInfo && retryInfo.retryDelay) {
@@ -53,7 +53,7 @@ export function parseGoogleRetryDelayMs(errJson, errorText) {
   // 2. Check error message string for "Please retry in XX.XXs"
   const raw = (errJson?.error?.message || errorText || '');
   const match = raw.match(/retry\s+(?:in|after)\s+([\d\.]+)\s*s/i) ||
-                raw.match(/([\d\.]+)\s*(?:seconds|s)\b/i);
+    raw.match(/([\d\.]+)\s*(?:seconds|s)\b/i);
   if (match && match[1]) {
     const parsedSec = parseFloat(match[1]);
     if (!isNaN(parsedSec) && parsedSec > 0) {
@@ -76,11 +76,11 @@ export function parseQuotaExhaustionInfo(errJson, errorText, delayMs) {
 
   // 1. FIRST PRIORITY: check if it is an explicit daily limit for this model
   const isExplicitDaily = quotaId.includes('perday') || quotaId.includes('daily') ||
-                          raw.includes('daily') || 
-                          raw.includes('per day') || 
-                          raw.includes('per_day') || 
-                          raw.includes('day limit') || 
-                          raw.includes('quota per 24 hours');
+    raw.includes('daily') ||
+    raw.includes('per day') ||
+    raw.includes('per_day') ||
+    raw.includes('day limit') ||
+    raw.includes('quota per 24 hours');
 
   if (isExplicitDaily) {
     const msUntilReset = getMsUntilMidnightPT();
@@ -118,8 +118,8 @@ export function parseQuotaExhaustionInfo(errJson, errorText, delayMs) {
 export function isGoogleKeyInvalid(status, errorMsg) {
   const msg = (errorMsg || '').toLowerCase();
   return status === 401 ||
-         (status === 400 && (msg.includes('api key not valid') || msg.includes('bad request') || msg.includes('key not valid'))) ||
-         (status === 403 && (msg.includes('denied') || msg.includes('permission') || msg.includes('disabled') || msg.includes('unregistered') || msg.includes('blocked')));
+    (status === 400 && (msg.includes('api key not valid') || msg.includes('bad request') || msg.includes('key not valid'))) ||
+    (status === 403 && (msg.includes('denied') || msg.includes('permission') || msg.includes('disabled') || msg.includes('unregistered') || msg.includes('blocked')));
 }
 
 /**
@@ -361,8 +361,8 @@ export function getDisabledGeminiKeys() {
  * @param {Set<string>|string[]} disabledKeys
  */
 export function saveDisabledGeminiKeys(disabledKeys) {
-  const keysArray = Array.isArray(disabledKeys) 
-    ? disabledKeys 
+  const keysArray = Array.isArray(disabledKeys)
+    ? disabledKeys
     : Array.from(disabledKeys || []);
   const unique = Array.from(new Set(keysArray.map(k => String(k || '').trim()).filter(Boolean)));
 
@@ -528,7 +528,7 @@ export function saveGeminiKeyPool(keys) {
   }
 
   // Sync to MySQL api_keys table
-  syncApiKeysToDb('gemini', uniqueKeys).catch(() => {});
+  syncApiKeysToDb('gemini', uniqueKeys).catch(() => { });
 
   return uniqueKeys;
 }
@@ -592,7 +592,7 @@ export async function probeGeminiKeyQuota(apiKey) {
   // Fast, lightweight, zero-quota verification via GET /models
   try {
     const response = await fetch(`${GEMINI_API_BASE}/models?key=${key}`);
-    
+
     if (response.ok) {
       if (metric.lastStatus !== 'invalid') {
         metric.lastStatus = 'ready';
@@ -616,7 +616,7 @@ export async function probeGeminiKeyQuota(apiKey) {
     try {
       const errJson = JSON.parse(errorText);
       errorMsg = errJson.error?.message || errJson.message || errorMsg;
-    } catch {}
+    } catch { }
 
     if (isGoogleKeyInvalid(response.status, errorMsg)) {
       metric.lastStatus = 'invalid';
@@ -888,7 +888,7 @@ export async function probeAllGeminiKeys() {
         try {
           const j = JSON.parse(errorText);
           errMsg = j.error?.message || errMsg;
-        } catch {}
+        } catch { }
 
         if (isGoogleKeyInvalid(res.status, errMsg)) {
           metric.lastStatus = 'invalid';
@@ -1190,7 +1190,7 @@ export async function getAvailableGeminiVoices(overrideKey = null) {
     try {
       let pageToken = '';
       const dynamicVoices = new Map();
-      
+
       // Seed with static GEMINI_VOICES first so curated descriptions and order are preserved
       for (const v of GEMINI_VOICES) {
         dynamicVoices.set(v.id.toLowerCase(), { ...v });
@@ -1211,7 +1211,7 @@ export async function getAvailableGeminiVoices(overrideKey = null) {
             const keyName = rawName.toLowerCase();
             let gender = v.gender ? (v.gender.charAt(0).toUpperCase() + v.gender.slice(1).toLowerCase()) : 'Male';
             if (gender === 'Neutral') gender = 'Male';
-            
+
             if (dynamicVoices.has(keyName)) {
               const existing = dynamicVoices.get(keyName);
               if (v.description && existing.description.length < v.description.length) {
@@ -1552,10 +1552,10 @@ export async function generateGeminiSpeech({
           }
 
           // 2. Quota / Rate-limit check -> FAILOVER TO NEXT KEY WITH ACCURATE COOLDOWN
-          const isQuotaOrLimit = response.status === 429 || 
-                                 errorMsg.toLowerCase().includes('quota') || 
-                                 errorMsg.toLowerCase().includes('resource_exhausted') || 
-                                 errorMsg.toLowerCase().includes('rate limit');
+          const isQuotaOrLimit = response.status === 429 ||
+            errorMsg.toLowerCase().includes('quota') ||
+            errorMsg.toLowerCase().includes('resource_exhausted') ||
+            errorMsg.toLowerCase().includes('rate limit');
 
           if (isQuotaOrLimit) {
             const delayMs = parseGoogleRetryDelayMs(errJson, errorText);
@@ -1597,7 +1597,7 @@ export async function generateGeminiSpeech({
               voiceFallbackAttempted = true;
               const voiceMeta = GEMINI_VOICES.find(v => v.id.toLowerCase() === cleanVoice.toLowerCase());
               const isFemale = voiceMeta?.gender === 'Female';
-              const fallbackVoice = isFemale 
+              const fallbackVoice = isFemale
                 ? (cleanVoice === 'Aoede' ? 'Despina' : 'Aoede')
                 : (cleanVoice === 'Puck' ? 'Fenrir' : 'Puck');
 
@@ -1656,9 +1656,9 @@ export async function generateGeminiSpeech({
           throw err;
         }
 
-        const isQuotaOrLimit = err.message.toLowerCase().includes('quota') || 
-                               err.message.toLowerCase().includes('resource_exhausted') || 
-                               err.message.toLowerCase().includes('rate limit');
+        const isQuotaOrLimit = err.message.toLowerCase().includes('quota') ||
+          err.message.toLowerCase().includes('resource_exhausted') ||
+          err.message.toLowerCase().includes('rate limit');
 
         if (isQuotaOrLimit) {
           const delayMs = parseGoogleRetryDelayMs(null, err.message);
