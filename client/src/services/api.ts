@@ -401,6 +401,29 @@ export async function batchDeleteSamples(ids: string[]): Promise<{ success: bool
   return await parseResponse(res, 'Failed to batch delete samples');
 }
 
+export async function deleteDurationOutliers(minSeconds = 6.0, maxSeconds = 16.5): Promise<{
+  success: boolean;
+  count: number;
+  deletedIds: string[];
+  underCount: number;
+  overCount: number;
+  minSeconds: number;
+  maxSeconds: number;
+}> {
+  const res = await fetch(`${API_BASE}/dataset/delete-outliers`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ minSeconds, maxSeconds })
+  });
+  return await parseResponse(res, 'Failed to delete duration outliers');
+}
+
+export async function fetchNextFamilyIndex(speakerId?: string): Promise<{ speakerId: string; nextIndex: number }> {
+  const query = speakerId ? `?speakerId=${encodeURIComponent(speakerId)}` : '';
+  const res = await fetch(`${API_BASE}/paired/next-index${query}`);
+  return await parseResponse(res, 'Failed to fetch next family index');
+}
+
 function buildExportQuery(filters?: DatasetExportFilters): string {
   if (!filters) return '';
   const params = new URLSearchParams();

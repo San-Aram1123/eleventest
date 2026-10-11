@@ -17,7 +17,7 @@ echo       To stop hosting, simply close this window or press Ctrl+C.
 echo.
 echo ====================================================================
 echo.
-node --watch server/index.js
+node --watch-path=server server/index.js
 echo.
 echo Server has stopped.
 pause

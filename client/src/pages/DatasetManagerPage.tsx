@@ -26,7 +26,8 @@ import {
   Users,
   CheckSquare,
   Key,
-  ShieldCheck
+  ShieldCheck,
+  Clock
 } from 'lucide-react';
 import { AudioPlayer } from '../components/AudioPlayer';
 import { MetadataModal } from '../components/MetadataModal';
@@ -34,10 +35,13 @@ import { AudarExportModal } from '../components/AudarExportModal';
 import { DuplicateManagerModal } from '../components/DuplicateManagerModal';
 import { ExportDatasetModal, getSampleGender } from '../components/ExportDatasetModal';
 import { MassDeleteModal } from '../components/MassDeleteModal';
+import { DurationOutlierModal, getSampleDuration } from '../components/DurationOutlierModal';
 import { RatingWidget } from '../components/RatingWidget';
 import { PairedFamiliesView } from '../components/paired/PairedFamiliesView';
 import { PairedValidationModal } from '../components/paired/PairedValidationModal';
 import { PairedExportModal } from '../components/paired/PairedExportModal';
+import { ExpressiveDatasetFamiliesView } from '../components/expressive/ExpressiveDatasetFamiliesView';
+import { parseUniversalEmotions, matchesEmotionFilter } from '../utils/expressiveEmotionUtils';
 import { Sample, EmotionType, SampleRatings } from '../types';
 import { deleteSample, updateSample, getZipExportUrl, getAudarZipExportUrl } from '../services/api';
 
@@ -77,10 +81,11 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [showDuplicatesModal, setShowDuplicatesModal] = useState(false);
   const [showExportModal, setShowExportModal] = useState(false);
   const [showMassDeleteModal, setShowMassDeleteModal] = useState(false);
+  const [showDurationOutlierModal, setShowDurationOutlierModal] = useState(false);
   const [showPairedValidateModal, setShowPairedValidateModal] = useState(false);
   const [showPairedExportModal, setShowPairedExportModal] = useState(false);
   const [selectedSampleIds, setSelectedSampleIds] = useState<Set<string>>(new Set());
-  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families' | 'expressive_families'>('cards');
 
   const pageTopRef = useRef<HTMLDivElement | null>(null);
 
@@ -189,46 +194,16 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
 
   // Helper to extract all emotions/tags from sample
   const parseSampleEmotions = (s: Sample): string[] => {
-    const set = new Set<string>();
-    if (s.emotion) {
-      const parts = String(s.emotion).split(/[,/]+/).map(e => e.trim().toLowerCase());
-      for (const p of parts) {
-        if (p) set.add(p);
-      }
-    }
-    if (s.emotion_tag) {
-      const rawTags = Array.isArray(s.emotion_tag) ? s.emotion_tag : String(s.emotion_tag).split(/\s+/);
-      for (const t of rawTags) {
-        const clean = String(t).replace(/[\[\]]/g, '').trim().toLowerCase();
-        if (clean) set.add(clean);
-      }
-    }
-    if ((s as any).emotionTag) {
-      const rawTags = Array.isArray((s as any).emotionTag) ? (s as any).emotionTag : String((s as any).emotionTag).split(/\s+/);
-      for (const t of rawTags) {
-        const clean = String(t).replace(/[\[\]]/g, '').trim().toLowerCase();
-        if (clean) set.add(clean);
-      }
-    }
-    const detected = (s as any).customMetadata?.detected_tags || (s as any).metadata_extra?.detected_tags;
-    if (Array.isArray(detected)) {
-      for (const t of detected) {
-        const clean = String(t).replace(/[\[\]]/g, '').trim().toLowerCase();
-        if (clean) set.add(clean);
-      }
-    }
-    if (set.size > 1 && set.has('neutral')) {
-      set.delete('neutral');
-    }
-    if (set.size === 0) {
-      set.add('neutral');
-    }
-    return Array.from(set);
+    return parseUniversalEmotions(s);
   };
 
   const getEmotionBadgeClass = (emotion: string): string => {
     const em = emotion.toLowerCase().trim();
-    if (['neutral', 'happy', 'sad', 'angry', 'excited', 'whisper', 'whispering', 'laughing', 'laugh', 'shouting', 'shout', 'sigh', 'crying', 'cry', 'curious', 'custom'].includes(em)) {
+    if (['neutral', 'happy', 'sad', 'angry', 'fear', 'excited', 'whisper', 'whispering', 'laughing', 'laugh', 'cackle', 'shouting', 'shout', 'sigh', 'crying', 'cry', 'curious', 'mixed', 'custom'].includes(em)) {
+      if (em === 'whispering') return 'emotion-badge-whisper';
+      if (em === 'cackle' || em === 'laugh') return 'emotion-badge-laughing';
+      if (em === 'shout') return 'emotion-badge-shouting';
+      if (em === 'cry') return 'emotion-badge-crying';
       return `emotion-badge-${em}`;
     }
     return 'emotion-badge-custom';
@@ -303,6 +278,14 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
     return groups;
   }, [samples]);
 
+  // Count duration outlier samples (<= 6.0s or > 16.5s)
+  const durationOutlierCount = useMemo(() => {
+    return samples.filter(s => {
+      const dur = getSampleDuration(s);
+      return dur <= 6.0 || dur > 16.5;
+    }).length;
+  }, [samples]);
+
   // Filter & Search & Sort Logic
   const filteredAndSortedSamples = useMemo(() => {
     const result = samples.filter((s) => {
@@ -342,18 +325,10 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         if (d !== filterDialect) return false;
       }
 
-      // Emotion match (supports multi-tag acted emotions like "angry, shouting, sad")
+      // Emotion match (supports multi-tag acted emotions, expressive condition mixes, fear, etc.)
       if (filterEmotion !== 'all') {
-        const target = filterEmotion.toLowerCase().trim();
         const sampleEmotions = parseSampleEmotions(s);
-        const matches = sampleEmotions.some(em => {
-          if (em === target) return true;
-          if ((target === 'laughing' || target === 'laugh') && (em === 'laughing' || em === 'laugh')) return true;
-          if ((target === 'whisper' || target === 'whispering') && (em === 'whisper' || em === 'whispering')) return true;
-          if ((target === 'shout' || target === 'shouting') && (em === 'shout' || em === 'shouting')) return true;
-          if (em.includes(target) || target.includes(em)) return true;
-          return false;
-        });
+        const matches = matchesEmotionFilter(sampleEmotions, [filterEmotion], 'any');
         if (!matches) return false;
       }
 
@@ -649,6 +624,41 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             )}
           </button>
 
+          {/* Duration Outlier Cleanup Button */}
+          <button
+            onClick={() => setShowDurationOutlierModal(true)}
+            className="btn btn-secondary btn-md"
+            id="btn-duration-outliers"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '7px',
+              borderColor: durationOutlierCount > 0 ? 'rgba(245, 158, 11, 0.45)' : 'rgba(255, 255, 255, 0.1)',
+              background: durationOutlierCount > 0 ? 'rgba(245, 158, 11, 0.12)' : 'rgba(255, 255, 255, 0.05)',
+              color: durationOutlierCount > 0 ? '#fbbf24' : '#94a3b8',
+              fontWeight: 600
+            }}
+            title="Delete outlier audios 6s and less or over 16.5s"
+          >
+            <Clock size={16} />
+            <span>Clean Outliers (≤6s / &gt;16.5s)</span>
+            {durationOutlierCount > 0 && (
+              <span 
+                style={{ 
+                  background: '#f59e0b', 
+                  color: '#0f172a', 
+                  fontWeight: 800, 
+                  fontSize: '0.72rem', 
+                  padding: '1px 6px', 
+                  borderRadius: '10px',
+                  lineHeight: '1.3'
+                }}
+              >
+                {durationOutlierCount}
+              </span>
+            )}
+          </button>
+
           {/* Raw Dataset Export */}
           <button
             onClick={() => setShowExportModal(true)}
@@ -780,11 +790,14 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
               <option value="happy">Happy</option>
               <option value="sad">Sad</option>
               <option value="angry">Angry</option>
+              <option value="fear">Fear</option>
               <option value="excited">Excited</option>
               <option value="whisper">Whisper</option>
-              <option value="laughing">Laughing / Laugh</option>
+              <option value="laughing">Laughing / Laugh / Cackle</option>
+              <option value="crying">Crying / Cry</option>
               <option value="shouting">Shouting / Shout</option>
               <option value="sigh">Sigh</option>
+              <option value="mixed">Mixed Pairs</option>
               <option value="custom">Custom</option>
             </select>
           </div>
@@ -876,11 +889,20 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
             <button
               className={`view-btn ${viewMode === 'families' ? 'active' : ''}`}
               onClick={() => setViewMode('families')}
-              title="Paired Emotion Families View"
+              title="Paired Emotion Families View (6 Basic Emotions)"
               style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
             >
               <Layers size={13} />
-              <span>Families</span>
+              <span>Families (6 Emos)</span>
+            </button>
+            <button
+              className={`view-btn ${viewMode === 'expressive_families' ? 'active' : ''}`}
+              onClick={() => setViewMode('expressive_families')}
+              title="Audar Expressive & Mixed Families View (Matrix + Mixed)"
+              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}
+            >
+              <Sparkles size={13} style={{ color: '#C084FC' }} />
+              <span>Expressive Families</span>
             </button>
           </div>
         </div>
@@ -1057,6 +1079,8 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
       {/* Dataset List / Grid */}
       {viewMode === 'families' ? (
         <PairedFamiliesView samples={filteredAndSortedSamples} recentSampleIds={recentlyAddedIds} isLiveSyncActive={true} />
+      ) : viewMode === 'expressive_families' ? (
+        <ExpressiveDatasetFamiliesView samples={filteredAndSortedSamples} recentSampleIds={recentlyAddedIds} isLiveSyncActive={true} />
       ) : totalItems === 0 ? (
         <div className="glass-card empty-dataset-state">
           <Database size={40} className="text-dim" />
@@ -1508,6 +1532,17 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         selectedSampleIds={selectedSampleIds}
         onBatchDeleted={handleBatchDeleted}
         addToast={addToast}
+      />
+
+      {/* Duration Outlier Cleanup Modal */}
+      <DurationOutlierModal
+        isOpen={showDurationOutlierModal}
+        onClose={() => setShowDurationOutlierModal(false)}
+        samples={samples}
+        onDeleted={handleBatchDeleted}
+        addToast={addToast}
+        minSeconds={6.0}
+        maxSeconds={16.5}
       />
 
       {showPairedValidateModal && (

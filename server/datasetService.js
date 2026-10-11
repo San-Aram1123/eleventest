@@ -114,17 +114,33 @@ export async function findSampleByText(text) {
 }
 
 
+let samplesCache = null;
+let lastCacheTime = 0;
+const CACHE_TTL_MS = 5000;
+
+export function invalidateSamplesCache() {
+  samplesCache = null;
+  lastCacheTime = 0;
+}
+
 /**
  * Reads all metadata samples from MySQL database or the dataset folder.
  * Returns an array of sample metadata objects sorted by creation date or ID.
  */
-export async function getAllSamples() {
+export async function getAllSamples(forceRefresh = false) {
+  const now = Date.now();
+  if (!forceRefresh && samplesCache && (now - lastCacheTime < CACHE_TTL_MS)) {
+    return samplesCache;
+  }
+
   ensureDatasetDir();
 
   if (isDbConnected()) {
     try {
       const dbSamples = await getAllDbSamples();
       if (dbSamples && dbSamples.length > 0) {
+        samplesCache = dbSamples;
+        lastCacheTime = Date.now();
         return dbSamples;
       }
     } catch (e) {
@@ -157,12 +173,16 @@ export async function getAllSamples() {
   }
 
   // Sort by id / created_at descending (newest first)
-  return samples.sort((a, b) => {
+  const sorted = samples.sort((a, b) => {
     const timeA = new Date(a.created_at || 0).getTime();
     const timeB = new Date(b.created_at || 0).getTime();
     if (timeB !== timeA) return timeB - timeA;
     return String(b.id).localeCompare(String(a.id));
   });
+
+  samplesCache = sorted;
+  lastCacheTime = Date.now();
+  return sorted;
 }
 
 /**
@@ -349,6 +369,7 @@ export async function saveSample({
     }
   }
 
+  invalidateSamplesCache();
   return {
     ...metadata,
     hasAudio: !!audioBuffer,
@@ -411,6 +432,7 @@ export async function updateSampleMetadata(id, updates = {}) {
     }
   }
 
+  invalidateSamplesCache();
   const wavPath = path.join(DATASET_ROOT, `${safeId}.wav`);
   return {
     ...updated,
@@ -448,6 +470,9 @@ export async function deleteSample(id) {
     }
   }
 
+  if (deleted) {
+    invalidateSamplesCache();
+  }
   return deleted;
 }
 
@@ -484,10 +509,49 @@ export async function deleteSamples(ids) {
     }
   }
 
+  if (deletedIds.length > 0) {
+    invalidateSamplesCache();
+  }
+
   return {
     success: true,
     count: deletedIds.length,
     deletedIds
+  };
+}
+
+/**
+ * Deletes all audio samples whose duration is under minSeconds or over maxSeconds.
+ * Purges both WAV and JSON files and cleans up MySQL entries.
+ * @param {number} minSeconds
+ * @param {number} maxSeconds
+ */
+export async function deleteDurationOutliers(minSeconds = 6.0, maxSeconds = 16.5) {
+  const all = await getAllSamples();
+  const outlierIds = [];
+  let underCount = 0;
+  let overCount = 0;
+
+  for (const s of all) {
+    const dur = Number(s.duration_seconds ?? s.durationSeconds ?? s.customMetadata?.duration_seconds ?? 0);
+    if (dur <= minSeconds) {
+      outlierIds.push(s.id);
+      underCount++;
+    } else if (dur > maxSeconds) {
+      outlierIds.push(s.id);
+      overCount++;
+    }
+  }
+
+  const res = await deleteSamples(outlierIds);
+  return {
+    success: true,
+    count: res.count,
+    deletedIds: res.deletedIds,
+    underCount,
+    overCount,
+    minSeconds,
+    maxSeconds
   };
 }
 
@@ -664,7 +728,7 @@ export async function exportDatasetZip(res, filters = {}) {
   const matchedSamples = allSamples.filter(s => sampleMatchesFilter(s, filters));
 
   const archive = archiver('zip', {
-    zlib: { level: 9 } // Maximum compression
+    zlib: { level: 1 } // Fast compression for JSON metadata
   });
 
   // Construct descriptive filename based on applied filters
@@ -721,7 +785,7 @@ export async function exportDatasetZip(res, filters = {}) {
     if (fs.existsSync(wavPath)) {
       const stats = fs.statSync(wavPath);
       totalAudioBytes += stats.size;
-      archive.file(wavPath, { name: `dataset/${baseId}.wav` });
+      archive.file(wavPath, { name: `dataset/${baseId}.wav`, store: true });
     }
 
     if (fs.existsSync(jsonPath)) {

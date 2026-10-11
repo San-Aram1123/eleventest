@@ -32,9 +32,13 @@ export function getDbConfig() {
     password: process.env.DB_PASSWORD || '',
     database: process.env.DB_NAME || 'kurdish_tts_db',
     waitForConnections: true,
-    connectionLimit: 10,
+    connectionLimit: 15,
     queueLimit: 0,
-    charset: 'utf8mb4'
+    charset: 'utf8mb4',
+    enableKeepAlive: true,
+    keepAliveInitialDelay: 10000,
+    maxIdle: 10,
+    idleTimeout: 60000
   };
 }
 
@@ -400,12 +404,23 @@ export function parseDbRowToSample(r) {
  */
 export async function getAllDbSamples() {
   if (!isDbConnected()) return null;
-  const [rows] = await pool.query(`
-    SELECT * FROM samples 
-    ORDER BY created_at DESC, id DESC
-  `);
-
-  return rows.map(r => parseDbRowToSample(r));
+  try {
+    const [rows] = await pool.query(`
+      SELECT * FROM samples 
+      ORDER BY created_at DESC, id DESC
+    `);
+    return rows.map(r => parseDbRowToSample(r));
+  } catch (err) {
+    if (err.code === 'PROTOCOL_CONNECTION_LOST' || err.code === 'ECONNRESET' || err.code === 'ETIMEDOUT') {
+      console.warn('[MySQL] Idle connection dropped, retrying with fresh connection...');
+      const [rows] = await pool.query(`
+        SELECT * FROM samples 
+        ORDER BY created_at DESC, id DESC
+      `);
+      return rows.map(r => parseDbRowToSample(r));
+    }
+    throw err;
+  }
 }
 
 /**

@@ -2,7 +2,8 @@
 
 Please prepare an additional human expressive speech dataset for Audar TTS.
 Keep our existing corpus. We need supervision for emotion combined with delivery,
-particularly sad whisper, angry whisper, and angry/bitter laughter. Do not make
+particularly sad whisper, angry whisper, and angry/bitter laughter. Also collect
+a separate, smaller batch of true emotional mixtures as described below. Do not make
 these examples by pitch shifting, slowing, filtering, adding noise, or changing
 the volume of neutral speech.
 
@@ -40,6 +41,92 @@ nonverbal laugh event; collect standalone events separately as an optional subse
 If a particular combination cannot be performed naturally, flag it rather than
 fabricating convincing labels. Do not substitute happy laughter for neutral
 laughter without reviewer agreement.
+
+## Additional batch: true mixed emotions
+
+Collect these selected combinations in addition to the 27-performance core:
+
+| Emotional mixture | Acting context |
+|---|---|
+| Happy + sad | Bittersweet relief or a joyful memory of someone missed |
+| Angry + sad | Hurt disappointment expressed with anger |
+| Happy + angry | Triumphant satisfaction with lingering anger |
+
+These examples should express both emotional states during the same utterance.
+Happy first and sad afterward is an emotion transition, not the same target;
+keep transition recordings separate for a future segment-level dataset.
+Do not assume angry laughter contains happiness: laughter is a delivery/event,
+and the emotional state must be judged independently.
+
+Start with normal speech and three performances of each pair:
+
+- First emotion dominant: intensity anchors 0.90 and 0.25.
+- Both clearly present: anchors 0.60 and 0.60.
+- Second emotion dominant: anchors 0.25 and 0.90.
+
+These are independent ordinal strength targets, not percentages of a mixture;
+they need not sum to one. Reviewers must assess each component independently.
+If a performance sounds like only one emotion, reject the mixed label or keep
+it separately as a correctly labelled single-emotion example. Never force
+an unnatural interpretation simply to fill the matrix.
+
+This adds nine recordings per selected sentence per speaker. A small first
+batch is 4 speakers × 5 context-appropriate sentences × 9 performances = 180
+accepted clips. Keep the same sentence and speaker across the three strength
+variants where natural. Record 15–30 reviewed examples for feedback before
+completing this batch. Do not multiply every sentence by every possible mixture.
+Add mixed emotions delivered as whispers or laughing speech only after the
+normal-speech examples are convincing.
+
+Preserve the existing export fields. Keep `emotion` and `emotionIntensity` as
+the primary emotional state and its strength for legacy consumers, and add:
+
+```json
+{
+  "emotion": "angry",
+  "emotionIntensity": 0.90,
+  "x_reviewer_emotion_components": {"angry": 0.90, "sad": 0.25},
+  "x_reviewer_emotion_mode": "simultaneous",
+  "x_reviewer_delivery": "normal"
+}
+```
+
+For balanced mixtures, choose a consistent primary label; the full component
+map is authoritative for mixed-emotion training. Do not replace `emotion` with
+a new string such as `angry+sad`, and do not store components only in prose.
+The primary label is compatibility metadata, not permission to discard the
+second emotion. Use the same script and speaker identity conventions as the
+core batch.
+
+Use at least three independent native listeners. They must confirm both
+components, their perceived intensity levels, naturalness, and delivery.
+Extend each listening-review entry, for example:
+
+```json
+{
+  "reviewer_id": "REVIEWER_01",
+  "emotion_correct": true,
+  "delivery_correct": true,
+  "intensity_level": "high",
+  "naturalness": 4,
+  "emotion_components": {
+    "angry": {"present": true, "intensity_level": "high"},
+    "sad": {"present": true, "intensity_level": "low"}
+  }
+}
+```
+
+Require a majority to confirm each component and its strength, with median
+naturalness at least 4/5. Report failed combinations honestly.
+
+Deliver this batch under `mixed_emotions/data.jsonl` with its own `audio/`
+folder and coverage summary. It is extra to the 27-performance core, not part
+of that count. The current pilot trainer supports one emotion plus one delivery;
+multi-emotion conditioning and validation must be extended before this separate
+batch is used for training. Do not feed it through a single-label importer or
+collapse it into the dominant emotion.
+
+## Shared recording and metadata requirements
 
 Technical recording requirements:
 
@@ -119,6 +206,7 @@ expressive_recordings/
   consent_records/   actual consent records, access restricted appropriately
   recording_notes.md
   rejected/          separate from accepted metadata
+  mixed_emotions/    separate multi-emotion export, audio, and coverage summary
 ```
 
 Use `docs/TTS_EXPRESSIVE_PILOT.md` for an example export object and the validator

@@ -218,6 +218,31 @@ export function detectSpeechBoundaries(samples, sampleRate, options = {}) {
     }
   }
 
+  // If stripBreathing is requested, anchor onset and offset to genuine voiced phonemes,
+  // trimming off pre-speech inhalations/gasps and post-speech exhalations/sighs
+  const stripBreathing = Boolean(options.stripBreathing);
+  if (stripBreathing && onsetFrameIdx >= 0) {
+    const firstVoicedIdx = frames.findIndex(f => f.rms >= voicedRmsThresh || f.peak >= voicedPeakThresh);
+    if (firstVoicedIdx > onsetFrameIdx) {
+      const maxPreSpeechFrames = Math.ceil(50 / hopDurMs);
+      onsetFrameIdx = Math.max(onsetFrameIdx, firstVoicedIdx - maxPreSpeechFrames);
+    }
+  }
+
+  if (stripBreathing && offsetFrameIdx >= 0) {
+    let lastVoicedIdx = -1;
+    for (let i = frames.length - 1; i >= 0; i--) {
+      if (frames[i].rms >= voicedRmsThresh || frames[i].peak >= voicedPeakThresh) {
+        lastVoicedIdx = i;
+        break;
+      }
+    }
+    if (lastVoicedIdx >= 0 && lastVoicedIdx < offsetFrameIdx) {
+      const maxPostSpeechFrames = Math.ceil(60 / hopDurMs);
+      offsetFrameIdx = Math.min(offsetFrameIdx, lastVoicedIdx + maxPostSpeechFrames);
+    }
+  }
+
   if (onsetFrameIdx === -1 || offsetFrameIdx === -1 || onsetFrameIdx >= offsetFrameIdx) {
     // If no distinct activity found, retain entire clip safely
     return {
@@ -254,7 +279,8 @@ export function refineWavSlice(wavBuffer, options = {}) {
     postRollMs = AUDIO_BOUNDARY_CONFIG.postRollMs,
     maxLeadingSilenceMs = AUDIO_BOUNDARY_CONFIG.maxLeadingSilenceMs,
     maxTrailingSilenceMs = AUDIO_BOUNDARY_CONFIG.maxTrailingSilenceMs,
-    isWhisper = false
+    isWhisper = false,
+    stripBreathing = false
   } = options;
 
   const parsed = parseWavPcm(wavBuffer);
@@ -262,7 +288,7 @@ export function refineWavSlice(wavBuffer, options = {}) {
   const totalDurMs = durationSeconds * 1000;
 
   // Pass 1: Detect speech boundaries in the raw candidate slice
-  const bounds = detectSpeechBoundaries(samples, sampleRate, { isWhisper });
+  const bounds = detectSpeechBoundaries(samples, sampleRate, { isWhisper, stripBreathing });
 
   if (!bounds.hasSpeech) {
     return {

@@ -58,7 +58,7 @@ function probeAudioDuration(audioPath) {
  * Single pass FFmpeg silence detection with configurable noise threshold and minimum duration.
  * Uses midpoint cutting and expected boundary validation for Gemini 3.8 <long pause> boundaries.
  */
-function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalDur, expectedCount) {
+function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalDur, expectedCount, options = {}) {
   return new Promise((resolve) => {
     const proc = spawn('ffmpeg', [
       '-i', audioPath,
@@ -138,15 +138,78 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
         });
       }
 
-      // 2. Pick the N-1 largest interior pauses corresponding to intentional <long pause> boundaries
+      const minClipDur = typeof options?.minClipDur === 'number' ? options.minClipDur : 6.0;
+      const maxClipDur = typeof options?.maxClipDur === 'number' ? options.maxClipDur : 16.5;
+      const minPauseSeparation = typeof options?.minClipDur === 'number' ? Math.max(1.0, options.minClipDur * 0.8) : 5.5;
+
+      // 2. Pick the N-1 interior pauses corresponding to inter-paragraph/sentence boundaries.
+      // If reference sentences/paragraphs are provided, use Proportional Word-Weight Time-Windowing!
       let topSilences = [];
-      if (interiorSilences.length === expectedCount - 1) {
-        topSilences = interiorSilences.slice();
-      } else {
-        // If there are extra pauses (e.g. within-sentence breaths), sort by duration and pick
-        // the N-1 most prominent pauses that are separated chronologically by at least 0.8s
-        const sortedByDur = interiorSilences.slice().sort((a, b) => b.duration - a.duration);
-        topSilences = sortedByDur.slice(0, expectedCount - 1);
+      const sentences = options?.sentences;
+
+      if (Array.isArray(sentences) && sentences.length === expectedCount && sentences.length > 1) {
+        const words = sentences.map(s => String(s || '').trim().split(/\s+/).filter(Boolean).length);
+        const totalWords = words.reduce((a, b) => a + b, 0) || 1;
+        let cumulativeWords = 0;
+        let lastBoundaryEnd = 0.0;
+        const pickedCandidates = [];
+        const minSep = Math.max(3.0, minPauseSeparation * 0.6);
+
+        for (let b = 0; b < expectedCount - 1; b++) {
+          cumulativeWords += words[b];
+          const expectedTime = (cumulativeWords / totalWords) * totalDur;
+          const windowSpan = Math.max(5.0, expectedTime * 0.40);
+          const winStart = Math.max(lastBoundaryEnd + 2.0, expectedTime - windowSpan);
+          const winEnd = Math.min(totalDur - 2.0, expectedTime + windowSpan);
+
+          const candidates = interiorSilences.filter(s => 
+            s.start >= winStart && 
+            s.end <= winEnd && 
+            s.start > lastBoundaryEnd + minSep &&
+            s.duration >= minAcceptableDur
+          );
+
+          if (candidates.length > 0) {
+            candidates.sort((a, b) => b.duration - a.duration);
+            const best = candidates[0];
+            pickedCandidates.push(best);
+            lastBoundaryEnd = best.end;
+          }
+        }
+
+        if (pickedCandidates.length === expectedCount - 1) {
+          topSilences = pickedCandidates;
+        }
+      }
+
+      // Fallback: If proportional window didn't match all boundaries
+      if (topSilences.length !== expectedCount - 1) {
+        if (!options.sentences) {
+          if (interiorSilences.length === expectedCount - 1) {
+            topSilences = interiorSilences.slice();
+          } else {
+            // Prioritize pauses separated by at least minPauseSeparation to avoid intra-sentence comma/breath pauses
+            const sortedByDur = interiorSilences.slice().sort((a, b) => b.duration - a.duration);
+            const spacedCandidates = [];
+            for (const cand of sortedByDur) {
+              const isTooClose = spacedCandidates.some(s => Math.abs(s.start - cand.start) < minPauseSeparation);
+              if (!isTooClose) {
+                spacedCandidates.push(cand);
+                if (spacedCandidates.length === expectedCount - 1) break;
+              }
+            }
+            if (spacedCandidates.length === expectedCount - 1) {
+              topSilences = spacedCandidates;
+            } else {
+              topSilences = sortedByDur.slice(0, expectedCount - 1);
+            }
+          }
+        } else {
+          return resolve({
+            success: false,
+            error: `Proportional acoustic windowing found only ${pickedCandidates.length} of ${expectedCount - 1} boundaries within safe windows`
+          });
+        }
       }
       topSilences.sort((a, b) => a.start - b.start);
 
@@ -167,11 +230,21 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
       const segments = [];
       for (let i = 0; i < expectedCount; i++) {
         const sStart = i === 0 ? initialStart : ((topSilences[i - 1].start + topSilences[i - 1].end) / 2);
-        const sEnd = i < expectedCount - 1 ? ((topSilences[i].start + topSilences[i].end) / 2) : Math.max(sStart + 0.65, finalEnd);
+        const sEnd = i < expectedCount - 1 ? ((topSilences[i].start + topSilences[i].end) / 2) : Math.max(sStart + minClipDur, finalEnd);
         const dur = Math.max(0, sEnd - sStart);
 
-        if (dur < 0.65) {
-          return resolve({ success: false, error: `Segment ${i + 1} duration too short (${dur.toFixed(2)}s)` });
+        // Word-count adaptive safety check if sentences provided:
+        let clipMinDur = minClipDur;
+        let clipMaxDur = maxClipDur;
+        if (Array.isArray(sentences) && sentences[i]) {
+          const wCount = String(sentences[i]).trim().split(/\s+/).filter(Boolean).length;
+          clipMinDur = Math.max(minClipDur, wCount * 0.22);
+          clipMaxDur = Math.max(maxClipDur, wCount * 1.5 + 8.0);
+        }
+
+        // Safety Guardrail: check bounds
+        if (dur < clipMinDur || dur > clipMaxDur) {
+          return resolve({ success: false, error: `Segment ${i + 1} duration (${dur.toFixed(2)}s) violates safety guard [${clipMinDur.toFixed(1)}s - ${clipMaxDur.toFixed(1)}s]` });
         }
 
         segments.push({
@@ -182,22 +255,18 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
         });
       }
 
-      // Duration outlier & anomaly validation:
+      // Duration outlier & anomaly validation against safety guardrail:
       const sortedDurs = segments.map(s => s.duration).sort((a, b) => a - b);
-      const medianDur = sortedDurs[Math.floor(sortedDurs.length / 2)] || 3.0;
+      const medianDur = sortedDurs[Math.floor(sortedDurs.length / 2)] || 8.0;
       let hasOutlier = false;
       let suspiciousExtraSpeech = false;
       const outlierDetails = [];
 
       for (let i = 0; i < segments.length; i++) {
         const d = segments[i].duration;
-        // Check for suspicious repeated / merged sentences (accommodate emotional delivery and long sentences)
-        if (d > Math.max(28.0, medianDur * 3.5)) {
-          suspiciousExtraSpeech = true;
-          outlierDetails.push(`Clip ${i + 1} suspicious extra/repeated speech (${d}s vs median ${medianDur.toFixed(2)}s)`);
-        } else if (d > Math.max(22.0, medianDur * 3.0) || (medianDur >= 3.0 && d < Math.min(0.6, medianDur * 0.25))) {
+        if (d < minClipDur || d > maxClipDur) {
           hasOutlier = true;
-          outlierDetails.push(`Clip ${i + 1} duration outlier: ${d}s vs median ${medianDur.toFixed(2)}s`);
+          outlierDetails.push(`Clip ${i + 1} duration ${d.toFixed(2)}s is outside safe bounds [${minClipDur}s - ${maxClipDur}s]`);
         }
       }
 
@@ -221,7 +290,7 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
       if (avgBoundaryDur >= 0.70) confidence += 0.20;
       else if (avgBoundaryDur >= 0.40) confidence += 0.10;
 
-      const saneDurations = segments.every(s => s.duration >= 0.65 && s.duration <= 16.0);
+      const saneDurations = segments.every(s => s.duration >= minClipDur && s.duration <= maxClipDur);
       if (saneDurations) confidence += 0.20;
 
       if (speechOccupancy >= 0.35 && speechOccupancy <= 0.95) {
@@ -265,7 +334,7 @@ function runSingleSilencePass(audioPath, noise, minDur, minAcceptableDur, totalD
  * Detects inter-sentence pauses using adaptive multi-pass FFmpeg silence detection.
  * Calibrated specifically for Gemini 3.8 <long pause> boundary detection.
  */
-async function detectViaSilence(audioPath, expectedCount) {
+async function detectViaSilence(audioPath, expectedCount, options = {}) {
   const totalDur = await probeAudioDuration(audioPath);
   if (totalDur <= 0) return { success: false, error: 'Empty or invalid audio' };
 
@@ -290,7 +359,7 @@ async function detectViaSilence(audioPath, expectedCount) {
 
   let lastError = '';
   for (const pass of passes) {
-    const res = await runSingleSilencePass(audioPath, pass.noise, pass.minDur, pass.minAcceptableDur, totalDur, expectedCount);
+    const res = await runSingleSilencePass(audioPath, pass.noise, pass.minDur, pass.minAcceptableDur, totalDur, expectedCount, options);
     if (res.success && res.segments && res.segments.length === expectedCount) {
       return res;
     }
@@ -442,9 +511,17 @@ export async function detectWhisperSegments(audioPath, expectedCount, options = 
   }
 
   // Strategy 2: Instant, sample-accurate FFmpeg silence partitioning (for pause-separated prompts)
-  const silenceResult = await detectViaSilence(audioPath, expectedCount);
+  const silenceResult = await detectViaSilence(audioPath, expectedCount, options);
   if (silenceResult.success && silenceResult.segments && silenceResult.segments.length === expectedCount) {
     return silenceResult;
+  }
+
+  // If noModels mode is requested, do not run heavy local Whisper ML models
+  if (options.noModels) {
+    return {
+      success: false,
+      error: `Silence detection could not resolve boundaries safely: ${silenceResult.error || 'inconclusive'}. Slicing aborted.`
+    };
   }
 
   // Tier 3: Whisper VAD fallback
@@ -491,7 +568,8 @@ export async function sliceAudioBySegments(masterWavPath, segments, options = {}
         const rawBuf = fs.readFileSync(outTmp);
         const { refinedBuffer, boundaryMetrics } = refineWavSlice(rawBuf, {
           isWhisper: Boolean(options.isWhisper),
-          emotion: options.emotion
+          emotion: options.emotion,
+          stripBreathing: Boolean(options.stripBreathing)
         });
         buffers.push(refinedBuffer);
         sliceMetrics.push(boundaryMetrics);

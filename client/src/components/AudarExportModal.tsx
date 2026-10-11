@@ -133,10 +133,11 @@ export const AudarExportModal: React.FC<AudarExportModalProps> = ({ isOpen, onCl
                 <pre style={{ margin: 0, fontSize: '0.78rem', color: '#38bdf8', lineHeight: 1.45, fontFamily: 'monospace' }}>
 {`dataset_export/
 ├── audio/                      <-- 24kHz 16-bit Mono PCM WAV files
-│   ├── krd_synth_spk01_001.wav
-│   └── ...
 ├── data.jsonl                  <-- Master Canonical JSONL (Full Metrics & Tags)
-├── metadata.csv                <-- TTS Manifest (Pipe-delimited: audio|text|spk|emotion)
+├── mixed_emotions/
+│   └── data.jsonl              <-- Multi-Emotion JSONL (Components & Mode)
+├── whispered_speech.jsonl      <-- Filtered Whispered Speech Manifest
+├── metadata.csv                <-- TTS Manifest (audio|text|spk|emotion|intensity|delivery)
 ├── whisper.jsonl               <-- ASR Training Manifest (Whisper / Meta MMS)
 └── manifest.json               <-- Dataset Summary, Stats & SHA256 Hashes`}
                 </pre>

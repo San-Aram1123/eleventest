@@ -57,8 +57,8 @@ def group_chunks_into_sentences(raw_chunks, expected_count):
     s_text = " ".join(c["text"] for c in raw_chunks[start_chunk:]).strip()
     sentences.append({"start": s_start, "end": s_end, "text": s_text})
 
-    # Validate resulting sentence durations: none can be extreme outlier (> 12.0s or < 0.60s)
-    if any((s["end"] - s["start"] > 12.0 or s["end"] - s["start"] < 0.60) for s in sentences):
+    # Validate resulting sentence durations: must strictly be within [6.0s, 16.5s] safety guard
+    if any((s["end"] - s["start"] > 16.5 or s["end"] - s["start"] < 6.0) for s in sentences):
         return None
 
     return sentences
@@ -385,6 +385,11 @@ def segment_kurdish_alignment(audio_path, sentences, expected_count=None):
             seg_end = round(seg_start + 0.6, 3)
 
         dur = round(seg_end - seg_start, 3)
+        if dur < 6.0 or dur > 16.5:
+            return {
+                "success": False,
+                "error": f"Segment #{s_idx + 1} duration {dur:.2f}s is outside safe bounds [6.0s, 16.5s]. Aborting take."
+            }
         last_end_cut = seg_end
 
         segments_out.append({

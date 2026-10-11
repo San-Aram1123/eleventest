@@ -1,8 +1,9 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { Search, ArrowUpDown, Globe } from 'lucide-react';
 import { Sample } from '../../types';
 import { REQUIRED_EMOTIONS } from './pairedConstants';
 import { FamilyCard, FamilyGroup, parseDateSafe, getTimeZone } from './FamilyCard';
+import { FamiliesPaginationBar } from '../expressive/FamiliesPaginationBar';
 
 interface PairedFamiliesViewProps {
   samples: Sample[];
@@ -24,14 +25,18 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
   const [sortOrder, setSortOrder] = useState<'newest' | 'oldest' | 'id_desc' | 'id_asc'>('newest');
   const [timeZone, setTimeZone] = useState<string>(() => getTimeZone());
   const [playingClipId, setPlayingClipId] = useState<string | null>(null);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageSize, setPageSize] = useState<number>(10);
   const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
   const handleTimezoneChange = (tz: string) => {
     setTimeZone(tz);
-    try {
-      localStorage.setItem('app_timezone', tz);
-    } catch (e) {}
+    try { localStorage.setItem('app_timezone', tz); } catch (e) {}
   };
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchTerm, filterStatus, sortOrder, pageSize]);
 
   const parseTime = (dateVal?: string | number | null): number => {
     const d = parseDateSafe(dateVal);
@@ -57,7 +62,7 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           text: s.text || '',
           dialect: s.dialect || 'sorani',
           language: s.language || (s as any).customMetadata?.language || (s.dialect === 'badini' ? 'kmr' : 'ckb'),
-          gender: (s as any).gender || (s as any).voice_gender || (s as any).customMetadata?.gender || (s as any).customMetadata?.voice_gender || undefined,
+          gender: (s as any).gender || (s as any).voice_gender || (s as any).customMetadata?.gender || undefined,
           clips: {},
           latestTimestamp: 0,
           latestCreatedAt: null
@@ -82,23 +87,13 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
       const timeA = a.latestTimestamp || 0;
       const timeB = b.latestTimestamp || 0;
 
-      if (sortOrder === 'newest') {
-        if (timeB !== timeA) return timeB - timeA;
-        return b.familyId.localeCompare(a.familyId, undefined, { numeric: true });
-      }
-      if (sortOrder === 'oldest') {
-        if (timeA !== timeB) return timeA - timeB;
-        return a.familyId.localeCompare(b.familyId, undefined, { numeric: true });
-      }
-      if (sortOrder === 'id_desc') {
-        return b.familyId.localeCompare(a.familyId, undefined, { numeric: true });
-      }
-      // id_asc
+      if (sortOrder === 'newest') return timeB !== timeA ? timeB - timeA : b.familyId.localeCompare(a.familyId, undefined, { numeric: true });
+      if (sortOrder === 'oldest') return timeA !== timeB ? timeA - timeB : a.familyId.localeCompare(b.familyId, undefined, { numeric: true });
+      if (sortOrder === 'id_desc') return b.familyId.localeCompare(a.familyId, undefined, { numeric: true });
       return a.familyId.localeCompare(b.familyId, undefined, { numeric: true });
     });
   }, [samples, sortOrder]);
 
-  // Filtered families
   const filteredFamilies = useMemo(() => {
     return families.filter(f => {
       const presentCount = REQUIRED_EMOTIONS.filter(e => !!(f.clips[e.id] || (e.id === 'cackle' && f.clips['laugh']))).length;
@@ -126,41 +121,34 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
       if (onPlayAudio) onPlayAudio('', '');
       return;
     }
-    if (audioRef.current) {
-      audioRef.current.pause();
-    }
+    if (audioRef.current) audioRef.current.pause();
     const audio = new Audio(url);
     audioRef.current = audio;
-    audio.onended = () => {
-      setPlayingClipId(null);
-      if (onPlayAudio) onPlayAudio('', '');
-    };
-    audio.onerror = (e) => {
-      console.warn('Audio playback error:', e);
-      setPlayingClipId(null);
-      if (onPlayAudio) onPlayAudio('', '');
-    };
-    audio.play().catch(e => {
-      console.warn('Audio play failed:', e);
-      setPlayingClipId(null);
-    });
+    audio.onended = () => { setPlayingClipId(null); onPlayAudio?.('', ''); };
+    audio.onerror = () => { setPlayingClipId(null); onPlayAudio?.('', ''); };
+    audio.play().catch(() => setPlayingClipId(null));
     setPlayingClipId(s.id);
-    if (onPlayAudio) onPlayAudio(url, s.id);
+    onPlayAudio?.(url, s.id);
   };
 
   const totalComplete = families.filter(f => REQUIRED_EMOTIONS.every(e => !!(f.clips[e.id] || (e.id === 'cackle' && f.clips['laugh'])))).length;
 
+  const totalPages = Math.max(1, Math.ceil(filteredFamilies.length / pageSize));
+  const safePage = Math.min(Math.max(1, currentPage), totalPages);
+  const startIndex = (safePage - 1) * pageSize;
+  const paginatedFamilies = filteredFamilies.slice(startIndex, startIndex + pageSize);
+
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* Search & Filter Toolbar */}
       <div className="glass-card" style={{ padding: '0.85rem 1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
-          <div style={{ position: 'relative', minWidth: '240px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flexWrap: 'wrap' }}>
+          <div style={{ position: 'relative', minWidth: '220px' }}>
             <Search size={15} style={{ position: 'absolute', left: '10px', top: '50%', transform: 'translateY(-50%)', color: '#64748b' }} />
             <input
               type="text"
               className="input-text"
-              placeholder="Search family ID, speaker, or Kurdish text..."
+              placeholder="Search family ID, speaker, or text..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               style={{ paddingLeft: '32px', width: '100%', fontSize: '0.85rem' }}
@@ -168,47 +156,20 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           </div>
 
           <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: '6px', padding: '2px' }}>
-            <button
-              className={`btn btn-sm ${filterStatus === 'all' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setFilterStatus('all')}
-              style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-            >
+            <button className={`btn btn-sm ${filterStatus === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilterStatus('all')} style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
               All ({families.length})
             </button>
-            <button
-              className={`btn btn-sm ${filterStatus === 'complete' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setFilterStatus('complete')}
-              style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-            >
+            <button className={`btn btn-sm ${filterStatus === 'complete' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilterStatus('complete')} style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
               Complete ({totalComplete})
             </button>
-            <button
-              className={`btn btn-sm ${filterStatus === 'incomplete' ? 'btn-primary' : 'btn-ghost'}`}
-              onClick={() => setFilterStatus('incomplete')}
-              style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}
-            >
+            <button className={`btn btn-sm ${filterStatus === 'incomplete' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilterStatus('incomplete')} style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
               Incomplete ({families.length - totalComplete})
             </button>
           </div>
 
-          {/* Sort Selector */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <ArrowUpDown size={14} style={{ color: '#94a3b8' }} />
-            <select
-              className="select-control"
-              value={sortOrder}
-              onChange={(e) => setSortOrder(e.target.value as any)}
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.5rem',
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '6px',
-                color: '#e2e8f0',
-                cursor: 'pointer'
-              }}
-              title="Sort Paired Emotion Families"
-            >
+            <select className="select-control" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', color: '#e2e8f0', cursor: 'pointer' }}>
               <option value="newest">🕒 Newest First</option>
               <option value="oldest">🕒 Oldest First</option>
               <option value="id_desc">🔤 Family ID (Z → A)</option>
@@ -216,24 +177,9 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
             </select>
           </div>
 
-          {/* Timezone Selector */}
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
             <Globe size={13} style={{ color: '#94a3b8' }} />
-            <select
-              className="select-control"
-              value={timeZone}
-              onChange={(e) => handleTimezoneChange(e.target.value)}
-              style={{
-                fontSize: '0.75rem',
-                padding: '0.25rem 0.5rem',
-                background: 'rgba(15, 23, 42, 0.6)',
-                border: '1px solid rgba(255, 255, 255, 0.12)',
-                borderRadius: '6px',
-                color: '#e2e8f0',
-                cursor: 'pointer'
-              }}
-              title="Display Timezone for Timestamps"
-            >
+            <select className="select-control" value={timeZone} onChange={(e) => handleTimezoneChange(e.target.value)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', color: '#e2e8f0', cursor: 'pointer' }}>
               <option value="Asia/Baghdad">GMT+3 (Baghdad / Kurdistan)</option>
               <option value="local">Browser Local</option>
               <option value="UTC">UTC (GMT+0)</option>
@@ -243,20 +189,7 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
           {isLiveSyncActive && (
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '5px',
-                fontSize: '0.75rem',
-                color: '#10b981',
-                background: 'rgba(16, 185, 129, 0.12)',
-                border: '1px solid rgba(16, 185, 129, 0.3)',
-                borderRadius: '16px',
-                padding: '2px 8px'
-              }}
-              title="Real-time dataset listener active. New emotion takes will animate into their families automatically."
-            >
+            <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px', fontSize: '0.75rem', color: '#10b981', background: 'rgba(16, 185, 129, 0.12)', border: '1px solid rgba(16, 185, 129, 0.3)', borderRadius: '16px', padding: '2px 8px' }}>
               <span className="live-sync-indicator-dot" />
               <span style={{ fontWeight: 600 }}>Live Sync</span>
             </div>
@@ -273,19 +206,31 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           No paired emotion families found matching current criteria.
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
-          {filteredFamilies.map((f) => (
-            <FamilyCard
-              key={f.familyId}
-              family={f}
-              timeZone={timeZone}
-              activeAudioId={activeAudioId}
-              playingClipId={playingClipId}
-              recentSampleIds={recentSampleIds}
-              onPlay={handlePlay}
-            />
-          ))}
-        </div>
+        <>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+            {paginatedFamilies.map((f) => (
+              <FamilyCard
+                key={f.familyId}
+                family={f}
+                timeZone={timeZone}
+                activeAudioId={activeAudioId}
+                playingClipId={playingClipId}
+                recentSampleIds={recentSampleIds}
+                onPlay={handlePlay}
+              />
+            ))}
+          </div>
+
+          <FamiliesPaginationBar
+            currentPage={safePage}
+            totalItems={filteredFamilies.length}
+            pageSize={pageSize}
+            onPageChange={setCurrentPage}
+            onPageSizeChange={setPageSize}
+            pageSizeOptions={[5, 10, 20, 50]}
+            itemName="paired families"
+          />
+        </>
       )}
     </div>
   );

@@ -2,7 +2,7 @@ import fs from 'fs';
 import path from 'path';
 import os from 'os';
 import { generateGeminiSpeech } from './geminiService.js';
-import { saveSample } from './datasetService.js';
+import { saveSample, getSample, ensureDatasetDir } from './datasetService.js';
 import {
   getEmotionPromptDirective,
   getEmotionSpeechStyle,
@@ -55,10 +55,18 @@ export function getLatestMasterAudio() {
  * Builds an optimized multi-sentence prompt for one emotion with Gemini 3.8 <long pause> separators.
  * Constructs structured parts with native speech_metadata.style.
  */
-export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, language = 'ckb', slicingStrategy = 'silence') {
+export function buildTransposedBatchPrompt(
+  sentences,
+  emotion,
+  intensity = 0.8,
+  language = 'ckb',
+  slicingStrategy = 'silence',
+  customStyle = null,
+  customInstruction = null
+) {
   const isBadini = language === 'kmr';
   const targetLang = language || (isBadini ? 'kmr' : 'ckb');
-  const styleDirective = getEmotionSpeechStyle(emotion, intensity, targetLang);
+  const styleDirective = customStyle || getEmotionSpeechStyle(emotion, intensity, targetLang);
   const englishNums = ['One', 'Two', 'Three', 'Four', 'Five', 'Six', 'Seven', 'Eight', 'Nine', 'Ten', 'Eleven', 'Twelve'];
 
   const isCackle = String(emotion || '').toLowerCase() === 'cackle' || String(emotion || '').toLowerCase() === 'laugh';
@@ -105,7 +113,7 @@ export function buildTransposedBatchPrompt(sentences, emotion, intensity = 0.8, 
     }).join('\n');
   }
 
-  let instruction = getEmotionPromptDirective(emotion, intensity, targetLang);
+  let instruction = customInstruction || getEmotionPromptDirective(emotion, intensity, targetLang);
   if (isCackle) {
     instruction += " When you encounter [laugh], laugh or chuckle naturally out loud mid-sentence without pronouncing the bracketed word, and continue speaking in a lively, amused cackling tone.";
   }
@@ -139,8 +147,15 @@ export async function generateTransposedEmotionBatch({
   intensity = 0.8,
   model = 'gemini-3.8-flash-tts',
   apiKey = '',
-  slicingStrategy = 'silence'
+  slicingStrategy = 'silence',
+  customStyle = null,
+  customInstruction = null,
+  conditionId = null,
+  signal = null
 }) {
+  if (signal?.aborted) {
+    throw new Error('[Transposed Batch] Aborted by user.');
+  }
   const cleanSentences = (sentences || []).map(s => String(s || '').trim()).filter(Boolean);
   if (cleanSentences.length === 0) {
     throw new Error('At least one sentence is required for batch generation.');
@@ -156,8 +171,33 @@ export async function generateTransposedEmotionBatch({
       targetEmotion,
       numIntensity,
       language,
-      slicingStrategy
+      slicingStrategy,
+      customStyle,
+      customInstruction
     );
+    // Fast-path recovery: If all expected clips for this transposed batch are already fully saved on disk (e.g. from an in-flight request right before reload), return them immediately
+    const datasetDir = ensureDatasetDir();
+    const expectedClipIds = cleanSentences.map((_, i) => {
+      const fId = buildFamilyId(speakerId, startIdx + i);
+      return conditionId ? `${fId}_${conditionId}` : buildClipId(fId, targetEmotion);
+    });
+
+    const allExistOnDisk = expectedClipIds.every(id => {
+      const wavP = path.join(datasetDir, `${id}.wav`);
+      const jsonP = path.join(datasetDir, `${id}.json`);
+      if (!fs.existsSync(wavP) || !fs.existsSync(jsonP)) return false;
+      try { return fs.statSync(wavP).size > 3000; } catch { return false; }
+    });
+
+    if (allExistOnDisk) {
+      console.log(`[Transposed Batch] Fast recovery: All ${expectedClipIds.length} clips for "${targetEmotion}" (startIdx ${startIdx}) already exist on disk. Returning existing samples without re-synthesizing.`);
+      const existingSamples = await Promise.all(expectedClipIds.map(id => getSample(id)));
+      if (existingSamples.every(Boolean)) {
+        return { success: true, samples: existingSamples, recovered: true };
+      }
+    }
+
+    if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
     console.log(`[Transposed Batch] Synthesizing ${cleanSentences.length} sentences for emotion "${targetEmotion}" with voice "${voiceName}" (strategy: ${slicingStrategy})...`);
 
     const genResult = await generateGeminiSpeech({
@@ -170,6 +210,8 @@ export async function generateTransposedEmotionBatch({
       apiKey,
       model
     });
+
+    if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
 
     if (!genResult.audioBuffer || genResult.audioBuffer.length < 8000) {
       throw new Error('[Transposed Batch] Gemini returned an empty or invalid audio stream.');
@@ -192,6 +234,8 @@ export async function generateTransposedEmotionBatch({
       createdAt: Date.now()
     });
 
+    if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
+
     // Step 1: Detect sentence segments using chosen strategy (kurdish_align, markers, or silence)
     console.log(`[Transposed Batch] Segmenting audio with strategy "${slicingStrategy}" (expecting ${cleanSentences.length} sentences)...`);
     const segResult = await detectWhisperSegments(tempMaster, cleanSentences.length, { slicingStrategy, sentences: cleanSentences });
@@ -203,6 +247,8 @@ export async function generateTransposedEmotionBatch({
       throw new Error(`[Transposed Batch] Slicing aborted: ${errReason}`);
     }
 
+    if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
+
     // Step 2: Slice audio buffers per segment with automatic waveform boundary refinement
     const slicedBuffers = await sliceAudioBySegments(tempMaster, segResult.segments, {
       isWhisper: targetEmotion === 'whisper',
@@ -213,28 +259,28 @@ export async function generateTransposedEmotionBatch({
       throw new Error('[Transposed Batch] Slicing validation failed: audio buffers too small.');
     }
 
-    // Guardrail: Disallow merged runaway takes or dropped takes (adaptive based on word count & emotion)
+    // Strict Safety Guard: Disallow takes outside [6.0s - 16.5s] range
     for (let i = 0; i < slicedBuffers.length; i++) {
       const bMetrics = slicedBuffers.sliceMetrics?.[i];
       const dur = bMetrics?.final_duration_seconds || segResult.segments[i]?.duration || 0;
-      const wordCount = (cleanSentences[i] || '').split(/\s+/).filter(Boolean).length;
-      // Generous ceiling to accommodate emotional delivery (sad, crying, laughing pauses) & long text
-      const maxAllowedDur = Math.max(32.0, wordCount * 2.2 + 8.0);
-      if (dur > maxAllowedDur) {
-        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (> ${maxAllowedDur.toFixed(1)}s, multiple sentences merged). Aborting take.`);
+      if (dur > 16.5) {
+        throw new Error(`[Transposed Batch] Safety Guardrail failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (> 16.5s max limit, multiple sentences merged or runaway speech). Aborting take.`);
       }
-      if (dur < 0.6) {
-        throw new Error(`[Transposed Batch] Slicing validation failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (< 0.6s, sentence dropped by Gemini). Aborting take.`);
+      if (dur < 6.0) {
+        throw new Error(`[Transposed Batch] Safety Guardrail failed: Clip ${i + 1} duration is ${dur.toFixed(2)}s (< 6.0s min limit, cut mid-sentence or dropped take). Aborting take.`);
       }
     }
+
+    if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
 
     // Save samples with deterministic family_id
     const savedSamples = [];
     for (let i = 0; i < cleanSentences.length; i++) {
+      if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
       const sentenceText = cleanSentences[i];
       const sentenceIndex = startIdx + i;
       const fId = buildFamilyId(speakerId, sentenceIndex);
-      const clipId = buildClipId(fId, targetEmotion);
+      const clipId = conditionId ? `${fId}_${conditionId}` : buildClipId(fId, targetEmotion);
       const bMetrics = slicedBuffers.sliceMetrics?.[i] || null;
       const segDuration = bMetrics?.final_duration_seconds || segResult.segments[i]?.duration || 0;
 
@@ -263,6 +309,8 @@ export async function generateTransposedEmotionBatch({
         qc_grade: clipQcEval.grade,
         customMetadata: {
           family_id: fId,
+          condition_id: conditionId || targetEmotion,
+          expressive_condition: conditionId || null,
           speaker_name: speakerId,
           emotion_intensity: numIntensity,
           duration_seconds: segDuration,

@@ -6,11 +6,13 @@ import { ApiGenerationPage } from './pages/ApiGenerationPage';
 import { GeminiGenerationPage } from './pages/GeminiGenerationPage';
 import { DatasetManagerPage } from './pages/DatasetManagerPage';
 import { ComparisonPage } from './pages/ComparisonPage';
+import { ExpressivePilotPage } from './pages/expressive/ExpressivePilotPage';
+import { ContextSwitchingPage } from './pages/ContextSwitchingPage';
 import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare'>('gemini');
+  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch'>('gemini');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -45,7 +47,7 @@ export const App: React.FC = () => {
   useEffect(() => {
     loadInitialData();
 
-    // Real-time synchronization: keep dataset live across all tabs without manual refresh
+    // Real-time synchronization: keep dataset live across tabs
     const interval = setInterval(async () => {
       try {
         const datasetList = await fetchDataset().catch(() => null);
@@ -58,7 +60,7 @@ export const App: React.FC = () => {
           });
         }
       } catch {}
-    }, 2500);
+    }, 8000);
 
     return () => clearInterval(interval);
   }, []);
@@ -152,6 +154,19 @@ export const App: React.FC = () => {
           <ComparisonPage
             samples={samples}
             onSampleUpdated={handleSampleUpdated}
+            addToast={addToast}
+          />
+        </div>
+
+        <div style={{ display: activeTab === 'expressive' ? 'block' : 'none' }}>
+          <ExpressivePilotPage
+            addToast={addToast}
+          />
+        </div>
+
+        <div style={{ display: activeTab === 'context-switch' ? 'block' : 'none' }}>
+          <ContextSwitchingPage
+            onSampleCreated={handleSampleCreated}
             addToast={addToast}
           />
         </div>

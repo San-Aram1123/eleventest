@@ -10,13 +10,14 @@ import {
   Layers,
   Bot,
   Sun,
-  Moon
+  Moon,
+  Languages
 } from 'lucide-react';
 import { SystemConfig } from '../types';
 
 interface NavbarProps {
-  activeTab: 'api' | 'gemini' | 'dataset' | 'compare';
-  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare') => void;
+  activeTab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch';
+  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch') => void;
   onOpenSettings: () => void;
   config: SystemConfig | null;
   datasetCount: number;
@@ -94,6 +95,26 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             <GitCompare size={18} className="nav-tab-icon" />
             <span>Compare & Evaluate</span>
+          </button>
+
+          <button
+            id="nav-tab-expressive"
+            className={`nav-tab-btn ${activeTab === 'expressive' ? 'active' : ''}`}
+            onClick={() => onSelectTab('expressive')}
+          >
+            <Sparkles size={18} className="nav-tab-icon" style={{ color: '#C084FC' }} />
+            <span>Expressive Pilot</span>
+            <span className="nav-count-badge" style={{ background: '#7C3AED' }}>27</span>
+          </button>
+
+          <button
+            id="nav-tab-context-switch"
+            className={`nav-tab-btn ${activeTab === 'context-switch' ? 'active' : ''}`}
+            onClick={() => onSelectTab('context-switch')}
+          >
+            <Languages size={18} className="nav-tab-icon" style={{ color: '#10B981' }} />
+            <span>Context Switching</span>
+            <span className="nav-count-badge" style={{ background: '#059669' }}>3-Lang</span>
           </button>
         </nav>
 

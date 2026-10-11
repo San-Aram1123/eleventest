@@ -49,8 +49,8 @@ export async function getNextFamilyIndex(speakerId = null) {
   // 1. Scan filesystem for all family indices
   try {
     const files = fs.readdirSync(dir);
-    // Matches any family: e.g. spk01_006_angry.wav, spk02_012_happy.json
-    const regexGlobal = /^[a-zA-Z0-9_-]+?_(\d+)_[a-zA-Z0-9_-]+/;
+    // Matches any family: e.g. spk01_006_angry.wav, expressive_pilot__ACTOR_001_042_mix_happy_fear.json
+    const regexGlobal = /(?:spk\d+|ACTOR_\d+|[a-zA-Z0-9_-]+)_(\d{3,})_[a-zA-Z0-9_-]+\.(?:json|wav)$/i;
     for (const f of files) {
       const match = f.match(regexGlobal);
       if (match) {
@@ -159,6 +159,9 @@ export async function generatePairedEmotionClip({
   });
 
   const finalDurationSeconds = bMetrics?.final_duration_seconds || genResult.durationSeconds || 0;
+  if (finalDurationSeconds < 6.0 || finalDurationSeconds > 16.5) {
+    throw new Error(`[Paired Take] Safety Guardrail failed: Duration is ${finalDurationSeconds.toFixed(2)}s (outside allowed 6.0s - 16.5s window). Aborting take.`);
+  }
   const qcEval = evaluateQcConfidence(1.0, bMetrics);
 
   const sample = await saveSample({

@@ -16,6 +16,7 @@ import {
   updateSampleMetadata,
   deleteSample,
   deleteSamples,
+  deleteDurationOutliers,
   exportDatasetZip,
   getNextSampleId,
   findSampleByText,
@@ -101,6 +102,11 @@ import {
   OPTIONAL_EMOTIONS,
   SPEAKER_PRESETS
 } from './pairedEmotionConfig.js';
+import {
+  generateContextSwitchingSlicedBatch,
+  generateContextSwitchingSingleSample,
+  getNextContextSwitchingIndex
+} from './contextSwitchingService.js';
 
 dotenv.config();
 
@@ -1218,6 +1224,20 @@ app.post('/api/dataset/batch-delete', async (req, res) => {
   }
 });
 
+/**
+ * Delete all samples outside duration bounds (< minSeconds or > maxSeconds)
+ */
+app.post('/api/dataset/delete-outliers', async (req, res) => {
+  try {
+    const minSeconds = req.body?.minSeconds !== undefined ? parseFloat(req.body.minSeconds) : 6.0;
+    const maxSeconds = req.body?.maxSeconds !== undefined ? parseFloat(req.body.maxSeconds) : 16.5;
+    const result = await deleteDurationOutliers(minSeconds, maxSeconds);
+    res.json(result);
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
 import { exportAudarCanonicalZip, getAudarDatasetSummary } from './audarExporter.js';
 
 /**
@@ -1239,9 +1259,9 @@ app.get('/api/dataset/export/zip', async (req, res) => {
  * (dataset_export/ layout with audio/, data.jsonl, metadata.csv, whisper.jsonl, manifest.json)
  * Supports query filters: ?gender=male|female|all&voice=...&dialect=...&emotion=...
  */
-app.get('/api/dataset/export/audar-zip', (req, res) => {
+app.get('/api/dataset/export/audar-zip', async (req, res) => {
   try {
-    exportAudarCanonicalZip(res, req.query);
+    await exportAudarCanonicalZip(res, req.query);
   } catch (err) {
     if (!res.headersSent) {
       res.status(500).json({ error: err.message });
@@ -1252,9 +1272,9 @@ app.get('/api/dataset/export/audar-zip', (req, res) => {
 /**
  * Get Audar Canonical Dataset Summary & Phonetic Coverage Report with optional filters
  */
-app.get('/api/dataset/export/audar-summary', (req, res) => {
+app.get('/api/dataset/export/audar-summary', async (req, res) => {
   try {
-    const summary = getAudarDatasetSummary(req.query);
+    const summary = await getAudarDatasetSummary(req.query);
     res.json(summary);
   } catch (err) {
     res.status(500).json({ error: err.message });
@@ -1307,9 +1327,10 @@ app.get('/api/paired/config', (req, res) => {
  */
 app.get('/api/paired/next-index', async (req, res) => {
   try {
-    const speakerId = req.query.speakerId || 'spk01';
+    const rawSpk = req.query.speakerId;
+    const speakerId = (!rawSpk || rawSpk === 'all') ? null : String(rawSpk).trim();
     const nextIndex = await getNextFamilyIndex(speakerId);
-    res.json({ speakerId, nextIndex });
+    res.json({ speakerId: speakerId || 'global', nextIndex });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -1440,6 +1461,19 @@ app.post('/api/paired/generate-family-sliced', async (req, res) => {
 });
 
 let activeBatchMutex = Promise.resolve();
+const activeBatchAbortControllers = new Set();
+
+/**
+ * Aborts any active batch generation immediately on the server when user clicks Stop.
+ */
+app.post('/api/paired/abort-batch', (req, res) => {
+  console.log(`[Paired API] Stop requested by client. Aborting ${activeBatchAbortControllers.size} active batch generation(s)...`);
+  for (const controller of activeBatchAbortControllers) {
+    controller.abort();
+  }
+  activeBatchAbortControllers.clear();
+  res.json({ success: true, message: 'Active batch generation aborted.' });
+});
 
 /**
  * Synthesizes a batch of sentences for one emotion using spoken English markers & faster-whisper alignment
@@ -1457,17 +1491,26 @@ app.post('/api/paired/generate-transposed-batch', async (req, res) => {
       intensity = 0.8,
       model = 'gemini-3.8-flash-tts',
       apiKey = '',
-      slicingStrategy = 'silence'
+      slicingStrategy = 'silence',
+      conditionId = req.body.conditionId || null,
+      customStyle = req.body.customStyle || req.body.speechStyle || null,
+      customInstruction = req.body.customInstruction || req.body.promptInstruction || null
     } = req.body;
 
     if (!Array.isArray(sentences) || sentences.length === 0) {
       return res.status(400).json({ error: 'Sentences array is required' });
     }
 
+    const abortController = new AbortController();
+    activeBatchAbortControllers.add(abortController);
+
     // Mutex: serialize batch generation calls so concurrent requests/tabs don't race against key pool
     const result = await new Promise((resolve, reject) => {
       activeBatchMutex = activeBatchMutex.catch(() => { }).then(async () => {
         try {
+          if (abortController.signal.aborted) {
+            return reject(new Error('Batch generation aborted by client.'));
+          }
           const resBatch = await generateTransposedEmotionBatch({
             speakerId,
             voiceName,
@@ -1479,20 +1522,157 @@ app.post('/api/paired/generate-transposed-batch', async (req, res) => {
             intensity,
             model,
             apiKey,
-            slicingStrategy
+            slicingStrategy,
+            customStyle,
+            customInstruction,
+            conditionId,
+            signal: abortController.signal
           });
           resolve(resBatch);
         } catch (err) {
           reject(err);
+        } finally {
+          activeBatchAbortControllers.delete(abortController);
         }
       });
     });
 
     res.json(result);
   } catch (err) {
-    console.error('[Paired API] Error generating transposed marker batch:', err);
+    if (err.message && err.message.includes('Aborted')) {
+      console.log(`[Paired API] Transposed batch cleanly aborted: ${err.message}`);
+      return res.status(499).json({ error: 'Batch aborted by client' });
+    }
+    console.error(`[Paired API] Error generating transposed batch (${req.body?.slicingStrategy || 'silence'}):`, err);
     res.status(500).json({ error: err.message });
   }
+});
+
+/**
+ * Returns the next sequential index for Context Switching clips (ctx_...).
+ */
+app.get('/api/context-switching/next-index', async (req, res) => {
+  try {
+    const voiceName = req.query.voiceName || null;
+    const nextIndex = await getNextContextSwitchingIndex(voiceName);
+    res.json({ nextIndex });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Direct 1:1 Generation: Synthesizes 1 complete paragraph with Gemini 3.8 Flash TTS.
+ * Zero slicing, zero models, zero risk of truncations or overlaps.
+ */
+app.post('/api/context-switching/generate-single', async (req, res) => {
+  try {
+    const {
+      paragraph = '',
+      itemIndex = 1,
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      apiKey = '',
+      model = 'gemini-3.8-flash-tts'
+    } = req.body;
+
+    if (!paragraph || !String(paragraph).trim()) {
+      return res.status(400).json({ error: 'Paragraph text is required' });
+    }
+
+    const abortController = new AbortController();
+    activeBatchAbortControllers.add(abortController);
+
+    try {
+      const sample = await generateContextSwitchingSingleSample({
+        paragraph,
+        itemIndex: Number(itemIndex) || 1,
+        voiceName,
+        dialect,
+        apiKey,
+        model,
+        signal: abortController.signal
+      });
+      res.json({ success: true, sample });
+    } finally {
+      activeBatchAbortControllers.delete(abortController);
+    }
+  } catch (err) {
+    if (err.message && err.message.includes('Aborted')) {
+      return res.status(499).json({ error: 'Request aborted by client' });
+    }
+    console.error('[Context Switching API] Error generating single paragraph:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Generates up to 6 paragraphs in 1 Gemini 3.8 call and slices them acoustically.
+ * Automatically saves clips to the dataset with deterministic IDs and JSON metadata.
+ */
+app.post('/api/context-switching/generate-sliced-batch', async (req, res) => {
+  try {
+    const {
+      paragraphs = [],
+      startIdx = 1,
+      voiceName = 'Puck',
+      dialect = 'sorani',
+      apiKey = '',
+      model = 'gemini-3.8-flash-tts'
+    } = req.body;
+
+    if (!Array.isArray(paragraphs) || paragraphs.length === 0) {
+      return res.status(400).json({ error: 'Paragraphs array is required' });
+    }
+
+    const abortController = new AbortController();
+    activeBatchAbortControllers.add(abortController);
+
+    const result = await new Promise((resolve, reject) => {
+      activeBatchMutex = activeBatchMutex.catch(() => { }).then(async () => {
+        try {
+          if (abortController.signal.aborted) {
+            return reject(new Error('Batch generation aborted by client.'));
+          }
+          const resBatch = await generateContextSwitchingSlicedBatch({
+            paragraphs,
+            startIdx: Number(startIdx) || 1,
+            voiceName,
+            dialect,
+            apiKey,
+            model,
+            signal: abortController.signal
+          });
+          resolve(resBatch);
+        } catch (err) {
+          reject(err);
+        } finally {
+          activeBatchAbortControllers.delete(abortController);
+        }
+      });
+    });
+
+    res.json(result);
+  } catch (err) {
+    if (err.message && err.message.includes('Aborted')) {
+      console.log(`[Context Switching API] Batch cleanly aborted: ${err.message}`);
+      return res.status(499).json({ error: 'Batch aborted by client' });
+    }
+    console.error('[Context Switching API] Error generating sliced batch:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Aborts any active context switching batch generation immediately.
+ */
+app.post('/api/context-switching/abort-batch', (req, res) => {
+  console.log(`[Context Switching API] Stop requested. Aborting ${activeBatchAbortControllers.size} active batch(es)...`);
+  for (const controller of activeBatchAbortControllers) {
+    controller.abort();
+  }
+  activeBatchAbortControllers.clear();
+  res.json({ success: true, message: 'Context switching batch aborted.' });
 });
 
 /**
