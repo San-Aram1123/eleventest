@@ -270,7 +270,8 @@ export async function generateContextSwitchingSlicedBatch({
       success: true,
       samples: savedSamples,
       durationSeconds: genResult?.durationSeconds || 0,
-      batchSize: cleanParagraphs.length
+      batchSize: cleanParagraphs.length,
+      masterAudioUrl: genResult?.audioBuffer ? `data:audio/wav;base64,${genResult.audioBuffer.toString('base64')}` : null
     };
   } finally {
     if (tempMaster && fs.existsSync(tempMaster)) {

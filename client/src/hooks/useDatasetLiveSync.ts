@@ -6,7 +6,13 @@ export function useDatasetLiveSync(
   onSamplesRefreshed?: (samples: Sample[]) => void
 ) {
   const prevIdsRef = useRef<Set<string>>(new Set(samples.map((s) => s.id)));
+  const samplesRef = useRef(samples);
+  const onSamplesRefreshedRef = useRef(onSamplesRefreshed);
   const [recentlyAddedIds, setRecentlyAddedIds] = useState<Set<string>>(new Set());
+  const highlightTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  samplesRef.current = samples;
+  onSamplesRefreshedRef.current = onSamplesRefreshed;
 
   // Highlight live updates
   useEffect(() => {
@@ -16,7 +22,9 @@ export function useDatasetLiveSync(
     if (newItems.length > 0 && prevIdsRef.current.size > 0) {
       const newIdSet = new Set(newItems.map((s) => s.id));
       setRecentlyAddedIds((curr) => new Set([...curr, ...newIdSet]));
-      setTimeout(() => {
+
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+      highlightTimeoutRef.current = setTimeout(() => {
         setRecentlyAddedIds((curr) => {
           const next = new Set(curr);
           newIdSet.forEach((id) => next.delete(id));
@@ -25,9 +33,13 @@ export function useDatasetLiveSync(
       }, 6000);
     }
     prevIdsRef.current = currentIds;
+
+    return () => {
+      if (highlightTimeoutRef.current) clearTimeout(highlightTimeoutRef.current);
+    };
   }, [samples]);
 
-  // Real-time polling listener every 2.5s
+  // Real-time polling listener (decoupled from samples and callback references to prevent restart storms)
   useEffect(() => {
     let isMounted = true;
     const interval = setInterval(async () => {
@@ -38,22 +50,23 @@ export function useDatasetLiveSync(
         const freshList: Sample[] = data.samples || [];
 
         if (isMounted && freshList.length > 0) {
-          const currentIds = new Set(samples.map((s) => s.id));
-          const hasChanges = freshList.length !== samples.length || freshList.some((s) => !currentIds.has(s.id));
+          const currentList = samplesRef.current;
+          const currentIds = new Set(currentList.map((s) => s.id));
+          const hasChanges = freshList.length !== currentList.length || freshList.some((s) => !currentIds.has(s.id));
           if (hasChanges) {
-            onSamplesRefreshed?.(freshList);
+            onSamplesRefreshedRef.current?.(freshList);
           }
         }
       } catch {
         // silent polling catch
       }
-    }, 2500);
+    }, 4000);
 
     return () => {
       isMounted = false;
       clearInterval(interval);
     };
-  }, [samples, onSamplesRefreshed]);
+  }, []);
 
   return { recentlyAddedIds };
 }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, KeyRound, ExternalLink } from 'lucide-react';
 import { SystemConfig, KeyPoolItem, KeyPoolResponse } from '../types';
@@ -28,27 +28,40 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [deletingIndex, setDeletingIndex] = useState<number | null>(null);
   const [feedback, setFeedback] = useState<{ success: boolean; message: string } | null>(null);
 
+  const onConfigUpdatedRef = useRef(onConfigUpdated);
   useEffect(() => {
-    loadKeys();
+    onConfigUpdatedRef.current = onConfigUpdated;
+  }, [onConfigUpdated]);
+
+  const isMountedRef = useRef(true);
+  useEffect(() => {
+    isMountedRef.current = true;
+    return () => { isMountedRef.current = false; };
   }, []);
 
-  const loadKeys = async () => {
+  const loadKeys = useCallback(async () => {
     setLoadingPool(true);
     try {
       const data = await fetchKeyPool();
+      if (!isMountedRef.current) return;
       setKeyPool(data.keys || []);
       setPoolSummary(data);
 
       const latestConfig = await fetchConfig().catch(() => null);
+      if (!isMountedRef.current) return;
       if (latestConfig) {
-        onConfigUpdated(latestConfig);
+        onConfigUpdatedRef.current?.(latestConfig);
       }
     } catch (err: any) {
       console.warn('Failed to load key pool:', err.message);
     } finally {
-      setLoadingPool(false);
+      if (isMountedRef.current) setLoadingPool(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadKeys();
+  }, [loadKeys]);
 
   const handleAddKey = async (e: React.FormEvent) => {
     e.preventDefault();

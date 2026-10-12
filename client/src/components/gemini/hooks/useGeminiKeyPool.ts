@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { GeminiConfig, GeminiKeyPoolItem } from '../../../types';
 import { FALLBACK_GEMINI_VOICES, DEFAULT_GEMINI_MODELS } from '../constants';
 import {
@@ -29,6 +29,11 @@ export function useGeminiKeyPool({ addToast, onDefaultConfigLoaded }: UseGeminiK
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [probingKeyIndex, setProbingKeyIndex] = useState<number | null>(null);
 
+  const onDefaultConfigLoadedRef = useRef(onDefaultConfigLoaded);
+  useEffect(() => {
+    onDefaultConfigLoadedRef.current = onDefaultConfigLoaded;
+  }, [onDefaultConfigLoaded]);
+
   const loadConfigAndPool = useCallback(async () => {
     try {
       const [cfg, poolData] = await Promise.all([
@@ -37,13 +42,13 @@ export function useGeminiKeyPool({ addToast, onDefaultConfigLoaded }: UseGeminiK
       ]);
       if (cfg) {
         setGeminiConfig(cfg);
-        if (onDefaultConfigLoaded) onDefaultConfigLoaded(cfg.defaultVoice, cfg.defaultModel);
+        onDefaultConfigLoadedRef.current?.(cfg.defaultVoice, cfg.defaultModel);
       }
       setKeyPool(poolData.pool || []);
     } catch (err: any) {
       console.warn('Failed to load Gemini config:', err.message);
     }
-  }, [onDefaultConfigLoaded]);
+  }, []);
 
   useEffect(() => { loadConfigAndPool(); }, [loadConfigAndPool]);
 

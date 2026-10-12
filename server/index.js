@@ -49,10 +49,31 @@ app.use('/api/paired', audioRoutes);
 
 // Serve frontend in production if built
 const clientDist = path.resolve(__dirname, '..', 'client', 'dist');
-if (fs.existsSync(clientDist)) {
+const indexHtml = path.join(clientDist, 'index.html');
+
+if (fs.existsSync(indexHtml)) {
   app.use(express.static(clientDist));
   app.get('*', (req, res) => {
-    res.sendFile(path.join(clientDist, 'index.html'));
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.sendFile(indexHtml);
+  });
+} else {
+  app.get('*', (req, res) => {
+    if (req.path.startsWith('/api')) {
+      return res.status(404).json({ error: 'API endpoint not found' });
+    }
+    res.status(503).send(`
+      <!DOCTYPE html>
+      <html>
+        <head><title>Frontend Not Built</title></head>
+        <body style="font-family: sans-serif; padding: 40px; text-align: center;">
+          <h2>Frontend build not found</h2>
+          <p>Please run <code>npm run build</code> inside the <code>client</code> directory.</p>
+        </body>
+      </html>
+    `);
   });
 }
 

@@ -1,4 +1,4 @@
-import { useState, useRef, useCallback } from 'react';
+import { useState, useRef, useCallback, useEffect } from 'react';
 import { Sample } from '../../types';
 import { 
   executeContextSwitchingSlicedBatch, 
@@ -45,10 +45,24 @@ export function useContextBatchRunner({
   });
 
   const [samples, setSamples] = useState<Sample[]>([]);
+  const [masterAudioUrl, setMasterAudioUrl] = useState<string | null>(null);
   const isRunningRef = useRef(false);
   const isPausedRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Unmount cleanup to prevent memory leaks and orphaned intervals
+  useEffect(() => {
+    return () => {
+      if (timerRef.current) {
+        clearInterval(timerRef.current);
+        timerRef.current = null;
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   const chunkSize = 6;
   const totalChunks = Math.ceil(paragraphs.length / chunkSize);
@@ -76,6 +90,7 @@ export function useContextBatchRunner({
       errors: []
     });
     setSamples([]);
+    setMasterAudioUrl(null);
 
     // Start elapsed timer
     if (timerRef.current) clearInterval(timerRef.current);
@@ -116,6 +131,7 @@ export function useContextBatchRunner({
         if (res.samples && res.samples.length > 0) {
           completedCount += res.samples.length;
           setSamples(prev => [...res.samples, ...prev]);
+          if (res.masterAudioUrl) setMasterAudioUrl(res.masterAudioUrl);
           res.samples.forEach(s => onSampleCreated(s));
           setBatchState(prev => ({ ...prev, completedParagraphs: completedCount }));
         }
@@ -173,6 +189,7 @@ export function useContextBatchRunner({
   return {
     batchState,
     samples,
+    masterAudioUrl,
     startBatch,
     togglePause,
     stopBatch

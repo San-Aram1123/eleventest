@@ -17,6 +17,23 @@ echo       To stop hosting, simply close this window or press Ctrl+C.
 echo.
 echo ====================================================================
 echo.
+if not exist "server\node_modules\express" (
+    echo [*] Server dependencies missing. Installing now...
+    pushd server
+    call npm install
+    popd
+    echo.
+)
+
+if not exist "client\dist\index.html" (
+    echo [*] Client production build missing. Building now...
+    pushd client
+    if not exist "node_modules" call npm install
+    call npm run build
+    popd
+    echo.
+)
+
 node --watch-path=server server/index.js
 echo.
 echo Server has stopped.

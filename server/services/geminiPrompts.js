@@ -90,8 +90,12 @@ export function buildSpeechPayloadParts({
     if (Array.isArray(speechParts) && speechParts.length > 0) {
       return speechParts.map(p => {
         const item = { text: String(p.text || '').trim() };
-        const style = p.style || p.speech_metadata?.style || speechStyle || promptInstruction || defaultMultilingualStyle;
-        if (style) item.speech_metadata = { style: String(style).trim() };
+        const metadata = { ...(p.speech_metadata || {}) };
+        const style = p.style || metadata.style || speechStyle || promptInstruction || defaultMultilingualStyle;
+        if (style) metadata.style = String(style).trim();
+        const speaker = p.speaker || metadata.speaker;
+        if (speaker) metadata.speaker = String(speaker).trim();
+        if (Object.keys(metadata).length > 0) item.speech_metadata = metadata;
         return item;
       });
     }
@@ -108,7 +112,17 @@ export function buildSpeechPayloadParts({
   return [{ text: prompt }];
 }
 
-export function buildGeminiRequestBody({ contentParts, cleanVoice }) {
+export function buildGeminiRequestBody({ contentParts, cleanVoice, multiSpeakerConfig = null }) {
+  const speechConfig = multiSpeakerConfig
+    ? { multiSpeakerVoiceConfig: multiSpeakerConfig }
+    : {
+        voiceConfig: {
+          prebuiltVoiceConfig: {
+            voiceName: cleanVoice
+          }
+        }
+      };
+
   return {
     contents: [
       {
@@ -118,13 +132,7 @@ export function buildGeminiRequestBody({ contentParts, cleanVoice }) {
     ],
     generationConfig: {
       responseModalities: ['AUDIO'],
-      speechConfig: {
-        voiceConfig: {
-          prebuiltVoiceConfig: {
-            voiceName: cleanVoice
-          }
-        }
-      }
+      speechConfig
     }
   };
 }

@@ -7,6 +7,7 @@ export interface SlicedBatchResult {
   samples: Sample[];
   durationSeconds: number;
   batchSize?: number;
+  masterAudioUrl?: string;
 }
 
 export async function fetchNextContextIndex(voiceName?: string): Promise<number> {
@@ -64,7 +65,8 @@ export async function executeContextSwitchingSlicedBatch(params: {
     success: true,
     samples,
     durationSeconds: data.durationSeconds || 0,
-    batchSize: paragraphs.length
+    batchSize: paragraphs.length,
+    masterAudioUrl: data.masterAudioUrl || undefined
   };
 }
 
@@ -111,6 +113,109 @@ export async function abortContextSwitchingBatchOnServer(): Promise<void> {
   } catch (err) {
     console.warn('[Context Switching API] Failed to notify server of abort:', err);
   }
+}
+
+export type DetectionEngineType = 'pyannote' | 'tri_hybrid' | 'all';
+
+export interface LabClip {
+  index: number;
+  engine: string;
+  speakerName: string;
+  speakerTurn: string;
+  text: string;
+  start: number;
+  end: number;
+  duration: number;
+  audioUrl: string;
+  boundaryInfo?: any;
+}
+
+export interface BoundaryComparison {
+  boundary: number;
+  pyannote_cut_s?: number;
+  tri_hybrid_cut_s?: number;
+  max_spread_ms: number;
+  agreement: string;
+}
+
+export interface LabBatchResponse {
+  success: boolean;
+  mode: DetectionEngineType;
+  masterAudioUrl?: string;
+  pyannoteClips?: LabClip[];
+  triHybridClips?: LabClip[];
+  clips?: LabClip[];
+  comparisonTable?: BoundaryComparison[];
+  durationSeconds: number;
+  speaker1Voice?: string;
+  speaker2Voice?: string;
+}
+
+export interface ContextLabBatchParams {
+  paragraphs: string[];
+  startIdx: number;
+  dialect?: string;
+  apiKey?: string;
+  speaker1Voice: string;
+  speaker2Voice: string;
+  detectionEngine: DetectionEngineType;
+  signal?: AbortSignal;
+}
+
+export async function executeContextLabBatch(params: ContextLabBatchParams): Promise<LabBatchResponse> {
+  const {
+    paragraphs,
+    startIdx,
+    dialect = 'sorani',
+    apiKey = '',
+    speaker1Voice,
+    speaker2Voice,
+    detectionEngine,
+    signal
+  } = params;
+
+  const res = await fetch(`${API_BASE}/context-switching/generate-lab-batch`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      paragraphs,
+      startIdx,
+      dialect,
+      apiKey,
+      speaker1Voice,
+      speaker2Voice,
+      detectionEngine,
+      model: 'gemini-3.8-flash-tts'
+    }),
+    signal
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status} Lab Slicing Error`);
+  }
+
+  const data: LabBatchResponse = await res.json();
+  return data;
+}
+
+export async function saveLabClipsToDataset(params: {
+  clips: LabClip[];
+  startIdx: number;
+  dialect?: string;
+}): Promise<{ success: boolean; count: number; samples: Sample[] }> {
+  const res = await fetch(`${API_BASE}/context-switching/save-lab-clips`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params)
+  });
+
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.error || `HTTP ${res.status} Save Error`);
+  }
+
+  return await res.json();
 }
 
 

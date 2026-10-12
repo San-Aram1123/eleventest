@@ -34,35 +34,22 @@ export const App: React.FC = () => {
   };
 
   // Add toast helper
-  const addToast = (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => {
+  const addToast = React.useCallback((toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => {
     const id = 'toast_' + Math.random().toString(36).substring(2, 9);
     setToasts((prev) => [...prev, { ...toast, id }]);
-  };
+  }, []);
 
-  const removeToast = (id: string) => {
+  const removeToast = React.useCallback((id: string) => {
     setToasts((prev) => prev.filter((t) => t.id !== id));
-  };
+  }, []);
+
+  const handleSamplesRefreshed = React.useCallback((fresh: Sample[]) => {
+    setSamples(fresh);
+  }, []);
 
   // Initial load of config and dataset
   useEffect(() => {
     loadInitialData();
-
-    // Real-time synchronization: keep dataset live across tabs
-    const interval = setInterval(async () => {
-      try {
-        const datasetList = await fetchDataset().catch(() => null);
-        if (datasetList && Array.isArray(datasetList)) {
-          setSamples((prev) => {
-            if (prev.length !== datasetList.length || datasetList.some((s, idx) => s.id !== prev[idx]?.id)) {
-              return datasetList;
-            }
-            return prev;
-          });
-        }
-      } catch {}
-    }, 8000);
-
-    return () => clearInterval(interval);
   }, []);
 
   const loadInitialData = async () => {
@@ -79,7 +66,7 @@ export const App: React.FC = () => {
   };
 
   // Handle sample creation
-  const handleSampleCreated = (newSample: Sample) => {
+  const handleSampleCreated = React.useCallback((newSample: Sample) => {
     setSamples((prev) => {
       const index = prev.findIndex((s) => s.id === newSample.id);
       if (index !== -1) {
@@ -89,23 +76,23 @@ export const App: React.FC = () => {
       }
       return [newSample, ...prev];
     });
-  };
+  }, []);
 
   // Handle sample update
-  const handleSampleUpdated = (updated: Sample) => {
+  const handleSampleUpdated = React.useCallback((updated: Sample) => {
     setSamples((prev) => prev.map((s) => (s.id === updated.id ? updated : s)));
-  };
+  }, []);
 
   // Handle sample delete
-  const handleSampleDeleted = (id: string) => {
+  const handleSampleDeleted = React.useCallback((id: string) => {
     setSamples((prev) => prev.filter((s) => s.id !== id));
-  };
+  }, []);
 
   // Handle batch delete of multiple samples
-  const handleBatchDeleted = (ids: string[]) => {
+  const handleBatchDeleted = React.useCallback((ids: string[]) => {
     const idSet = new Set(ids);
     setSamples((prev) => prev.filter((s) => !idSet.has(s.id)));
-  };
+  }, []);
 
   return (
     <div className="app-root">
@@ -145,7 +132,7 @@ export const App: React.FC = () => {
             onSampleUpdated={handleSampleUpdated}
             onSampleDeleted={handleSampleDeleted}
             onBatchDeleted={handleBatchDeleted}
-            onSamplesRefreshed={(fresh) => setSamples(fresh)}
+            onSamplesRefreshed={handleSamplesRefreshed}
             addToast={addToast}
           />
         </div>
@@ -190,7 +177,7 @@ export const App: React.FC = () => {
         <SettingsModal
           config={config}
           onClose={() => setIsSettingsOpen(false)}
-          onConfigUpdated={(newCfg) => setConfig(newCfg)}
+          onConfigUpdated={setConfig}
         />
       )}
 

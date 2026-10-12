@@ -32,9 +32,9 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
   const [items, setItems] = useState<MasterAudioItem[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const fetchMasterList = async () => {
+  const fetchMasterList = React.useCallback(async (isManual = false) => {
     try {
-      setIsLoading(true);
+      if (isManual) setIsLoading(true);
       const res = await fetch('/api/paired/master-audio/list');
       const data = await res.json();
       if (Array.isArray(data.items)) {
@@ -43,9 +43,9 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
     } catch (err) {
       console.warn('Failed to fetch master audio list:', err);
     } finally {
-      setIsLoading(false);
+      if (isManual) setIsLoading(false);
     }
-  };
+  }, []);
 
   const handleClearHistory = async () => {
     try {
@@ -57,18 +57,15 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
   };
 
   useEffect(() => {
-    fetchMasterList();
-  }, []);
+    fetchMasterList(true);
+  }, [fetchMasterList]);
 
-  // Poll for new master audio whenever a batch take completes
+  // Poll for new master audio whenever a batch take completes (silent polling without spinner flicker)
   useEffect(() => {
-    if (!isBatchActive) {
-      fetchMasterList();
-      return;
-    }
-    const interval = setInterval(fetchMasterList, 3000);
+    if (!isBatchActive) return;
+    const interval = setInterval(() => fetchMasterList(false), 3000);
     return () => clearInterval(interval);
-  }, [isBatchActive]);
+  }, [isBatchActive, fetchMasterList]);
 
   if (items.length === 0) {
     return null;
@@ -117,7 +114,7 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
           <button
             type="button"
             className="btn btn-sm btn-ghost"
-            onClick={fetchMasterList}
+            onClick={() => fetchMasterList(true)}
             disabled={isLoading}
             style={{ padding: '0.25rem 0.6rem', fontSize: '0.75rem', gap: '4px' }}
             title="Refresh master list"

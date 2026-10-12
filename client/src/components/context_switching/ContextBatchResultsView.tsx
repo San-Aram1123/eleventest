@@ -9,15 +9,18 @@ import {
 } from 'lucide-react';
 import { Sample } from '../../types';
 import { ContextParagraphCard, ParagraphItem } from './ContextParagraphCard';
+import { ContextMasterAudioPlayer } from './ContextMasterAudioPlayer';
 
 interface ContextBatchResultsViewProps {
   samples: Sample[];
   selectedVoice: string;
+  masterAudioUrl?: string | null;
 }
 
 export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = ({
   samples,
-  selectedVoice
+  selectedVoice,
+  masterAudioUrl
 }) => {
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageSize, setPageSize] = useState<number>(10);
@@ -76,6 +79,14 @@ export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = (
           </select>
         </div>
       </div>
+
+      {masterAudioUrl && (
+        <ContextMasterAudioPlayer
+          masterAudioUrl={masterAudioUrl}
+          speaker1Voice={selectedVoice}
+          speaker2Voice={selectedVoice}
+        />
+      )}
 
       {/* Paginated Card List */}
       <div>

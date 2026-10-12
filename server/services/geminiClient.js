@@ -31,6 +31,7 @@ export async function generateGeminiSpeech({
   promptInstruction = '',
   apiKey = '',
   model = 'gemini-3.8-flash-tts',
+  multiSpeakerConfig = null,
   _autoWaitAttempt = 0
 }) {
   const pool = apiKey ? [apiKey] : getGeminiKeyPool();
@@ -62,7 +63,7 @@ export async function generateGeminiSpeech({
     normalizedText, speechParts, speechStyle, promptInstruction, langAnalysis, is38Model,
     baseInstruction, codeSwitchingDirective, emotionDirective
   });
-  const requestBody = buildGeminiRequestBody({ contentParts, cleanVoice });
+  const requestBody = buildGeminiRequestBody({ contentParts, cleanVoice, multiSpeakerConfig });
 
   let keyErrors = [];
   let audioBuffer = null;

@@ -7,6 +7,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const SEGMENTER_SCRIPT = path.resolve(__dirname, '..', 'whisperSegmenter.py');
+const SPEAKER_DETECTOR_SCRIPT = path.resolve(__dirname, '..', 'speakerDetector.py');
 
 let cachedPythonBin = null;
 
@@ -145,5 +146,35 @@ export function detectKurdishBoundarySegments(audioPath, sentences, expectedCoun
       } catch (_) { }
       resolve({ success: false, error: err.message });
     });
+  });
+}
+
+/**
+ * Detects boundaries between alternating speakers using:
+ * - 'pitch': Option 1 (Pitch F0 & Formant step tracking)
+ * - 'diarization': Option 2 (Acoustic Diarization / SCD divergence)
+ * - 'both': Runs both and provides side-by-side comparison
+ */
+export function detectViaSpeakerAcoustics(audioPath, expectedCount, mode = 'all') {
+  const pythonBin = getPythonBin();
+  const args = [SPEAKER_DETECTOR_SCRIPT, audioPath, String(expectedCount), `--mode=${mode}`];
+
+  return new Promise((resolve) => {
+    const proc = spawn(pythonBin, args);
+    let stdout = '', stderr = '';
+
+    proc.stdout.on('data', d => { stdout += d.toString(); });
+    proc.stderr.on('data', d => { stderr += d.toString(); });
+
+    proc.on('close', (code) => {
+      if (code !== 0) return resolve({ success: false, error: `Speaker detector exited with code ${code}: ${stderr}` });
+      try {
+        resolve(JSON.parse(stdout.trim()));
+      } catch (err) {
+        resolve({ success: false, error: 'Failed to parse speaker detector JSON output' });
+      }
+    });
+
+    proc.on('error', (err) => resolve({ success: false, error: err.message }));
   });
 }

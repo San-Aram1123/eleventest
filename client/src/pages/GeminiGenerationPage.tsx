@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useCallback } from 'react';
 import '../styles/gemini-studio.css';
 import { Sample, KurdishDialect } from '../types';
 import { FALLBACK_GEMINI_VOICES } from '../components/gemini/constants';
@@ -37,13 +37,15 @@ export const GeminiGenerationPage: React.FC<GeminiGenerationPageProps> = ({
   const [selectedModel, setSelectedModel] = useState(() => initialSaved?.selectedModel || 'gemini-3.8-flash-tts');
   const [customInstruction, setCustomInstruction] = useState(() => initialSaved?.customInstruction || '');
 
+  const handleDefaultConfigLoaded = useCallback((defVoice?: string, defModel?: string) => {
+    setSelectedVoice(prev => (prev && prev !== 'Puck') ? prev : (initialSaved?.selectedVoice || defVoice || 'Puck'));
+    setSelectedModel(prev => (prev && prev !== 'gemini-3.1-flash-tts-preview' && prev !== 'gemini-3.8-flash-tts') ? prev : (initialSaved?.selectedModel || defModel || 'gemini-3.8-flash-tts'));
+  }, [initialSaved]);
+
   // 1. Key Pool & Live Quota Monitor Hook
   const keyPool = useGeminiKeyPool({
     addToast,
-    onDefaultConfigLoaded: (defVoice, defModel) => {
-      setSelectedVoice(prev => (prev && prev !== 'Puck') ? prev : (initialSaved?.selectedVoice || defVoice || 'Puck'));
-      setSelectedModel(prev => (prev && prev !== 'gemini-3.1-flash-tts-preview' && prev !== 'gemini-3.8-flash-tts') ? prev : (initialSaved?.selectedModel || defModel || 'gemini-3.8-flash-tts'));
-    }
+    onDefaultConfigLoaded: handleDefaultConfigLoaded
   });
 
   // 2. Single Synthesis Studio Hook

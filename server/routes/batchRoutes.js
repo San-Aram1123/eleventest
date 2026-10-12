@@ -7,6 +7,8 @@ import {
   generateContextSwitchingSingleSample,
   getNextContextSwitchingIndex
 } from '../contextSwitchingService.js';
+import { generateContextLabBatch } from '../contextLabService.js';
+import { saveSample } from '../datasetService.js';
 
 const router = express.Router();
 
@@ -275,13 +277,108 @@ router.post('/context-switching/generate-sliced-batch', async (req, res) => {
 });
 
 /**
- * Aborts any active context switching batch generation immediately.
+ * Experimental Slicing Lab: Generates up to 6 paragraphs with Multi-Speaker, Audio Markers, or Hybrid.
  */
-router.post('/context-switching/abort-batch', (req, res) => {
-  console.log(`[Context Switching API] Stop requested. Aborting ${activeBatchAbortControllers.size} active batch(es)...`);
-  for (const controller of activeBatchAbortControllers) controller.abort();
-  activeBatchAbortControllers.clear();
-  res.json({ success: true, message: 'Context switching batch aborted.' });
+router.post('/context-switching/generate-lab-batch', async (req, res) => {
+  try {
+    const {
+      paragraphs = [], startIdx = 1, dialect = 'sorani',
+      apiKey = '', model = 'gemini-3.8-flash-tts',
+      speaker1Voice = 'Puck',
+      speaker2Voice = 'Aoede',
+      detectionEngine = 'all'
+    } = req.body;
+
+    if (!Array.isArray(paragraphs) || paragraphs.length === 0) {
+      return res.status(400).json({ error: 'Paragraphs array is required' });
+    }
+
+    const abortController = new AbortController();
+    activeBatchAbortControllers.add(abortController);
+
+    const result = await new Promise((resolve, reject) => {
+      activeBatchMutex = activeBatchMutex.catch(() => { }).then(async () => {
+        try {
+          if (abortController.signal.aborted) {
+            return reject(new Error('Batch generation aborted by client.'));
+          }
+          const resBatch = await generateContextLabBatch({
+            paragraphs,
+            startIdx: Number(startIdx) || 1,
+            dialect,
+            model,
+            apiKey,
+            speaker1Voice: String(speaker1Voice || 'Puck'),
+            speaker2Voice: String(speaker2Voice || 'Aoede'),
+            detectionEngine: String(detectionEngine || 'both'),
+            signal: abortController.signal
+          });
+          resolve(resBatch);
+        } catch (err) {
+          reject(err);
+        } finally {
+          activeBatchAbortControllers.delete(abortController);
+        }
+      });
+    });
+
+    res.json(result);
+  } catch (err) {
+    if (err.message && err.message.includes('Aborted')) {
+      console.log(`[Context Lab API] Batch cleanly aborted: ${err.message}`);
+      return res.status(499).json({ error: 'Batch aborted by client' });
+    }
+    console.error('[Context Lab API] Error generating lab batch:', err);
+    res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Persists chosen lab clips to MySQL and disk dataset.
+ */
+router.post('/context-switching/save-lab-clips', async (req, res) => {
+  try {
+    const { clips = [], startIdx = 1, dialect = 'sorani' } = req.body;
+    if (!Array.isArray(clips) || clips.length === 0) {
+      return res.status(400).json({ error: 'Clips array is required' });
+    }
+    const saved = [];
+    for (let i = 0; i < clips.length; i++) {
+      const c = clips[i];
+      const audioBuffer = c.audioUrl?.startsWith('data:audio/wav;base64,')
+        ? Buffer.from(c.audioUrl.replace('data:audio/wav;base64,', ''), 'base64')
+        : null;
+      if (!audioBuffer) continue;
+
+      const cleanVoiceName = String(c.speakerName || 'voice').toLowerCase();
+      const itemIndex = Number(startIdx) + i;
+      const familyId = `ctx_lab_${cleanVoiceName}_${String(itemIndex).padStart(5, '0')}`;
+      const clipId = `${familyId}_neutral`;
+
+      const sample = await saveSample({
+        id: clipId,
+        family_id: familyId,
+        speaker_name: cleanVoiceName,
+        text: c.text,
+        dialect: dialect || 'sorani',
+        language: 'ckb',
+        emotion: 'neutral',
+        emotionTag: '[neutral]',
+        method: 'gemini_api',
+        voiceId: `gemini_${c.speakerName}`,
+        voiceName: `Gemini (${c.speakerName})`,
+        modelId: 'gemini-3.8-flash-tts',
+        characters: [],
+        audioBuffer,
+        allowDuplicateText: true
+      });
+      saved.push(sample);
+    }
+    res.json({ success: true, count: saved.length, samples: saved });
+  } catch (err) {
+    console.error('[Context Lab] Error saving clips:', err);
+    res.status(500).json({ error: err.message });
+  }
 });
 
 export default router;

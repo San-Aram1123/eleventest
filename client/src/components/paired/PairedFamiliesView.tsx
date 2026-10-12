@@ -38,6 +38,15 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
     setCurrentPage(1);
   }, [searchTerm, filterStatus, sortOrder, pageSize]);
 
+  useEffect(() => {
+    return () => {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+    };
+  }, []);
+
   const parseTime = (dateVal?: string | number | null): number => {
     const d = parseDateSafe(dateVal);
     return d ? d.getTime() : 0;
