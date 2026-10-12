@@ -6,7 +6,8 @@
   "scripts": {
     "start": "node index.js",
     "test": "node testUnicode.js",
-    "test:unicode": "node testUnicode.js"
+    "test:unicode": "node testUnicode.js",
+    "test:slicing": "node --test tests/*.test.js"
   },
   "dependencies": {
     "archiver": "^7.0.1",

@@ -39,69 +39,38 @@ def resample_to_16k(audio, sr):
     return audio[indices]
 
 def find_silence_pauses(audio, sr, min_pause_s=0.20, silence_thresh=0.016):
-    hop_s = 0.01
-    frame_len = int(sr * 0.03)
-    hop_len = int(sr * hop_s)
+    hop_s, frame_len, hop_len = 0.01, int(sr * 0.03), int(sr * 0.01)
     n_frames = (len(audio) - frame_len) // hop_len + 1
-    rms = np.zeros(n_frames, dtype=np.float32)
-    for i in range(n_frames):
-        chunk = audio[i * hop_len: i * hop_len + frame_len]
-        rms[i] = np.sqrt(np.mean(chunk ** 2))
-
+    rms = np.array([np.sqrt(np.mean(audio[i * hop_len: i * hop_len + frame_len] ** 2)) for i in range(n_frames)], dtype=np.float32)
     is_silent = rms < silence_thresh
-    pauses = []
-    in_pause = False
-    p_start = 0
-    total_dur = len(audio) / float(sr)
-
+    pauses, in_pause, p_start, total_dur = [], False, 0, len(audio) / float(sr)
     for i in range(len(is_silent)):
         if is_silent[i] and not in_pause:
-            in_pause = True
-            p_start = i
+            in_pause, p_start = True, i
         elif not is_silent[i] and in_pause:
             in_pause = False
             dur = (i - p_start) * hop_s
             if dur >= min_pause_s:
-                t_s = p_start * hop_s
-                t_e = i * hop_s
+                t_s, t_e = p_start * hop_s, i * hop_s
                 if t_s > 0.3 and t_e < total_dur - 0.3:
-                    pauses.append({
-                        'start': round(t_s, 3),
-                        'end': round(t_e, 3),
-                        'duration': round(dur, 3),
-                        'midpoint': round((t_s + t_e) / 2.0, 3)
-                    })
+                    pauses.append({'start': round(t_s, 3), 'end': round(t_e, 3), 'duration': round(dur, 3), 'midpoint': round((t_s + t_e) / 2.0, 3)})
     return pauses
 
 def snap_to_zero_crossing_min_energy(audio, sr, center_s, search_radius_s=0.25):
-    center_idx = int(center_s * sr)
-    radius_idx = int(search_radius_s * sr)
-    start_idx = max(0, center_idx - radius_idx)
-    end_idx = min(len(audio) - 1, center_idx + radius_idx)
-    if end_idx <= start_idx:
-        return center_s
-
-    sub = audio[start_idx:end_idx]
-    sub_hop = int(sr * 0.008)
-    sub_win = int(sr * 0.016)
-    min_energy_val = float('inf')
-    best_idx = center_idx - start_idx
+    center_idx, radius_idx = int(center_s * sr), int(search_radius_s * sr)
+    start_idx, end_idx = max(0, center_idx - radius_idx), min(len(audio) - 1, center_idx + radius_idx)
+    if end_idx <= start_idx: return center_s
+    sub, sub_hop, sub_win = audio[start_idx:end_idx], int(sr * 0.008), int(sr * 0.016)
+    min_energy_val, best_idx = float('inf'), center_idx - start_idx
     for i in range(0, max(1, len(sub) - sub_win), sub_hop):
         energy = np.mean(sub[i:i + sub_win] ** 2)
         if energy < min_energy_val:
-            min_energy_val = energy
-            best_idx = i + sub_win // 2
-
-    zc_search_start = max(0, best_idx - int(sr * 0.015))
-    zc_search_end = min(len(sub) - 1, best_idx + int(sr * 0.015))
-    zc_idx = best_idx
-    for i in range(zc_search_start, zc_search_end):
+            min_energy_val, best_idx = energy, i + sub_win // 2
+    zc_s, zc_e, zc_idx = max(0, best_idx - int(sr * 0.015)), min(len(sub) - 1, best_idx + int(sr * 0.015)), best_idx
+    for i in range(zc_s, zc_e):
         if sub[i] * sub[i + 1] <= 0:
-            zc_idx = i
-            break
-
-    final_idx = start_idx + zc_idx
-    return round(float(final_idx) / float(sr), 3)
+            zc_idx = i; break
+    return round(float(start_idx + zc_idx) / float(sr), 3)
 
 def build_engine_result(engine_key, description, chosen_boundaries, total_dur, expected_count):
     segments = []
@@ -197,166 +166,274 @@ def detect_pyannote_boundaries(audio, sr, total_dur, expected_count):
     except Exception as e:
         return {"success": False, "error": f"Pyannote failed: {str(e)}"}
 
-# --- 2. TRI-HYBRID FUSION ENGINE (Speaker Diarization + Silero VAD + FFmpeg Silence) ---
+# --- 2. TRI-HYBRID DP ENGINE (Powerset Diarization + Silero VAD + FFmpeg Silence + Segment DP) ---
 def detect_tri_hybrid_boundaries(audio, sr, total_dur, expected_count):
     needed = expected_count - 1
     if needed <= 0:
-        return build_engine_result("tri_hybrid", "Tri-Hybrid Fusion (Diarization + Silero VAD + FFmpeg Silence)", [], total_dur, expected_count)
+        return build_engine_result("tri_hybrid", "Tri-Hybrid DP (Powerset Diarization + Silero VAD + FFmpeg)", [], total_dur, expected_count)
 
     try:
         vad_sess = get_silero_session()
         py_sess = get_pyannote_session()
         audio_16k = resample_to_16k(audio, sr)
 
-        # Step A: Silero VAD (Identifies where speech actually starts and stops)
+        # 1. Silero VAD (Speech vs Silence at 32ms resolution)
+        chunk_size = 512
         sr_t = np.array(16000, dtype=np.int64)
         state = np.zeros((2, 1, 128), dtype=np.float32)
-        chunk_size = 512
-        frame_dur_s = chunk_size / 16000.0
-
         n_vad_chunks = len(audio_16k) // chunk_size
-        vad_probs = np.zeros(n_vad_chunks, dtype=np.float32)
+        vad_scores = np.zeros(n_vad_chunks, dtype=np.float32)
         for i in range(n_vad_chunks):
             chunk = audio_16k[i * chunk_size:(i + 1) * chunk_size].reshape(1, -1)
             out, state = vad_sess.run(None, {'input': chunk, 'state': state, 'sr': sr_t})
-            vad_probs[i] = float(out[0][0])
+            vad_scores[i] = float(out[0][0])
 
-        is_speech = vad_probs > 0.40
-        speech_intervals = []
-        in_speech = False
-        s_start = 0
-        for i in range(len(is_speech)):
-            if is_speech[i] and not in_speech:
-                in_speech = True
-                s_start = i
-            elif not is_speech[i] and in_speech:
-                in_speech = False
-                dur = (i - s_start) * frame_dur_s
-                if dur >= 0.25:
-                    speech_intervals.append({'start': s_start * frame_dur_s, 'end': i * frame_dur_s, 'duration': dur})
-
-        silence_gaps = []
-        for i in range(len(speech_intervals) - 1):
-            g_start = speech_intervals[i]['end']
-            g_end = speech_intervals[i + 1]['start']
-            dur = g_end - g_start
-            if dur >= 0.20:
-                silence_gaps.append({
-                    'start': round(g_start, 3),
-                    'end': round(g_end, 3),
-                    'duration': round(dur, 3)
-                })
-
-        # Supplemental fallback to RMS pauses if VAD found too few gaps
-        if len(silence_gaps) < needed:
-            rms_pauses = find_silence_pauses(audio, sr, min_pause_s=0.20)
-            for rp in rms_pauses:
-                if not any(abs(rp['midpoint'] - ((g['start'] + g['end']) / 2.0)) < 0.35 for g in silence_gaps):
-                    silence_gaps.append(rp)
-
-        # Step B: Speaker Diarization (Detects male/female transitions even without silence)
+        # 2. Pyannote 3.0 Powerset Marginals (16.875ms resolution)
         inp = audio_16k.reshape(1, 1, -1)
         py_logits = py_sess.run(None, {'input_values': inp})[0][0]
         step_s = 270.0 / 16000.0
-        preds = np.argmax(py_logits, axis=-1)
+        n_frames = len(py_logits)
 
-        # Step C: FFmpeg Silence Analysis (Locates precise low-energy cut point)
-        scored_gaps = []
-        for g in silence_gaps:
-            g_start = g['start']
-            g_end = g['end']
-            midpoint = (g_start + g_end) / 2.0
+        exp_l = np.exp(py_logits - np.max(py_logits, axis=-1, keepdims=True))
+        probs = exp_l / np.sum(exp_l, axis=-1, keepdims=True)
 
-            # Pyannote Speaker transition score
-            f_pre = max(0, int((g_start - 0.35) / step_s))
-            f_gstart = max(0, int(g_start / step_s))
-            f_gend = min(len(preds) - 1, int(g_end / step_s))
-            f_post = min(len(preds) - 1, int((g_end + 0.35) / step_s))
+        # 7-Class Powerset Marginals (0=none, 1=S0, 2=S1, 3=S2, 4=S01, 5=S02, 6=S12)
+        m0 = probs[:, 1] + probs[:, 4] + probs[:, 5]
+        m1 = probs[:, 2] + probs[:, 4] + probs[:, 6]
+        m2 = probs[:, 3] + probs[:, 5] + probs[:, 6]
+        p_sil = probs[:, 0]
 
-            pre_spk = np.bincount(preds[f_pre:f_gstart][preds[f_pre:f_gstart] > 0]).argmax() if np.any(preds[f_pre:f_gstart] > 0) else 0
-            post_spk = np.bincount(preds[f_gend:f_post][preds[f_gend:f_post] > 0]).argmax() if np.any(preds[f_gend:f_post] > 0) else 0
-            is_handoff = (pre_spk > 0 and post_spk > 0 and pre_spk != post_spk)
+        # Map Silero VAD onto Pyannote time frames
+        frame_times = np.arange(n_frames) * step_s
+        vad_idx = np.clip((frame_times * 16000 / chunk_size).astype(int), 0, n_vad_chunks - 1)
+        vad_mapped = vad_scores[vad_idx]
+        is_speech = (vad_mapped > 0.35) | ((m0 + m1 + m2 > 0.22) & (p_sil < 0.60))
 
-            # FFmpeg Low-Energy silence trough search + zero-crossing snap
-            sub_start_idx = max(0, int(g_start * sr))
-            sub_end_idx = min(len(audio), int(g_end * sr))
-            if sub_end_idx > sub_start_idx + int(sr * 0.04):
-                sub_audio = audio[sub_start_idx:sub_end_idx]
-                win_len = int(sr * 0.015)
-                hop_len = int(sr * 0.005)
+        # 3. Global Speaker Anchoring: Turn 1 is Speaker 1 (Puck)
+        speech_indices = np.where(is_speech)[0]
+        init_speech_idx = speech_indices[:max(5, int(2.5 / step_s))] if len(speech_indices) > 0 else np.arange(min(30, n_frames))
+        e0 = np.sum(m0[init_speech_idx])
+        e1 = np.sum(m1[init_speech_idx])
+        e2 = np.sum(m2[init_speech_idx])
+        s1_slot = int(np.argmax([e0, e1, e2]))
+
+        all_spk_idx = speech_indices if len(speech_indices) > 0 else np.arange(n_frames)
+        energies = [float(np.sum(m0[all_spk_idx])), float(np.sum(m1[all_spk_idx])), float(np.sum(m2[all_spk_idx]))]
+        energies[s1_slot] = -1.0
+        s2_slot = int(np.argmax(energies))
+
+        slots = [m0, m1, m2]
+        raw_p1 = slots[s1_slot]
+        raw_p2 = slots[s2_slot]
+
+        denom = raw_p1 + raw_p2 + 1e-6
+        p1_norm = np.clip((raw_p1 + 1e-4) / (denom + 2e-4), 0.001, 0.999)
+        p2_norm = 1.0 - p1_norm
+
+        # 4. Candidate Cut Extraction (Silero Gaps + RMS Pauses)
+        raw_gaps = []
+        vad_speech = vad_scores > 0.38
+        in_sil = False
+        sil_s = 0
+        for i in range(len(vad_speech)):
+            if not vad_speech[i] and not in_sil:
+                in_sil = True
+                sil_s = i
+            elif vad_speech[i] and in_sil:
+                in_sil = False
+                dur = (i - sil_s) * (chunk_size / 16000.0)
+                if dur >= 0.12:
+                    raw_gaps.append({'start': sil_s * (chunk_size / 16000.0), 'end': i * (chunk_size / 16000.0), 'duration': dur})
+
+        # Add RMS pauses
+        rms_pauses = find_silence_pauses(audio, sr, min_pause_s=0.15)
+        for rp in rms_pauses:
+            if not any(abs(rp['midpoint'] - ((g['start'] + g['end']) / 2.0)) < 0.25 for g in raw_gaps):
+                raw_gaps.append({'start': rp['start'], 'end': rp['end'], 'duration': rp['duration']})
+
+        # If too few candidates, supplement with energy troughs in long segments
+        if len(raw_gaps) < needed:
+            target_step = total_dur / float(expected_count)
+            for seg_idx in range(1, expected_count):
+                center = seg_idx * target_step
+                raw_gaps.append({'start': max(0.2, center - 0.2), 'end': min(total_dur - 0.2, center + 0.2), 'duration': 0.15})
+
+        # Snap each gap to FFmpeg low-energy trough + zero crossing
+        candidate_cuts = []
+        for g in raw_gaps:
+            mid = (g['start'] + g['end']) / 2.0
+            sub_s = max(0, int(g['start'] * sr))
+            sub_e = min(len(audio), int(g['end'] * sr))
+            if sub_e > sub_s + int(sr * 0.03):
+                sub_audio = audio[sub_s:sub_e]
+                w = int(sr * 0.015)
+                h = int(sr * 0.005)
                 min_rms = float('inf')
-                best_rel_idx = len(sub_audio) // 2
-                for idx in range(0, max(1, len(sub_audio) - win_len), hop_len):
-                    chunk = sub_audio[idx:idx + win_len]
-                    rms = np.sqrt(np.mean(chunk ** 2))
+                best_rel = len(sub_audio) // 2
+                for idx in range(0, max(1, len(sub_audio) - w), h):
+                    rms = np.sqrt(np.mean(sub_audio[idx:idx + w] ** 2))
                     if rms < min_rms:
                         min_rms = rms
-                        best_rel_idx = idx + win_len // 2
-
-                zc_start = max(0, best_rel_idx - int(sr * 0.01))
-                zc_end = min(len(sub_audio) - 1, best_rel_idx + int(sr * 0.01))
-                best_zc = best_rel_idx
-                for zc in range(zc_start, zc_end):
+                        best_rel = idx + w // 2
+                zc_s = max(0, best_rel - int(sr * 0.01))
+                zc_e = min(len(sub_audio) - 1, best_rel + int(sr * 0.01))
+                best_zc = best_rel
+                for zc in range(zc_s, zc_e):
                     if sub_audio[zc] * sub_audio[zc + 1] <= 0:
                         best_zc = zc
                         break
-                cut_time = round((sub_start_idx + best_zc) / float(sr), 3)
+                cut_time = round((sub_s + best_zc) / float(sr), 3)
             else:
-                cut_time = snap_to_zero_crossing_min_energy(audio, sr, midpoint)
+                cut_time = snap_to_zero_crossing_min_energy(audio, sr, mid)
+            if 0.3 < cut_time < total_dur - 0.3:
+                candidate_cuts.append({'time': cut_time, 'duration': g['duration'], 'start': g['start'], 'end': g['end']})
 
-            score = (g['duration'] * 2.5) + (7.0 if is_handoff else 0.0)
-            scored_gaps.append({
-                'start': g_start,
-                'end': g_end,
-                'duration': g['duration'],
-                'midpoint': cut_time,
-                'score': score,
-                'is_handoff': is_handoff
+        # Sort and deduplicate candidates within 0.15s
+        candidate_cuts.sort(key=lambda x: x['time'])
+        unique_cands = []
+        for c in candidate_cuts:
+            if not any(abs(c['time'] - u['time']) < 0.15 for u in unique_cands):
+                unique_cands.append(c)
+
+        # Ensure candidates count is at least needed
+        if len(unique_cands) < needed:
+            even_cuts = [round((i + 1) * (total_dur / float(expected_count)), 3) for i in range(needed)]
+            for ec in even_cuts:
+                if not any(abs(ec - u['time']) < 0.3 for u in unique_cands):
+                    unique_cands.append({'time': ec, 'duration': 0.15, 'start': ec - 0.075, 'end': ec + 0.075})
+            unique_cands.sort(key=lambda x: x['time'])
+
+        all_nodes = [0.0] + [u['time'] for u in unique_cands] + [round(total_dur, 3)]
+        cand_meta = {u['time']: u for u in unique_cands}
+        K = len(all_nodes)
+
+        # 5. Cumulative Speech Likelihood Arrays for O(1) Segment Scoring
+        cum_log1 = np.zeros(n_frames + 1, dtype=np.float64)
+        cum_log2 = np.zeros(n_frames + 1, dtype=np.float64)
+        cum_spk = np.zeros(n_frames + 1, dtype=np.int32)
+        for f in range(n_frames):
+            sp = 1 if is_speech[f] else 0
+            cum_log1[f + 1] = cum_log1[f] + (np.log(p1_norm[f]) if sp else 0.0)
+            cum_log2[f + 1] = cum_log2[f] + (np.log(p2_norm[f]) if sp else 0.0)
+            cum_spk[f + 1] = cum_spk[f] + sp
+
+        def seg_ll(i_node, j_node, expected_spk):
+            t_s = all_nodes[i_node]
+            t_e = all_nodes[j_node]
+            dur = t_e - t_s
+            if dur < 0.35: return -6000.0
+            f_s = min(n_frames, int(t_s / step_s))
+            f_e = min(n_frames, int(t_e / step_s))
+            n_sp = cum_spk[f_e] - cum_spk[f_s]
+            if n_sp < 3: return -3000.0
+            return (cum_log1[f_e] - cum_log1[f_s]) if expected_spk == 1 else (cum_log2[f_e] - cum_log2[f_s])
+
+        # 6. Candidate Cut Bonus: Local Identity Handoff + Soft Pause Prior
+        def cut_bonus(cand_time, s_from, s_to):
+            meta = cand_meta.get(cand_time, {})
+            pause_dur = meta.get('duration', 0.15)
+            f_cut = min(n_frames - 1, max(0, int(cand_time / step_s)))
+            win_f = int(1.2 / step_s)
+            l_frames = [f for f in range(max(0, f_cut - win_f), f_cut) if is_speech[f]]
+            r_frames = [f for f in range(f_cut, min(n_frames, f_cut + win_f)) if is_speech[f]]
+            if len(l_frames) >= 3 and len(r_frames) >= 3:
+                p1_l = float(np.mean(p1_norm[l_frames]))
+                p2_l = 1.0 - p1_l
+                p1_r = float(np.mean(p1_norm[r_frames]))
+                p2_r = 1.0 - p1_r
+                h_trans = (p1_l * p2_r) if (s_from == 1 and s_to == 2) else ((p2_l * p1_r) if (s_from == 2 and s_to == 1) else 0.0)
+                h_same = (p1_l * p1_r) + (p2_l * p2_r)
+                handoff_score = 12.0 * (h_trans - h_same)
+            else:
+                handoff_score = 0.0
+            pause_bonus = min(pause_dur, 1.5) * 3.5
+            return handoff_score + pause_bonus
+
+        # 7. Exact Constrained Segmentation Dynamic Programming O(M^2 * N)
+        dp = np.full((expected_count + 1, K), -1e9, dtype=np.float64)
+        parent = np.full((expected_count + 1, K), -1, dtype=np.int32)
+
+        for j in range(1, K - (expected_count - 1)):
+            dp[1, j] = seg_ll(0, j, 1)
+            parent[1, j] = 0
+
+        for k in range(2, expected_count + 1):
+            exp_spk = 1 if (k % 2 != 0) else 2
+            prev_spk = 2 if exp_spk == 1 else 1
+            for j in range(k, K - (expected_count - k)):
+                best_val = -1e9
+                best_i = -1
+                for i in range(k - 1, j):
+                    if dp[k - 1, i] > -1e8:
+                        c_time = all_nodes[i]
+                        val = dp[k - 1, i] + seg_ll(i, j, exp_spk) + cut_bonus(c_time, prev_spk, exp_spk)
+                        if val > best_val:
+                            best_val = val
+                            best_i = i
+                dp[k, j] = best_val
+                parent[k, j] = best_i
+
+        # Backtrack chosen cut nodes
+        chosen_indices = []
+        curr = K - 1
+        for k in range(expected_count, 1, -1):
+            p = parent[k, curr]
+            if p <= 0: break
+            chosen_indices.append(p)
+            curr = p
+        chosen_indices.reverse()
+
+        chosen_boundaries = []
+        for idx in chosen_indices:
+            c_time = all_nodes[idx]
+            meta = cand_meta.get(c_time, {})
+            chosen_boundaries.append({
+                'start': meta.get('start', round(c_time - 0.1, 3)),
+                'end': meta.get('end', round(c_time + 0.1, 3)),
+                'duration': meta.get('duration', 0.2),
+                'midpoint': c_time,
+                'score': float(dp[expected_count, K - 1]),
+                'is_handoff': True
             })
 
-        sorted_gaps = sorted(scored_gaps, key=lambda x: x['score'], reverse=True)
-        min_gap = max(2.0, (total_dur / float(expected_count)) * 0.45)
-        chosen = []
-        for cand in sorted_gaps:
-            if not any(abs(cand['midpoint'] - c['midpoint']) < min_gap for c in chosen):
-                chosen.append(cand)
-                if len(chosen) == needed: break
-        if len(chosen) < needed:
-            for cand in sorted_gaps:
-                if cand not in chosen:
-                    chosen.append(cand)
-                    if len(chosen) == needed: break
-        chosen.sort(key=lambda x: x['midpoint'])
-
-        return build_engine_result("tri_hybrid", "Tri-Hybrid Fusion (Diarization + Silero VAD + FFmpeg Silence)", chosen, total_dur, expected_count)
+        chosen_boundaries.sort(key=lambda x: x['midpoint'])
+        return build_engine_result("tri_hybrid", "Tri-Hybrid DP (Powerset Diarization + Silero VAD + FFmpeg)", chosen_boundaries, total_dur, expected_count)
     except Exception as e:
-        return {"success": False, "error": f"Tri-Hybrid failed: {str(e)}"}
+        return {"success": False, "error": f"Tri-Hybrid DP failed: {str(e)}"}
 
-# --- 3. COMPARATIVE BENCHMARK (Pyannote Baseline vs Tri-Hybrid Fusion) ---
-def compare_all_engines(audio_path, expected_count):
+# --- 3. COMPARATIVE BENCHMARK SUITE ---
+def compare_all_engines(audio_path, expected_count, paragraphs=None):
+    from iterativeDetector import run_iterative_adaptive_slicing
+    from pitchDetector import detect_pitch_f0_boundaries
+    from crossoverDetector import detect_neural_crossover_boundaries
     audio, sr, total_dur = load_wav_pcm(audio_path)
     res_py = detect_pyannote_boundaries(audio, sr, total_dur, expected_count)
+    res_pitch = detect_pitch_f0_boundaries(audio, sr, total_dur, expected_count)
+    res_cross = detect_neural_crossover_boundaries(audio, sr, total_dur, expected_count)
     res_tri = detect_tri_hybrid_boundaries(audio, sr, total_dur, expected_count)
-
-    engines = {
-        "pyannote": res_py,
-        "tri_hybrid": res_tri
-    }
+    res_iter = run_iterative_adaptive_slicing(audio, sr, total_dur, expected_count, paragraphs)
+    engines = {"pyannote": res_py, "pitch_f0": res_pitch, "neural_crossover": res_cross, "tri_hybrid": res_tri, "iterative_dp": res_iter}
 
     comparison_table = []
     needed = expected_count - 1
     for k in range(needed):
         b_py = res_py['boundaries'][k]['midpoint'] if k < len(res_py.get('boundaries', [])) else None
+        b_pitch = res_pitch['boundaries'][k]['midpoint'] if k < len(res_pitch.get('boundaries', [])) else None
+        b_cross = res_cross['boundaries'][k]['midpoint'] if k < len(res_cross.get('boundaries', [])) else None
         b_tri = res_tri['boundaries'][k]['midpoint'] if k < len(res_tri.get('boundaries', [])) else None
+        b_iter = res_iter['boundaries'][k]['midpoint'] if k < len(res_iter.get('boundaries', [])) else None
 
-        valid_cuts = [c for c in [b_py, b_tri] if c is not None]
+        valid_cuts = [c for c in [b_py, b_pitch, b_cross, b_tri, b_iter] if c is not None]
         max_diff = round((max(valid_cuts) - min(valid_cuts)) * 1000, 1) if len(valid_cuts) > 1 else 0.0
         agreement = "PERFECT (<40ms)" if max_diff < 40 else ("ALIGNED (<150ms)" if max_diff < 150 else "DIVERGENT")
 
         comparison_table.append({
             "boundary": k + 1,
             "pyannote_cut_s": b_py,
+            "pitch_f0_cut_s": b_pitch,
+            "crossover_cut_s": b_cross,
             "tri_hybrid_cut_s": b_tri,
+            "iterative_cut_s": b_iter,
             "max_spread_ms": max_diff,
             "agreement": agreement
         })
@@ -364,30 +441,44 @@ def compare_all_engines(audio_path, expected_count):
     return {
         "success": True,
         "engine": "compare_all",
-        "description": "Pyannote Baseline vs Tri-Hybrid Fusion Suite",
+        "description": "Multi-Engine Benchmark (Pyannote, Pitch F0, Crossover, Tri-Hybrid, Iterative)",
         "expectedCount": expected_count,
         "comparisonTable": comparison_table,
         "engines": engines,
-        "totalDuration": round(total_dur, 3)
+        "totalDuration": round(total_dur, 3),
+        "iterativeAttempts": res_iter.get('attempts', [])
     }
 
 if __name__ == '__main__':
     if len(sys.argv) < 3:
-        print(json.dumps({"success": False, "error": "Usage: python speakerDetector.py <audio_path> <expected_count> [--mode=pyannote|tri_hybrid|all|compare]"}))
+        print(json.dumps({"success": False, "error": "Usage: python speakerDetector.py <audio_path> <expected_count> [--mode=pyannote|pitch_f0|neural_crossover|tri_hybrid|iterative_dp|all]"}))
         sys.exit(1)
 
-    audio_file = sys.argv[1]
-    expected_c = int(sys.argv[2])
-    mode = "all"
+    audio_file, expected_c = sys.argv[1], int(sys.argv[2])
+    mode, paras = "all", None
     for arg in sys.argv[3:]:
-        if arg.startswith("--mode="):
-            mode = arg.split("=", 1)[1].strip().lower()
+        if arg.startswith("--mode="): mode = arg.split("=", 1)[1].strip().lower()
+        elif arg.startswith("--paragraphs-file="):
+            pf = arg.split("=", 1)[1].strip()
+            if os.path.exists(pf):
+                try:
+                    with open(pf, 'r', encoding='utf-8') as f: paras = json.load(f)
+                except Exception: paras = None
 
     if mode in ["all", "compare", "compare_all"]:
-        result = compare_all_engines(audio_file, expected_c)
+        result = compare_all_engines(audio_file, expected_c, paras)
     else:
         audio, sr, total_dur = load_wav_pcm(audio_file)
-        if mode in ["tri_hybrid", "tri", "hybrid"]:
+        if mode in ["pitch_f0", "pitch", "f0", "hz"]:
+            from pitchDetector import detect_pitch_f0_boundaries
+            result = detect_pitch_f0_boundaries(audio, sr, total_dur, expected_c)
+        elif mode in ["neural_crossover", "crossover"]:
+            from crossoverDetector import detect_neural_crossover_boundaries
+            result = detect_neural_crossover_boundaries(audio, sr, total_dur, expected_c)
+        elif mode in ["iterative_dp", "iterative", "try_try_try"]:
+            from iterativeDetector import run_iterative_adaptive_slicing
+            result = run_iterative_adaptive_slicing(audio, sr, total_dur, expected_c, paras)
+        elif mode in ["tri_hybrid", "tri", "hybrid"]:
             result = detect_tri_hybrid_boundaries(audio, sr, total_dur, expected_c)
         else:
             result = detect_pyannote_boundaries(audio, sr, total_dur, expected_c)
@@ -396,7 +487,6 @@ if __name__ == '__main__':
         if isinstance(o, (np.bool_, bool)): return bool(o)
         if isinstance(o, (np.integer, int)): return int(o)
         if isinstance(o, (np.floating, float)): return float(o)
-        if isinstance(o, np.ndarray): return o.tolist()
-        return str(o)
+        return o.tolist() if isinstance(o, np.ndarray) else str(o)
 
     print(json.dumps(result, default=np_json_default))

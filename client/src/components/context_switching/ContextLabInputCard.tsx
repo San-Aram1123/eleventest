@@ -45,7 +45,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
     onChangeText(sample6);
   };
 
-  const totalBatches = Math.ceil(paragraphCount / 6);
+
   const previewLines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean).slice(0, 6);
 
   return (
@@ -54,12 +54,12 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '0.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           <FileText size={18} className="text-primary" />
-          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Input Paragraphs (Pure Speech Script)</span>
+          <span style={{ fontWeight: 600, fontSize: '0.95rem' }}>Master transcript (one speaker turn per line)</span>
           <span className="badge" style={{ background: '#3B82F622', color: '#3B82F6', border: '1px solid #3B82F655' }}>
             {paragraphCount.toLocaleString()} lines
           </span>
           <span className="badge" style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98155' }}>
-            {totalBatches.toLocaleString()} batches (6/call)
+            One master per test (2–12 lines)
           </span>
         </div>
 
@@ -146,7 +146,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
       {previewLines.length > 0 && (
         <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
           <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.5rem' }}>
-            First Batch Speaker Turn Assignment (6 Lines):
+            First 6 speaker turn assignments:
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.4rem' }}>
             {previewLines.map((line, idx) => {

@@ -7,7 +7,8 @@
     "start": "node server/index.js",
     "build": "npm run build --prefix client",
     "client:dev": "npm run dev --prefix client",
-    "test:unicode": "node server/testUnicode.js"
+    "test:unicode": "node server/testUnicode.js",
+    "test:slicing": "npm run test:slicing --prefix server"
   },
   "keywords": ["kurdish", "tts", "elevenlabs", "dataset", "unicode"],
   "author": "",

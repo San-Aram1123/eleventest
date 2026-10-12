@@ -1,0 +1,4 @@
+# CPU-only versions validated on Python 3.12 / Windows.
+numpy==2.5.3
+onnxruntime==1.30.0
+kaldi-native-fbank==1.22.3

@@ -1,4 +1,5 @@
 import { GEMINI_API_BASE, GEMINI_VOICES } from './geminiConstants.js';
+import { setTimeout as delay } from 'node:timers/promises';
 import {
   getGeminiKeyPool,
   getAllGeminiKeys,
@@ -32,8 +33,10 @@ export async function generateGeminiSpeech({
   apiKey = '',
   model = 'gemini-3.8-flash-tts',
   multiSpeakerConfig = null,
+  signal = null,
   _autoWaitAttempt = 0
 }) {
+  signal?.throwIfAborted();
   const pool = apiKey ? [apiKey] : getGeminiKeyPool();
   if (pool.length === 0) {
     const all = getAllGeminiKeys();
@@ -54,7 +57,7 @@ export async function generateGeminiSpeech({
   });
 
   const rawModel = model || 'gemini-3.8-flash-tts';
-  const primaryModel = rawModel === 'gemini-3.8-flash-tts-preview' ? 'gemini-3.8-flash-tts' : rawModel;
+  const primaryModel = rawModel;
   // Strictly enforce single model requested by user - NEVER use fallback to 2.5
   const candidateModels = [primaryModel];
   const is38Model = primaryModel.startsWith('gemini-3.8');
@@ -105,7 +108,7 @@ export async function generateGeminiSpeech({
       const waitMs = Math.max(0, (soonestMetric.retryAvailableAt || 0) - Date.now());
       if (_autoWaitAttempt === 0 && waitMs <= 75000 && soonestMetric.quotaType !== 'daily') {
         console.log(`[Gemini Auto-Wait] All keys in rate-limit cooldown. Soonest key (${soonestMetric.maskedKey}) recovers in ${(waitMs / 1000).toFixed(1)}s. Auto-waiting...`);
-        await new Promise(r => setTimeout(r, waitMs + 600));
+        await delay(waitMs + 600, undefined, { signal: signal || undefined });
         soonestMetric.retryAvailableAt = null; soonestMetric.lastStatus = 'ready';
         sortedPool = [cooldownKeys[0], ...cooldownKeys.slice(1)];
       } else {
@@ -119,6 +122,7 @@ export async function generateGeminiSpeech({
   let voiceFallbackAttempted = false;
 
   for (let keyIdx = 0; keyIdx < sortedPool.length; keyIdx++) {
+    signal?.throwIfAborted();
     const activeKey = sortedPool[keyIdx];
     const maskedKey = `${activeKey.slice(0, 4)}...${activeKey.slice(-4)}`;
     const metric = getOrCreateKeyMetric(activeKey);
@@ -136,7 +140,7 @@ export async function generateGeminiSpeech({
       }
     }
 
-    if (keyIdx > 0) await new Promise(resolve => setTimeout(resolve, 150));
+    if (keyIdx > 0) await delay(150, undefined, { signal: signal || undefined });
     metric.totalRequests++;
     metric.lastUsedAt = new Date().toISOString();
 
@@ -149,7 +153,7 @@ export async function generateGeminiSpeech({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),
-          signal: AbortSignal.timeout(45000)
+          signal: signal ? AbortSignal.any([signal, AbortSignal.timeout(45000)]) : AbortSignal.timeout(45000)
         });
 
         if (!response.ok) {
@@ -189,6 +193,7 @@ export async function generateGeminiSpeech({
 
           if (response.status === 400 || errorMsg.toLowerCase().includes('invalid argument')) {
             console.error(`[Gemini 400 Bad Request] Text: "${text.slice(0, 50)}..." Voice: "${cleanVoice}". Error: ${errorMsg}`);
+            if (multiSpeakerConfig) throw new Error(`Google API Invalid Argument: ${errorMsg}`);
             if (!voiceFallbackAttempted) {
               voiceFallbackAttempted = true;
               const voiceMeta = GEMINI_VOICES.find(v => v.id.toLowerCase() === cleanVoice.toLowerCase());
@@ -215,6 +220,7 @@ export async function generateGeminiSpeech({
         metric.successCount++; metric.lastStatus = 'ready'; metric.lastError = null; metric.retryAvailableAt = null;
         break;
       } catch (err) {
+        signal?.throwIfAborted();
         if (err.message.includes('Google API Invalid Argument') || err.message.toLowerCase().includes('invalid argument')) throw err;
 
         const isQuota = err.message.toLowerCase().includes('quota') || err.message.toLowerCase().includes('resource_exhausted') || err.message.toLowerCase().includes('rate limit');
@@ -258,9 +264,10 @@ export async function generateGeminiSpeech({
         const waitMs = (cooldownMetrics[0].retryAvailableAt || 0) - Date.now();
         if (waitMs <= 65000 && waitMs > 0) {
           console.log(`[Gemini Auto-Wait] Rate limit cooldown. Soonest key (${cooldownMetrics[0].maskedKey}) recovers in ${(waitMs / 1000).toFixed(1)}s. Waiting...`);
-          await new Promise(r => setTimeout(r, waitMs + 800));
+          await delay(waitMs + 800, undefined, { signal: signal || undefined });
           cooldownMetrics[0].retryAvailableAt = null; cooldownMetrics[0].lastStatus = 'ready';
-          return await generateGeminiSpeech({ text, speechParts, speechStyle, voiceName, dialect, promptInstruction, model, _autoWaitAttempt: 1 });
+          return await generateGeminiSpeech({ text, speechParts, speechStyle, voiceName, dialect, promptInstruction,
+            apiKey, model, multiSpeakerConfig, signal, _autoWaitAttempt: 1 });
         }
       }
     }

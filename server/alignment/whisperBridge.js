@@ -155,9 +155,18 @@ export function detectKurdishBoundarySegments(audioPath, sentences, expectedCoun
  * - 'diarization': Option 2 (Acoustic Diarization / SCD divergence)
  * - 'both': Runs both and provides side-by-side comparison
  */
-export function detectViaSpeakerAcoustics(audioPath, expectedCount, mode = 'all') {
+export function detectViaSpeakerAcoustics(audioPath, expectedCount, mode = 'all', paragraphs = []) {
   const pythonBin = getPythonBin();
+  let tmpParasFile = null;
   const args = [SPEAKER_DETECTOR_SCRIPT, audioPath, String(expectedCount), `--mode=${mode}`];
+
+  if (Array.isArray(paragraphs) && paragraphs.length > 0) {
+    try {
+      tmpParasFile = path.resolve(os.tmpdir(), `paras_${Date.now()}_${Math.random().toString(36).substring(2, 7)}.json`);
+      fs.writeFileSync(tmpParasFile, JSON.stringify(paragraphs), 'utf8');
+      args.push(`--paragraphs-file=${tmpParasFile}`);
+    } catch (_) { }
+  }
 
   return new Promise((resolve) => {
     const proc = spawn(pythonBin, args);
@@ -167,6 +176,9 @@ export function detectViaSpeakerAcoustics(audioPath, expectedCount, mode = 'all'
     proc.stderr.on('data', d => { stderr += d.toString(); });
 
     proc.on('close', (code) => {
+      if (tmpParasFile && fs.existsSync(tmpParasFile)) {
+        try { fs.unlinkSync(tmpParasFile); } catch (_) { }
+      }
       if (code !== 0) return resolve({ success: false, error: `Speaker detector exited with code ${code}: ${stderr}` });
       try {
         resolve(JSON.parse(stdout.trim()));
@@ -175,6 +187,11 @@ export function detectViaSpeakerAcoustics(audioPath, expectedCount, mode = 'all'
       }
     });
 
-    proc.on('error', (err) => resolve({ success: false, error: err.message }));
+    proc.on('error', (err) => {
+      if (tmpParasFile && fs.existsSync(tmpParasFile)) {
+        try { fs.unlinkSync(tmpParasFile); } catch (_) { }
+      }
+      resolve({ success: false, error: err.message });
+    });
   });
 }

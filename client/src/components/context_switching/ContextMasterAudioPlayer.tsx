@@ -1,5 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Play, Pause, Download, Music, Volume2, VolumeX, RotateCcw } from 'lucide-react';
+import { playExclusiveAudio } from '../../services/audioPlayback';
 
 interface ContextMasterAudioPlayerProps {
   masterAudioUrl: string | null;
@@ -23,6 +24,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
   useEffect(() => {
     setIsPlaying(false);
     setCurrentTime(0);
+    setDuration(durationSeconds || 0);
     if (audioRef.current) {
       audioRef.current.pause();
       audioRef.current.currentTime = 0;
@@ -31,14 +33,14 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
 
   if (!masterAudioUrl) return null;
 
-  const togglePlay = () => {
+  const togglePlay = async () => {
     if (!audioRef.current) return;
     if (isPlaying) {
       audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current.play();
-      setIsPlaying(true);
+      try { await playExclusiveAudio(audioRef.current); setIsPlaying(true); }
+      catch { setIsPlaying(false); }
     }
   };
 
@@ -70,12 +72,12 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
     setCurrentTime(0);
   };
 
-  const handleRestart = () => {
+  const handleRestart = async () => {
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       setCurrentTime(0);
-      audioRef.current.play();
-      setIsPlaying(true);
+      try { await playExclusiveAudio(audioRef.current); setIsPlaying(true); }
+      catch { setIsPlaying(false); }
     }
   };
 
@@ -110,6 +112,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={handleEnded}
+        onPause={() => setIsPlaying(false)}
         style={{ display: 'none' }}
       />
 
@@ -132,7 +135,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
               <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#f8fafc' }}>
-                Full Master Audio (Uncut Gemini Stream)
+                Full Master Audio (Uncut)
               </span>
               <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.25)', color: '#c084fc', fontSize: '0.72rem', fontWeight: 700, border: '1px solid rgba(139, 92, 246, 0.4)' }}>
                 100% Uncut Master

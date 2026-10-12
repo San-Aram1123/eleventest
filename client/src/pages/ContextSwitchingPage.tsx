@@ -126,7 +126,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
               }}
             >
               <FlaskConical size={14} />
-              <span>Experimental Slicing Lab</span>
+              <span>Speaker Slicing Lab</span>
               <span
                 style={{
                   background: 'rgba(255,255,255,0.25)',
@@ -136,7 +136,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
                   fontWeight: 700
                 }}
               >
-                Dual-Engine
+                3 Methods
               </span>
             </button>
           </div>
@@ -175,7 +175,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
         </div>
       )}
 
-      {/* Sub-Tab 2: Experimental Slicing Lab (Multi-Speaker & Audio Markers) */}
+      {/* Sub-Tab 2: Speaker Slicing Lab (Multi-Speaker & Audio Markers) */}
       {activeSubTab === 'lab' && (
         <ContextLabTab
           onSampleCreated={onSampleCreated}

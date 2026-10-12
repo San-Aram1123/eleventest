@@ -1,14 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+﻿import { useEffect, useRef, useState } from 'react';
 import { Sample } from '../../types';
 import {
-  executeContextLabBatch,
-  abortContextSwitchingBatchOnServer,
-  saveLabClipsToDataset,
-  LabClip,
-  BoundaryComparison,
-  DetectionEngineType
+  executeContextLabBatch, analyzeContextLabMaster, abortContextSwitchingBatchOnServer,
+  saveLabClipsToDataset, DetectionEngineType, LabBatchResponse, LabAnalysisOptions
 } from '../../services/contextSwitchingApi';
-import { ContextBatchState } from './useContextBatchRunner';
+import { fileAsDataUrl, getLabEngineResults, LabMasterSnapshot, LabMasterSource, parseLabOptions } from '../../services/contextLabUtils';
 
 interface UseContextLabRunnerProps {
   paragraphs: string[];
@@ -16,227 +12,133 @@ interface UseContextLabRunnerProps {
   detectionEngine: DetectionEngineType;
   speaker1Voice: string;
   speaker2Voice: string;
+  source: LabMasterSource;
+  masterFile: File | null;
+  reference1: File | null;
+  reference2: File | null;
+  options: LabAnalysisOptions;
+  expectedBoundaries: string;
   onSampleCreated: (sample: Sample) => void;
   addToast: (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => void;
 }
 
-export function useContextLabRunner({
-  paragraphs,
-  startIdx,
-  detectionEngine,
-  speaker1Voice,
-  speaker2Voice,
-  onSampleCreated,
-  addToast
-}: UseContextLabRunnerProps) {
-  const [batchState, setBatchState] = useState<ContextBatchState>({
-    isActive: false,
-    isPaused: false,
-    currentChunkIdx: 0,
-    totalChunks: 0,
-    completedParagraphs: 0,
-    totalParagraphs: 0,
-    startTime: null,
-    elapsedSeconds: 0,
-    errors: []
-  });
-
-  const [pyannoteClips, setPyannoteClips] = useState<LabClip[]>([]);
-  const [triHybridClips, setTriHybridClips] = useState<LabClip[]>([]);
-  const [singleClips, setSingleClips] = useState<LabClip[]>([]);
-  const [comparisonTable, setComparisonTable] = useState<BoundaryComparison[]>([]);
-  const [masterAudioUrl, setMasterAudioUrl] = useState<string | null>(null);
+export function useContextLabRunner(props: UseContextLabRunnerProps) {
+  const [result, setResult] = useState<LabBatchResponse | null>(null);
+  const [lastMaster, setLastMaster] = useState<LabMasterSnapshot | null>(null);
+  const [isActive, setIsActive] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+  const controller = useRef<AbortController | null>(null);
+  const resultContext = useRef<{ startIdx: number; lineCount: number }>({ startIdx: 1, lineCount: 0 });
+  const runSequence = useRef(0);
 
-  const isRunningRef = useRef(false);
-  const isPausedRef = useRef(false);
-  const abortControllerRef = useRef<AbortController | null>(null);
-  const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
+  useEffect(() => () => { controller.current?.abort(); runSequence.current += 1; }, []);
   useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearInterval(timerRef.current);
-        timerRef.current = null;
-      }
-      if (abortControllerRef.current) {
-        abortControllerRef.current.abort();
-      }
-    };
-  }, []);
-
-  const chunkSize = 6;
-  const totalChunks = Math.ceil(paragraphs.length / chunkSize);
+    if (!isActive) return;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsedSeconds(Math.floor((Date.now() - started) / 1000)), 1000);
+    return () => clearInterval(timer);
+  }, [isActive]);
 
   const startBatch = async () => {
-    if (paragraphs.length === 0) {
-      addToast({ type: 'error', title: 'No lines to generate' });
+    if (controller.current && !controller.current.signal.aborted) return;
+    setResult(null);
+    setError(null);
+    const master = props.source === 'reuse' ? lastMaster : null;
+    const paragraphs = master?.paragraphs || props.paragraphs;
+    const speaker1Voice = master?.speaker1Voice || props.speaker1Voice;
+    const speaker2Voice = master?.speaker2Voice || props.speaker2Voice;
+    let options: LabAnalysisOptions;
+    try {
+      if (paragraphs.length < 2 || paragraphs.length > 12) throw new Error('Use 2–12 lines per master test.');
+      if (speaker1Voice === speaker2Voice) throw new Error('Choose two different speaker voices.');
+      if (props.source === 'reuse' && !master) throw new Error('Run a test first to create a reusable master.');
+      if (props.source === 'upload' && !props.masterFile) throw new Error('Choose a master WAV to analyze.');
+      if (Boolean(props.reference1) !== Boolean(props.reference2)) throw new Error('Provide both speaker references, or leave both empty for automatic enrollment.');
+      options = parseLabOptions(props.expectedBoundaries, props.options, paragraphs.length);
+    } catch (failure) {
+      setError(failure instanceof Error ? failure.message : 'Invalid test settings.');
       return;
     }
-
-    isRunningRef.current = true;
-    isPausedRef.current = false;
-    abortControllerRef.current = new AbortController();
-
-    const startTime = Date.now();
-    setBatchState({
-      isActive: true,
-      isPaused: false,
-      currentChunkIdx: 0,
-      totalChunks,
-      completedParagraphs: 0,
-      totalParagraphs: paragraphs.length,
-      startTime,
-      elapsedSeconds: 0,
-      errors: []
-    });
-
-    setPyannoteClips([]);
-    setTriHybridClips([]);
-    setSingleClips([]);
-    setComparisonTable([]);
-    setMasterAudioUrl(null);
-
-    if (timerRef.current) clearInterval(timerRef.current);
-    timerRef.current = setInterval(() => {
-      setBatchState(prev => ({
-        ...prev,
-        elapsedSeconds: Math.floor((Date.now() - startTime) / 1000)
-      }));
-    }, 1000);
-
-    let completedCount = 0;
-    const newErrors: string[] = [];
-
-    for (let c = 0; c < totalChunks; c++) {
-      if (!isRunningRef.current || abortControllerRef.current?.signal.aborted) break;
-
-      while (isPausedRef.current && isRunningRef.current && !abortControllerRef.current?.signal.aborted) {
-        await new Promise(r => setTimeout(r, 300));
+    const runId = ++runSequence.current;
+    const abort = new AbortController();
+    controller.current = abort;
+    setElapsedSeconds(0);
+    setIsActive(true);
+    resultContext.current = { startIdx: props.startIdx, lineCount: paragraphs.length };
+    try {
+      let response: LabBatchResponse;
+      if (props.source === 'generate') {
+        const [reference1Audio, reference2Audio] = await Promise.all([
+          fileAsDataUrl(props.reference1), fileAsDataUrl(props.reference2)
+        ]);
+        if (abort.signal.aborted) throw new DOMException('Stopped', 'AbortError');
+        response = await executeContextLabBatch({ paragraphs, startIdx: props.startIdx,
+          speaker1Voice, speaker2Voice, detectionEngine: props.detectionEngine, options,
+          reference1Audio, reference2Audio, signal: abort.signal });
+      } else {
+        const masterAudio = master
+          ? await fetch(master.audioUrl, { signal: abort.signal }).then(res => {
+              if (!res.ok) throw new Error('Could not load the last master audio.');
+              return res.blob();
+            })
+          : props.masterFile!;
+        response = await analyzeContextLabMaster({ masterAudio, paragraphs, startIdx: props.startIdx,
+          speaker1Voice, speaker2Voice, detectionEngine: props.detectionEngine, options,
+          reference1: props.reference1, reference2: props.reference2, signal: abort.signal });
       }
-
-      if (!isRunningRef.current || abortControllerRef.current?.signal.aborted) break;
-
-      setBatchState(prev => ({ ...prev, currentChunkIdx: c + 1 }));
-
-      const chunkParagraphs = paragraphs.slice(c * chunkSize, (c + 1) * chunkSize);
-      const chunkStartIdx = startIdx + (c * chunkSize);
-
-      try {
-        const result = await executeContextLabBatch({
-          paragraphs: chunkParagraphs,
-          startIdx: chunkStartIdx,
-          speaker1Voice,
-          speaker2Voice,
-          detectionEngine,
-          signal: abortControllerRef.current.signal
-        });
-
-        if (result.success) {
-          if (Array.isArray(result.pyannoteClips)) setPyannoteClips(prev => [...prev, ...result.pyannoteClips!]);
-          if (Array.isArray(result.triHybridClips)) setTriHybridClips(prev => [...prev, ...result.triHybridClips!]);
-          if (Array.isArray(result.clips)) setSingleClips(prev => [...prev, ...result.clips!]);
-          if (Array.isArray(result.comparisonTable)) setComparisonTable(result.comparisonTable);
-          if (result.masterAudioUrl) setMasterAudioUrl(result.masterAudioUrl);
-
-          completedCount += chunkParagraphs.length;
-          setBatchState(prev => ({ ...prev, completedParagraphs: completedCount }));
-        }
-      } catch (err: any) {
-        if (err?.name === 'AbortError' || abortControllerRef.current?.signal.aborted) break;
-        const msg = `Batch ${c + 1}/${totalChunks} failed: ${err.message || 'Unknown Slicing Error'}`;
-        console.error('[Context Lab Runner]', msg);
-        newErrors.push(msg);
-        setBatchState(prev => ({ ...prev, errors: [...newErrors] }));
-        addToast({ type: 'error', title: `Batch ${c + 1} Error`, message: err.message });
+      if (runSequence.current !== runId || abort.signal.aborted) return;
+      const audioUrl = response.masterAudioUrl || master?.audioUrl;
+      setResult({ ...response, masterAudioUrl: audioUrl, speaker1Voice, speaker2Voice });
+      if (audioUrl) setLastMaster({ audioUrl, paragraphs: [...paragraphs], speaker1Voice, speaker2Voice });
+      const engines = Object.values(getLabEngineResults(response));
+      const accepted = engines.filter(engine => engine.success && engine.clips.length === paragraphs.length).length;
+      if (!response.success || accepted === 0) {
+        setError(response.error || 'No engine accepted safe boundaries. Review diagnostics and rerun the same master.');
+      } else {
+        props.addToast({ type: 'success', title: 'Master analysis complete',
+          message: `${accepted} method(s) accepted a complete set. Listen and review diagnostics before saving.` });
       }
-
-      if (c < totalChunks - 1 && isRunningRef.current) {
-        await new Promise(r => setTimeout(r, 500));
+    } catch (failure) {
+      if (runSequence.current !== runId || abort.signal.aborted) return;
+      setError(failure instanceof Error ? failure.message : 'Master analysis failed.');
+    } finally {
+      if (runSequence.current === runId) {
+        controller.current = null;
+        setIsActive(false);
       }
-    }
-
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    isRunningRef.current = false;
-
-    setBatchState(prev => ({
-      ...prev,
-      isActive: false,
-      isPaused: false
-    }));
-
-    if (completedCount > 0) {
-      addToast({
-        type: 'success',
-        title: 'Slicing Complete',
-        message: `Successfully processed ${completedCount} clips with ${detectionEngine} engine!`
-      });
     }
   };
 
+  const stopBatch = () => {
+    controller.current?.abort();
+    controller.current = null;
+    runSequence.current += 1;
+    setIsActive(false);
+    setError('Test stopped. No clips were saved.');
+    if (props.source === 'generate') void abortContextSwitchingBatchOnServer();
+  };
+
   const handleSaveToDataset = async (engineKey: string) => {
-    let clipsToSave: LabClip[] = [];
-    if (engineKey === 'pyannote') clipsToSave = pyannoteClips;
-    else if (engineKey === 'tri_hybrid') clipsToSave = triHybridClips;
-    else clipsToSave = singleClips.length > 0 ? singleClips : pyannoteClips;
-
-    if (clipsToSave.length === 0) return;
-
+    const engine = result && getLabEngineResults(result)[engineKey];
+    if (!result?.success || !engine?.success || engine.clips.length !== resultContext.current.lineCount ||
+        engine.clips.some(clip => !clip.audioUrl || clip.end <= clip.start || clip.duration <= 0)) {
+      props.addToast({ type: 'error', title: 'Slices cannot be saved', message: 'Only a complete, accepted engine result can be saved.' });
+      return;
+    }
     setIsSaving(true);
     try {
-      const res = await saveLabClipsToDataset({
-        clips: clipsToSave,
-        startIdx
-      });
-      if (res.success && Array.isArray(res.samples)) {
-        for (const s of res.samples) onSampleCreated(s);
-        addToast({
-          type: 'success',
-          title: 'Saved to Dataset',
-          message: `Saved ${res.count} clips (${engineKey}) to your dataset!`
-        });
-      }
-    } catch (err: any) {
-      addToast({ type: 'error', title: 'Failed to Save', message: err.message });
+      const saved = await saveLabClipsToDataset({ clips: engine.clips, startIdx: resultContext.current.startIdx });
+      if (!saved.success) throw new Error('The server did not save these clips.');
+      saved.samples.forEach(props.onSampleCreated);
+      props.addToast({ type: 'success', title: 'Saved to dataset', message: `${saved.count} clips from ${engineKey}.` });
+    } catch (failure) {
+      props.addToast({ type: 'error', title: 'Save failed', message: failure instanceof Error ? failure.message : 'Unknown save error.' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const togglePause = () => {
-    isPausedRef.current = !isPausedRef.current;
-    setBatchState(prev => ({ ...prev, isPaused: isPausedRef.current }));
-  };
-
-  const stopBatch = () => {
-    isRunningRef.current = false;
-    isPausedRef.current = false;
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    if (timerRef.current) {
-      clearInterval(timerRef.current);
-      timerRef.current = null;
-    }
-    abortContextSwitchingBatchOnServer();
-    setBatchState(prev => ({ ...prev, isActive: false, isPaused: false }));
-    addToast({ type: 'info', title: 'Batch stopped by user' });
-  };
-
-  return {
-    batchState,
-    pyannoteClips,
-    triHybridClips,
-    singleClips,
-    comparisonTable,
-    masterAudioUrl,
-    isSaving,
-    handleSaveToDataset,
-    startBatch,
-    togglePause,
-    stopBatch
-  };
+  return { result, lastMaster, isActive, isSaving, elapsedSeconds, error, startBatch, stopBatch, handleSaveToDataset };
 }
