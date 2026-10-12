@@ -208,9 +208,18 @@ export async function exportAudarCanonicalZip(res, filters = {}) {
   const archive = archiver('zip', { zlib: { level: 1 } });
 
   let filenamePrefix = 'audar_kurdish_canonical';
-  if (filters.gender && filters.gender !== 'all') filenamePrefix += `_${filters.gender.toLowerCase()}_voices`;
-  if (filters.voice && filters.voice !== 'all') filenamePrefix += `_${filters.voice.replace(/[^a-zA-Z0-9]/g, '_').toLowerCase()}`;
-  if (filters.dialect && filters.dialect !== 'all') filenamePrefix += `_${filters.dialect.toLowerCase()}`;
+  if (filters.gender && filters.gender !== 'all') {
+    const safeGender = String(filters.gender).replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+    if (safeGender) filenamePrefix += `_${safeGender}_voices`;
+  }
+  if (filters.voice && filters.voice !== 'all') {
+    const safeVoice = String(filters.voice).replace(/[^a-zA-Z0-9_-]/g, '_').toLowerCase();
+    if (safeVoice) filenamePrefix += `_${safeVoice}`;
+  }
+  if (filters.dialect && filters.dialect !== 'all') {
+    const safeDialect = String(filters.dialect).replace(/[^a-zA-Z0-9_-]/g, '').toLowerCase();
+    if (safeDialect) filenamePrefix += `_${safeDialect}`;
+  }
 
   const timestamp = new Date().toISOString().slice(0, 10);
   res.attachment(`${filenamePrefix}_dataset_${timestamp}.zip`);

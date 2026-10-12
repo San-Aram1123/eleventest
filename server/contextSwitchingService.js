@@ -41,9 +41,10 @@ export async function getNextContextSwitchingIndex(voiceName = null) {
     try {
       const pool = getDbPool();
       const query = cleanVoice
-        ? `SELECT id FROM samples WHERE id LIKE 'ctx_${cleanVoice}_%'`
-        : `SELECT id FROM samples WHERE id LIKE 'ctx_%'`;
-      const [rows] = await pool.query(query);
+        ? 'SELECT id FROM samples WHERE id LIKE ?'
+        : "SELECT id FROM samples WHERE id LIKE 'ctx_%'";
+      const params = cleanVoice ? [`ctx_${cleanVoice}_%`] : [];
+      const [rows] = await pool.query(query, params);
       const regex = cleanVoice
         ? new RegExp(`^ctx_${cleanVoice}_(\\d+)_`, 'i')
         : /^ctx_[a-zA-Z0-9_-]+_(\d+)_/i;

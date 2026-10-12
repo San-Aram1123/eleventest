@@ -4,9 +4,10 @@
 !.env.example
 keys.json
 gemini_keys.json
+gemini_disabled_keys.json
 
 # Dataset files (Audio & Transcripts)
-dataset/
+/dataset/
 *.wav
 *.mp3
 

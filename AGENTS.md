@@ -16,6 +16,8 @@ Under NO circumstances should Paired Slicing (or any batch slicing system) autom
 - If slicing fails safety checks or Gemini drops takes, it must report/throw an error and abort that take/family cleanly to protect API quota.
 - Never silently or automatically switch to 1:1 individual requests.
 
-## Component Line Limit
-Every modified or newly created component file must strictly remain `<= 300 lines`.
+## Component-Based Architecture & Shared Code Policy
+- **Component-First**: All UI pages and views must be built using modular, isolated, and composable components.
+- **Mandatory Shared Code Reuse**: Any shared function, utility, or component used across multiple pages must be extracted into a centralized shared folder and imported. Duplicate implementations across pages are strictly prohibited.
+- **File & Component Line Limits**: Every file across the project must strictly remain under 500 lines total (with individual component files strictly `<= 300 lines`).
 

@@ -1,6 +1,10 @@
 /* ==========================================================================
    KURDISH TTS DATASET STUDIO — MODERN DESIGN SYSTEM (VANILLA CSS)
    ========================================================================== */
+@import './api-generation.css';
+@import './normal-workflow.css';
+@import './comparison.css';
+@import './settings-modal.css';
 
 :root {
   /* Color Palette - Deep Dark Space / Neon Accents */
