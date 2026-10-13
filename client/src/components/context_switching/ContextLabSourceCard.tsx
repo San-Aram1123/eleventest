@@ -57,10 +57,10 @@ export const ContextLabSourceCard: React.FC<ContextLabSourceCardProps> = (props)
         </label>)}
       </div>
       {props.source === 'upload' && <div style={{ marginTop: '1rem' }}>
-        {fileField('Master WAV (all alternating turns)', props.masterFile, props.onChangeMaster)}
+        {fileField('Master WAV (dialogue or single take)', props.masterFile, props.onChangeMaster)}
       </div>}
       <p style={{ color: '#94a3b8', fontSize: '.78rem', marginBottom: 0 }}>
-        Each test uses one master with 2–12 alternating lines. After a run, reuse its master to change methods or settings without using TTS quota.
+        Each test uses one master with 1–12 lines. After a run, reuse its master to change methods or settings without using TTS quota.
       </p>
       <details style={{ marginTop: '1rem' }}>
         <summary style={{ cursor: 'pointer', fontSize: '.85rem' }}>Speaker references and evaluation settings</summary>

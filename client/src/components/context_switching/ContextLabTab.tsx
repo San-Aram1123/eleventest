@@ -1,4 +1,4 @@
-﻿import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { extractParagraphsArray } from '../../data/contextSwitchingPresets';
 import { DetectionEngineType, fetchNextContextIndex, LabAnalysisOptions } from '../../services/contextSwitchingApi';
 import { LabMasterSource } from '../../services/contextLabUtils';
@@ -29,6 +29,13 @@ export const ContextLabTab: React.FC<ContextLabTabProps> = ({ onSampleCreated, a
   const [options, setOptions] = useState<LabAnalysisOptions>({ confidenceThreshold: .6 });
   const [expectedBoundaries, setExpectedBoundaries] = useState('');
   const paragraphs = useMemo(() => extractParagraphsArray(text), [text]);
+  const effectiveParagraphs = useMemo(() => {
+    if (paragraphs.length > 0) return paragraphs;
+    if (source === 'upload' && masterFile) {
+      return [masterFile.name.replace(/\.[^/.]+$/, '') || 'Single Take'];
+    }
+    return [];
+  }, [paragraphs, source, masterFile]);
   const refreshNextIndex = useCallback(async () => {
     setIsRefreshingIdx(true);
     try { setStartIdx(await fetchNextContextIndex('lab')); }
@@ -36,7 +43,14 @@ export const ContextLabTab: React.FC<ContextLabTabProps> = ({ onSampleCreated, a
   }, []);
   useEffect(() => { void refreshNextIndex(); }, [refreshNextIndex]);
 
-  const runner = useContextLabRunner({ paragraphs, startIdx, detectionEngine, speaker1Voice, speaker2Voice,
+  const handleMasterChange = (file: File | null) => {
+    setMasterFile(file);
+    if (file && !text.trim()) {
+      setText(file.name.replace(/\.[^/.]+$/, ''));
+    }
+  };
+
+  const runner = useContextLabRunner({ paragraphs: effectiveParagraphs, startIdx, detectionEngine, speaker1Voice, speaker2Voice,
     source, masterFile, reference1, reference2, options, expectedBoundaries, onSampleCreated, addToast });
   const changeSource = (next: LabMasterSource) => {
     if (next === 'reuse' && runner.lastMaster) {
@@ -46,12 +60,12 @@ export const ContextLabTab: React.FC<ContextLabTabProps> = ({ onSampleCreated, a
     }
     setSource(next);
   };
-  const canStart = !runner.isActive && !runner.isSaving && paragraphs.length >= 2 && paragraphs.length <= 12 &&
+  const canStart = !runner.isActive && !runner.isSaving && effectiveParagraphs.length >= 1 && effectiveParagraphs.length <= 12 &&
     (source === 'generate' || (source === 'upload' && Boolean(masterFile)) || (source === 'reuse' && Boolean(runner.lastMaster)));
 
   return (
     <div>
-      <ContextLabSourceCard source={source} onChangeSource={changeSource} masterFile={masterFile} onChangeMaster={setMasterFile}
+      <ContextLabSourceCard source={source} onChangeSource={changeSource} masterFile={masterFile} onChangeMaster={handleMasterChange}
         reference1={reference1} reference2={reference2} onChangeReference1={setReference1} onChangeReference2={setReference2}
         hasReusableMaster={Boolean(runner.lastMaster)} options={options} onChangeOptions={setOptions}
         expectedBoundaries={expectedBoundaries} onChangeExpectedBoundaries={setExpectedBoundaries} isActive={runner.isActive} />
@@ -61,8 +75,8 @@ export const ContextLabTab: React.FC<ContextLabTabProps> = ({ onSampleCreated, a
         isRefreshingIdx={isRefreshingIdx} isBatchActive={runner.isActive} voicesReadOnly={source === 'reuse'} />
       {source === 'reuse' && <p style={{ color: '#93c5fd', fontSize: '.8rem' }}>The saved master keeps its original script and speaker labels. Change the analysis method or settings, then choose Analyze master.</p>}
       <ContextLabInputCard text={text} onChangeText={setText} speaker1Voice={speaker1Voice} speaker2Voice={speaker2Voice}
-        paragraphCount={paragraphs.length} isBatchActive={runner.isActive || source === 'reuse'} />
-      {paragraphs.length > 12 && <p role="alert" style={{ color: '#fbbf24', fontSize: '.8rem' }}>Use at most 12 lines for one lab master. This keeps comparisons tied to the same audio.</p>}
+        paragraphCount={effectiveParagraphs.length} isBatchActive={runner.isActive || source === 'reuse'} />
+      {effectiveParagraphs.length > 12 && <p role="alert" style={{ color: '#fbbf24', fontSize: '.8rem' }}>Use at most 12 lines for one lab master. This keeps comparisons tied to the same audio.</p>}
       <ContextLabRunControls source={source} isActive={runner.isActive} canStart={canStart} elapsedSeconds={runner.elapsedSeconds}
         error={runner.error} onStart={() => void runner.startBatch()} onStop={runner.stopBatch} />
       <ContextLabResultsView result={runner.result} isSaving={runner.isSaving} isActive={runner.isActive}

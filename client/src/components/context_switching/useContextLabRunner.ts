@@ -1,4 +1,4 @@
-﻿import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Sample } from '../../types';
 import {
   executeContextLabBatch, analyzeContextLabMaster, abortContextSwitchingBatchOnServer,
@@ -51,8 +51,8 @@ export function useContextLabRunner(props: UseContextLabRunnerProps) {
     const speaker2Voice = master?.speaker2Voice || props.speaker2Voice;
     let options: LabAnalysisOptions;
     try {
-      if (paragraphs.length < 2 || paragraphs.length > 12) throw new Error('Use 2–12 lines per master test.');
-      if (speaker1Voice === speaker2Voice) throw new Error('Choose two different speaker voices.');
+      if (paragraphs.length < 1 || paragraphs.length > 12) throw new Error('Use 1–12 lines per master test.');
+      if (speaker1Voice === speaker2Voice && paragraphs.length > 1) throw new Error('Choose two different speaker voices.');
       if (props.source === 'reuse' && !master) throw new Error('Run a test first to create a reusable master.');
       if (props.source === 'upload' && !props.masterFile) throw new Error('Choose a master WAV to analyze.');
       if (Boolean(props.reference1) !== Boolean(props.reference2)) throw new Error('Provide both speaker references, or leave both empty for automatic enrollment.');

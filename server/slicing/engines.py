@@ -119,8 +119,9 @@ def run_engine(engine, audio, rate, count, options, identity_cache=None):
     diagnostics = {}
     try:
         if count == 1:
-            minimum = options.get('minSegmentSeconds') or 0.8
-            maximum = options.get('maxSegmentSeconds') or len(audio) / rate
+            dur = len(audio) / rate
+            minimum = min(options.get('minSegmentSeconds') or 0.8, dur)
+            maximum = max(options.get('maxSegmentSeconds') or dur, dur)
             diagnostics = {'minSegmentSeconds': minimum, 'maxSegmentSeconds': maximum,
                            'minConfidence': 1, 'enrollment': 'single_turn_no_separation_required'}
             segments, boundaries = build_segments(audio, rate, [], count, diagnostics, engine)

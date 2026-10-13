@@ -61,7 +61,8 @@ export function validateEngineResult(result, expectedCount, options = {}, totalD
       return failure(result, `Unsafe segmentation: segment ${i + 1} leaves a gap or overlaps the previous segment.`);
     }
     const duration = segment.end - segment.start;
-    if (duration + 0.001 < minDuration || duration - 0.001 > maxDuration) {
+    const effectiveMin = expectedCount === 1 ? Math.min(minDuration, totalDuration) : minDuration;
+    if (duration + 0.001 < effectiveMin || duration - 0.001 > maxDuration) {
       return failure(result, `Unsafe segmentation: segment ${i + 1} violates duration limits.`);
     }
     if (segment.duration !== undefined &&

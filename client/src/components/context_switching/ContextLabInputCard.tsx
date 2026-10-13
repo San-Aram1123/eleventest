@@ -61,7 +61,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
             {paragraphCount.toLocaleString()} lines
           </span>
           <span className="badge" style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98155' }}>
-            {automated ? 'Automatic groups of 6 · final group may be smaller' : 'One master per test (2–12 lines)'}
+            {automated ? 'Automatic groups of 6 · final group may be smaller' : 'One master per test (1–12 lines)'}
           </span>
         </div>
 
@@ -127,7 +127,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
         onChange={(e) => onChangeText(e.target.value)}
         disabled={isBatchActive}
         rows={7}
-        placeholder="Paste your lines here (or click 'Load 6 Test Lines'). Pure Kurdish / mixed text without any markers — speakers alternate automatically every line..."
+        placeholder="Paste your lines here (or click 'Load 6 Test Lines'). Pure Kurdish / mixed text without any markers (for single uploaded audio, defaults to filename if left empty)..."
         style={{
           width: '100%',
           padding: '0.75rem',
