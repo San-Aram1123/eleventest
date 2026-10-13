@@ -9,6 +9,34 @@ const paragraphs = ['سڵاو، this is the first turn.', 'مرحبا، ئەمە
 const params = { paragraphs, speaker1Voice: 'Puck', speaker2Voice: 'Aoede', detectionEngine: 'timbre_dp' };
 const master = createTestWav();
 
+test('master-only generation checkpoints audio and returns without running a slicer', async () => {
+  const order = [];
+  const service = createContextLabService({
+    generateSpeech: async () => { order.push('generation'); return { audioBuffer: master }; },
+    detectSegments: async () => { throw new Error('Master producer must not wait for slicing'); },
+  });
+  const result = await service.generateContextLabMaster({ ...params,
+    onMasterReady: async () => { order.push('checkpoint'); } });
+  assert.deepEqual(result.audioBuffer, master);
+  assert.deepEqual(order, ['generation', 'checkpoint']);
+});
+
+test('durable master callback finishes before slicing and a failed checkpoint prevents analysis', async () => {
+  let checkpointed = false;
+  let analyses = 0;
+  const service = createContextLabService({
+    generateSpeech: async () => ({ audioBuffer: master }),
+    detectSegments: async () => { assert.equal(checkpointed, true); analyses++; return acceptedEngine(); },
+  });
+  await service.generateContextLabBatch({ ...params, onMasterReady: async data => {
+    assert.deepEqual(data.audioBuffer, master); checkpointed = true;
+  } });
+  assert.equal(analyses, 1);
+  await assert.rejects(service.generateContextLabBatch({ ...params,
+    onMasterReady: async () => { throw new Error('Checkpoint disk full'); } }), /disk full/);
+  assert.equal(analyses, 1);
+});
+
 test('new comparison modes preserve rejected proposals without exporting clips or synthesizing', async () => {
   const proposals = [{ midpoint: 1.9, accepted: false, quietRunSeconds: .035 }];
   for (const mode of ['speaker_resnet', 'speaker_eres2net', 'speaker_strict', 'speaker_consensus']) {

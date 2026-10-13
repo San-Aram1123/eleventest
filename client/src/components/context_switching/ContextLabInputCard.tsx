@@ -9,6 +9,7 @@ interface ContextLabInputCardProps {
   speaker2Voice: string;
   paragraphCount: number;
   isBatchActive: boolean;
+  automated?: boolean;
 }
 
 export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
@@ -17,7 +18,8 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
   speaker1Voice,
   speaker2Voice,
   paragraphCount,
-  isBatchActive
+  isBatchActive,
+  automated = false
 }) => {
   const [copied, setCopied] = React.useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -59,7 +61,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
             {paragraphCount.toLocaleString()} lines
           </span>
           <span className="badge" style={{ background: '#10B98122', color: '#10B981', border: '1px solid #10B98155' }}>
-            One master per test (2–12 lines)
+            {automated ? 'Automatic groups of 6 · final group may be smaller' : 'One master per test (2–12 lines)'}
           </span>
         </div>
 

@@ -135,6 +135,8 @@ export interface SampleRatings {
 }
 
 export interface Sample {
+  review_status?: 'pending' | 'reviewed';
+  review_warnings?: string[];
   id: string;
   family_id?: string;
   emotion_intensity?: number;

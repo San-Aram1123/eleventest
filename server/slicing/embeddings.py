@@ -1,5 +1,6 @@
 """Real local CAM++/WeSpeaker ONNX embeddings, with training-compatible FBANK."""
 import os
+from functools import lru_cache
 from pathlib import Path
 
 import numpy as np
@@ -115,8 +116,13 @@ class SpeakerEmbedder:
         return centroid, cohesion
 
 
+@lru_cache(maxsize=3)
+def cached_embedder(model_key):
+    return SpeakerEmbedder(model_key)
+
+
 def embedding_identity(audio, rate, options, model_key='speaker_embedding', with_validator=False):
-    embedder = SpeakerEmbedder(model_key)
+    embedder = cached_embedder(model_key)
     vectors, weights, edges = embedder.windows(audio, rate)
     reference1, reference2 = options.get('reference1Path'), options.get('reference2Path')
     if bool(reference1) != bool(reference2):

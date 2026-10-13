@@ -1,3 +1,4 @@
+import { DatasetReviewNotice } from './DatasetReviewNotice';
 import React from 'react';
 import { FileCode, Download, Trash2, Key } from 'lucide-react';
 import { Sample, SampleRatings } from '../../../types';
@@ -18,6 +19,7 @@ interface DatasetTableViewProps {
   onSelectAllCurrentPage: () => void;
   onInspect: (sample: Sample) => void;
   onDelete: (id: string) => void;
+  onSampleUpdated?: (sample: Sample) => void;
   onRatingChange: (id: string, ratings: SampleRatings) => void;
 }
 
@@ -28,7 +30,8 @@ export const DatasetTableView: React.FC<DatasetTableViewProps> = ({
   onSelectAllCurrentPage,
   onInspect,
   onDelete,
-  onRatingChange
+  onRatingChange,
+  onSampleUpdated
 }) => {
   const allCurrentSelected = samples.length > 0 && samples.every((s) => selectedIds.has(s.id));
 
@@ -77,6 +80,7 @@ export const DatasetTableView: React.FC<DatasetTableViewProps> = ({
                   </td>
                   <td>
                     <span className="sample-id-pill">#{sample.id}</span>
+                    <DatasetReviewNotice sample={sample} onSampleUpdated={onSampleUpdated} />
                   </td>
                   <td>
                     <span

@@ -1,4 +1,6 @@
-import React, { useState, useRef } from 'react';
+import { DatasetReviewSection } from '../components/dataset/page/DatasetReviewSection';
+import { getSampleReview } from '../services/sampleReview';
+import React, { useState, useRef, useMemo } from 'react';
 import { Database } from 'lucide-react';
 import { PairedFamiliesView } from '../components/paired/PairedFamiliesView';
 import { ExpressiveDatasetFamiliesView } from '../components/expressive/ExpressiveDatasetFamiliesView';
@@ -57,7 +59,9 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
 
   const { recentlyAddedIds } = useDatasetLiveSync(samples, onSamplesRefreshed);
 
-  const filters = useDatasetFilters(samples, () => {
+  const [pendingOnly, setPendingOnly] = useState(false);
+  const pendingSamples = useMemo(() => samples.filter(sample => getSampleReview(sample).pending), [samples]);
+  const filters = useDatasetFilters(pendingOnly ? pendingSamples : samples, () => {
     if (pageTopRef.current) pageTopRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
   });
 
@@ -103,6 +107,8 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         onOpenPairedExportModal={() => setShowPairedExportModal(true)}
       />
 
+      <DatasetReviewSection pendingCount={pendingSamples.length} pendingOnly={pendingOnly}
+        onChange={value => { setPendingOnly(value); filters.goToPage(1); clearSelection(); if (value) setViewMode('cards'); }} />
       <div className="glass-card filter-card">
         <DatasetFilterBar
           searchQuery={filters.searchQuery}
@@ -186,6 +192,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
           onInspect={setInspectingSample}
           onDelete={handleDelete}
           onRatingChange={handleRatingChange}
+          onSampleUpdated={onSampleUpdated}
         />
       ) : (
         <DatasetTableView
@@ -196,6 +203,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
           onInspect={setInspectingSample}
           onDelete={handleDelete}
           onRatingChange={handleRatingChange}
+          onSampleUpdated={onSampleUpdated}
         />
       )}
 

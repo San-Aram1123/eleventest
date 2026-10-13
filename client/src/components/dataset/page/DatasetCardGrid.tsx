@@ -8,6 +8,7 @@ interface DatasetCardGridProps {
   onToggleSelect: (id: string) => void;
   onInspect: (sample: Sample) => void;
   onDelete: (id: string) => void;
+  onSampleUpdated?: (sample: Sample) => void;
   onRatingChange: (id: string, ratings: SampleRatings) => void;
 }
 
@@ -17,7 +18,8 @@ export const DatasetCardGrid: React.FC<DatasetCardGridProps> = ({
   onToggleSelect,
   onInspect,
   onDelete,
-  onRatingChange
+  onRatingChange,
+  onSampleUpdated
 }) => {
   return (
     <div className="samples-card-grid">
@@ -30,6 +32,7 @@ export const DatasetCardGrid: React.FC<DatasetCardGridProps> = ({
           onInspect={onInspect}
           onDelete={onDelete}
           onRatingChange={onRatingChange}
+          onSampleUpdated={onSampleUpdated}
         />
       ))}
     </div>

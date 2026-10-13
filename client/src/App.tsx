@@ -12,7 +12,7 @@ import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch'>('gemini');
+  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch'>(() => window.location.hash === '#context-auto' ? 'context-switch' : 'gemini');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);

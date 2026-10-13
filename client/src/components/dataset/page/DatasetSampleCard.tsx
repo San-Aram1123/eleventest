@@ -1,3 +1,4 @@
+import { DatasetReviewNotice } from './DatasetReviewNotice';
 import React from 'react';
 import { FileCode, Trash2, Key } from 'lucide-react';
 import { Sample, SampleRatings } from '../../../types';
@@ -17,6 +18,7 @@ interface DatasetSampleCardProps {
   onToggleSelect: (id: string) => void;
   onInspect: (sample: Sample) => void;
   onDelete: (id: string) => void;
+  onSampleUpdated?: (sample: Sample) => void;
   onRatingChange: (id: string, ratings: SampleRatings) => void;
 }
 
@@ -26,7 +28,8 @@ export const DatasetSampleCard: React.FC<DatasetSampleCardProps> = ({
   onToggleSelect,
   onInspect,
   onDelete,
-  onRatingChange
+  onRatingChange,
+  onSampleUpdated
 }) => {
   const lang = getSampleLanguage(sample);
   const usedKey = getSampleUsedKey(sample);
@@ -37,6 +40,7 @@ export const DatasetSampleCard: React.FC<DatasetSampleCardProps> = ({
       className="glass-card sample-item-card"
       style={{ borderColor: isSelected ? 'rgba(239, 68, 68, 0.5)' : undefined }}
     >
+      <DatasetReviewNotice sample={sample} onSampleUpdated={onSampleUpdated} />
       <div className="sample-card-header">
         <div className="sample-id-badge-group" style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
           <input

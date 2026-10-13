@@ -8,7 +8,7 @@
     "build": "tsc && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
-    "test:context-lab": "node --test tests/contextLabUtils.test.mjs"
+    "test:context-lab": "node --test tests/contextLabUtils.test.mjs tests/contextAutoStorage.test.mjs tests/sampleReview.test.mjs"
   },
   "dependencies": {
     "canvas-confetti": "^1.9.4",

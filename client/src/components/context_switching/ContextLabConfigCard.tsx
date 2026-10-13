@@ -1,6 +1,6 @@
 ﻿import React from 'react';
 import { Activity, RefreshCw } from 'lucide-react';
-import { CONTEXT_VOICES } from '../../data/contextSwitchingPresets';
+import { ContextSpeakerFields } from './ContextSpeakerFields';
 import { CONTEXT_LAB_ENGINES } from '../../data/contextLabEngines';
 import { DetectionEngineType } from '../../services/contextSwitchingApi';
 
@@ -52,19 +52,9 @@ export const ContextLabConfigCard: React.FC<ContextLabConfigCardProps> = (props)
           </button>
         </label>
       </div>
-      <div style={{ ...grid, marginBottom: '1rem' }}>
-        {[1, 2].map(speaker => (
-          <label key={speaker} style={{ fontSize: '.8rem', color: speaker === 1 ? '#93c5fd' : '#f472b6' }}>
-            Speaker {speaker} ({speaker === 1 ? 'odd' : 'even'} lines)
-            <select className="form-select" style={{ display: 'block', width: '100%', marginTop: '.35rem' }}
-              value={speaker === 1 ? props.speaker1Voice : props.speaker2Voice}
-              disabled={props.isBatchActive || props.voicesReadOnly}
-              onChange={event => (speaker === 1 ? props.onChangeSpeaker1 : props.onChangeSpeaker2)(event.target.value)}>
-              {CONTEXT_VOICES.map(voice => <option key={voice.id} value={voice.id}>{voice.name} ({voice.gender})</option>)}
-            </select>
-          </label>
-        ))}
-      </div>
+      <ContextSpeakerFields speaker1Voice={props.speaker1Voice} speaker2Voice={props.speaker2Voice}
+        onChangeSpeaker1={props.onChangeSpeaker1} onChangeSpeaker2={props.onChangeSpeaker2}
+        disabled={props.isBatchActive || props.voicesReadOnly} />
       <div style={grid}>{CONTEXT_LAB_ENGINES.filter(engine => !engine.experimental).map(renderEngine)}</div>
       <details style={{ marginTop: '1rem' }} open={CONTEXT_LAB_ENGINES.find(engine => engine.id === props.detectionEngine)?.experimental || undefined}>
         <summary style={{ cursor: 'pointer', color: '#94a3b8', fontSize: '.82rem' }}>Previous experimental methods</summary>

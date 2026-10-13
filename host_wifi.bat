@@ -34,7 +34,15 @@ if not exist "client\dist\index.html" (
     echo.
 )
 
-node --watch-path=server server/index.js
+rem Stable hosting without file watches.
+goto stable_host
+rem Compatibility handoff from an already-running watch-mode command.
+:stable_host
+set PYTHONDONTWRITEBYTECODE=1
+set ELEVENTEST_STABLE_HOST=1
+echo [*] Stable hosting: source changes will not restart running batches.
+echo [*] Persistent batch logs: http://localhost:5000/api/context-auto/activity
+node server/index.js
 echo.
 echo Server has stopped.
 pause

@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Languages, FlaskConical, Radio } from 'lucide-react';
+import { Languages, FlaskConical, Radio, Workflow } from 'lucide-react';
 import { extractParagraphsArray } from '../data/contextSwitchingPresets';
 import { fetchNextContextIndex } from '../services/contextSwitchingApi';
 import { ContextBatchInputCard } from '../components/context_switching/ContextBatchInputCard';
 import { ContextBatchProgressBar } from '../components/context_switching/ContextBatchProgressBar';
 import { ContextBatchResultsView } from '../components/context_switching/ContextBatchResultsView';
+import { ContextAutoTab } from '../components/context_switching/ContextAutoTab';
 import { ContextLabTab } from '../components/context_switching/ContextLabTab';
 import { useContextBatchRunner } from '../components/context_switching/useContextBatchRunner';
 import { Sample } from '../types';
@@ -18,7 +19,11 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
   onSampleCreated,
   addToast 
 }) => {
-  const [activeSubTab, setActiveSubTab] = useState<'standard' | 'lab'>('lab');
+  const [activeSubTab, setActiveSubTab] = useState<'standard' | 'lab' | 'auto'>(() => window.location.hash === '#context-auto' ? 'auto' : 'lab');
+  useEffect(() => {
+    if (activeSubTab === 'auto') window.history.replaceState(null, '', '#context-auto');
+    else if (window.location.hash === '#context-auto') window.history.replaceState(null, '', window.location.pathname + window.location.search);
+  }, [activeSubTab]);
   const [text, setText] = useState<string>('');
   const [selectedVoice, setSelectedVoice] = useState<string>('Puck');
   const [startIdx, setStartIdx] = useState<number>(1);
@@ -79,6 +84,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
           <div
             style={{
               display: 'flex',
+              flexWrap: 'wrap',
               background: 'rgba(0, 0, 0, 0.25)',
               padding: '0.3rem',
               borderRadius: '10px',
@@ -136,8 +142,15 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
                   fontWeight: 700
                 }}
               >
-                3 Methods
+                7 Methods
               </span>
+            </button>
+            <button type="button" onClick={() => setActiveSubTab('auto')}
+              style={{ display: 'flex', alignItems: 'center', gap: '.45rem', padding: '.45rem .85rem',
+                borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: '.85rem',
+                background: activeSubTab === 'auto' ? 'linear-gradient(135deg, #059669, #2563eb)' : 'transparent',
+                color: activeSubTab === 'auto' ? '#fff' : '#94a3b8', fontWeight: 600 }}>
+              <Workflow size={14} />Auto Batch
             </button>
           </div>
         </div>
@@ -175,13 +188,17 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
         </div>
       )}
 
+      <div style={{ display: activeSubTab === 'auto' ? 'block' : 'none' }}>
+        <ContextAutoTab onSampleCreated={onSampleCreated} />
+      </div>
+
       {/* Sub-Tab 2: Speaker Slicing Lab (Multi-Speaker & Audio Markers) */}
-      {activeSubTab === 'lab' && (
+      <div style={{ display: activeSubTab === 'lab' ? 'block' : 'none' }}>
         <ContextLabTab
           onSampleCreated={onSampleCreated}
           addToast={addToast}
         />
-      )}
+      </div>
     </div>
   );
 };

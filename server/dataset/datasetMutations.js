@@ -9,6 +9,7 @@ import {
 } from '../db.js';
 import { resolveSampleGender } from './datasetGender.js';
 import { getNextSampleId } from './datasetIdService.js';
+import { writeExclusiveFile } from '../shared/exclusiveFile.js';
 
 /**
  * Saves a new sample atomically: saving audio WAV on disk, metadata in MySQL, and writing JSON backup.
@@ -34,7 +35,8 @@ export async function saveSample({
   ratings = null,
   notes = '',
   customMetadata = {},
-  allowDuplicateText = false
+  allowDuplicateText = false,
+  exclusive = false
 }, { datasetDir, findSampleByTextFn, invalidateCacheFn }) {
   if (!id && !allowDuplicateText && !family_id && findSampleByTextFn) {
     const existing = await findSampleByTextFn(text);
@@ -51,9 +53,17 @@ export async function saveSample({
   const wavPath = path.join(datasetDir, wavFileName);
   const jsonPath = path.join(datasetDir, jsonFileName);
 
+  if (exclusive && fs.existsSync(jsonPath)) throw new Error(`Dataset sample already exists: ${safeId}`);
+
   let audioSize = 0;
   if (audioBuffer && Buffer.isBuffer(audioBuffer)) {
-    fs.writeFileSync(wavPath, audioBuffer);
+    if (exclusive) {
+      try { writeExclusiveFile(wavPath, audioBuffer); }
+      catch (error) {
+        // Recover a crash between WAV creation and metadata creation, without replacing audio.
+        if (error.code !== 'EEXIST' || !fs.readFileSync(wavPath).equals(audioBuffer)) throw error;
+      }
+    } else fs.writeFileSync(wavPath, audioBuffer);
     audioSize = audioBuffer.length;
   }
 
@@ -105,10 +115,12 @@ export async function saveSample({
     created_at: new Date().toISOString(),
     audio_filename: wavFileName,
     json_filename: jsonFileName,
+    metadata_extra: customMetadata,
     ...customMetadata
   };
 
-  fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2), { encoding: 'utf-8' });
+  if (exclusive) writeExclusiveFile(jsonPath, JSON.stringify(metadata, null, 2));
+  else fs.writeFileSync(jsonPath, JSON.stringify(metadata, null, 2), { encoding: 'utf-8' });
 
   if (isDbConnected()) {
     try {

@@ -16,8 +16,13 @@ import {
 } from '../datasetService.js';
 import { extractEmotionAndCleanText, normalizeEmotionName } from '../emotionUtils.js';
 import { exportAudarCanonicalZip, getAudarDatasetSummary } from '../audarExporter.js';
+import { setSampleReviewStatus } from '../dataset/sampleReview.js';
 
 const router = express.Router();
+router.patch('/:id/review', async (req, res) => {
+  try { res.json({ success: true, sample: await setSampleReviewStatus(req.params.id, req.body.status) }); }
+  catch (error) { res.status(/not found/.test(error.message) ? 404 : 400).json({ error: error.message }); }
+});
 
 /**
  * Bulk repair emotions for existing samples in the dataset

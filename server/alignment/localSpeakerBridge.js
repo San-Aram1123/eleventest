@@ -1,4 +1,5 @@
-import { spawn, spawnSync } from 'node:child_process';
+import { spawn, spawnSync, execFile } from 'node:child_process';
+import { promisify } from 'node:util';
 import fs from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -11,6 +12,14 @@ const OUTPUT_LIMIT = 4 * 1024 * 1024;
 const TIME_TOLERANCE = 0.02;
 const CONTIGUITY_TOLERANCE = 0.000001;
 let cachedPython;
+
+export async function checkLocalSpeakerModels() {
+  const script = fileURLToPath(new URL('../slicing/check_models.py', import.meta.url));
+  const { stdout } = await promisify(execFile)(pythonExecutable(), [script], { timeout: 30000, windowsHide: true });
+  const result = JSON.parse(stdout);
+  if (!result.success) throw new Error(result.error || 'Local speaker models are not ready.');
+  return result;
+}
 
 function failure(result, message) {
   return { ...result, success: false, error: message, segments: [] };
@@ -68,7 +77,7 @@ export function validateEngineResult(result, expectedCount, options = {}, totalD
   return { ...result, success: true, totalDuration, segments };
 }
 
-function pythonExecutable() {
+export function pythonExecutable() {
   if (process.env.PYTHON) return process.env.PYTHON;
   if (cachedPython) return cachedPython;
   const candidates = process.platform === 'win32' ? ['python', 'py', 'python3'] : ['python3', 'python'];
@@ -79,14 +88,14 @@ function pythonExecutable() {
   throw new Error('Python 3 was not found. Set PYTHON to your Python executable.');
 }
 
-function abortError() {
+export function abortError() {
   const error = new Error('Local speaker analysis was cancelled.');
   error.name = 'AbortError';
   return error;
 }
 
 /** Read PCM WAV duration without loading the master into Node memory. */
-async function wavDuration(audioPath) {
+export async function wavDuration(audioPath) {
   const file = await fs.open(audioPath, 'r');
   try {
     const stat = await file.stat();
@@ -171,6 +180,16 @@ export async function detectLocalSpeakerSegments(audioPath, expectedCount, mode 
     const optionsPath = path.join(tempDirectory, 'options.json');
     await fs.writeFile(optionsPath, JSON.stringify(options), { encoding: 'utf8', mode: 0o600 });
     const raw = await runDetector(executable, [SCRIPT, audioPath, String(expectedCount), `--mode=${mode}`, `--options-file=${optionsPath}`], signal);
+    return validateDetectorResult(raw, expectedCount, mode, options, duration);
+  } catch (error) {
+    if (error.name === 'AbortError') throw error;
+    return failure({}, error.message);
+  } finally {
+    if (tempDirectory) await fs.rm(tempDirectory, { recursive: true, force: true }).catch(() => {});
+  }
+}
+
+export function validateDetectorResult(raw, expectedCount, mode, options, duration) {
     if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return failure({}, 'Local detector returned an invalid result.');
     if (Number.isFinite(duration) && Math.abs(raw.totalDuration - duration) > TIME_TOLERANCE) {
       const error = 'Unsafe segmentation: reported duration differs from the master WAV.';
@@ -193,10 +212,6 @@ export async function detectLocalSpeakerSegments(audioPath, expectedCount, mode 
       result.segments = [];
     }
     return result;
-  } catch (error) {
-    if (error.name === 'AbortError') throw error;
-    return failure({}, error.message);
-  } finally {
-    if (tempDirectory) await fs.rm(tempDirectory, { recursive: true, force: true }).catch(() => {});
-  }
 }
+
+export const supportedSpeakerMode = mode => MODES.has(mode);

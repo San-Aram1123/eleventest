@@ -167,7 +167,7 @@ export function createContextLabService({
     }
   }
 
-  async function generateContextLabBatch(params = {}) {
+  async function generateContextLabMaster(params = {}) {
     abortIfNeeded(params.signal);
     const config = prepareConfig(params);
     for (const index of [1, 2]) if (params[`reference${index}Audio`]) decodeWavDataUrl(params[`reference${index}Audio`]);
@@ -179,13 +179,20 @@ export function createContextLabService({
     });
     abortIfNeeded(params.signal);
     if (generated.modelId && generated.modelId !== model) throw new Error('Generator returned a different model than requested.');
-    return analyzePrepared(params, config, generated.audioBuffer, model);
+    // Durable automation stores the paid master before local analysis starts.
+    await params.onMasterReady?.({ audioBuffer: generated.audioBuffer, modelId: model });
+    return { audioBuffer: generated.audioBuffer, modelId: model };
+  }
+
+  async function generateContextLabBatch(params = {}) {
+    const generated = await generateContextLabMaster(params);
+    return analyzePrepared(params, prepareConfig(params), generated.audioBuffer, generated.modelId);
   }
 
   async function analyzeContextLabMaster(params = {}) {
     return analyzePrepared(params, prepareConfig(params), params.audioBuffer);
   }
-  return { generateContextLabBatch, analyzeContextLabMaster };
+  return { generateContextLabMaster, generateContextLabBatch, analyzeContextLabMaster };
 }
 
-export const { generateContextLabBatch, analyzeContextLabMaster } = createContextLabService();
+export const { generateContextLabMaster, generateContextLabBatch, analyzeContextLabMaster } = createContextLabService();

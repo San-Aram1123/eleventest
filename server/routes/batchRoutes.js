@@ -8,8 +8,10 @@ import {
   getNextContextSwitchingIndex
 } from '../contextSwitchingService.js';
 import contextLabRoutes from './contextLabRoutes.js';
+import contextAutoRoutes from './contextAutoRoutes.js';
 
 const router = express.Router();
+router.use('/context-auto', contextAutoRoutes);
 
 let activeBatchMutex = Promise.resolve();
 const activeBatchAbortControllers = new Set();
