@@ -41,7 +41,13 @@ export async function buildPairedRecords(customSamples = null, options = {}) {
     const qcStatus = s.qc_status || s.customMetadata?.qc_status || qc.status;
     const qcGrade = s.qc_grade || s.customMetadata?.qc_grade || qc.grade;
 
-    const cleanText = String(s.text || '').replace(/[\r\n|]+/g, ' ').trim();
+    const rawSource = String(s.cleanText || s.text || '');
+    const cleanText = rawSource
+      .replace(/(?:\[|【|［|\()([a-zA-Z0-9_\s\u0600-\u06FF-]+)(?:\]|】|］|\))/g, '')
+      .replace(/^([a-zA-Z\u0600-\u06FF]{2,15}):\s+/, '')
+      .replace(/[\r\n|]+/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
     const speaker = s.speaker_name || s.customMetadata?.speaker_name || s.voice_name || 'spk01';
     const lang = s.language || s.customMetadata?.language || ((s.dialect === 'badini') ? 'kmr' : 'ckb');
     const emo = String(s.emotion || 'neutral').toLowerCase().trim();

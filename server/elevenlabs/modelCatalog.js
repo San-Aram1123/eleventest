@@ -3,9 +3,19 @@ import { getKeyPool, ELEVENLABS_BASE_URL } from './keyPoolManager.js';
 export function getDefaultModels() {
   return [
     {
+      model_id: 'eleven_v4_turbo',
+      name: 'Eleven v4 Turbo',
+      description: 'Latest generation ultra-fast Turbo model with expressive control.'
+    },
+    {
+      model_id: 'eleven_v4',
+      name: 'Eleven v4',
+      description: 'Latest generation flagship model.'
+    },
+    {
       model_id: 'eleven_v3',
       name: 'ElevenLabs v3',
-      description: 'Latest flagship model with emotional audio tags support ([laugh], [whisper], [sigh], [angry]).'
+      description: 'Flagship model with emotional audio tags support ([laugh], [whisper], [sigh], [angry]).'
     },
     {
       model_id: 'eleven_multilingual_v3',

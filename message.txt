@@ -1,0 +1,2101 @@
+# AUDAR-TTS-V20
+## Master Dataset Production, Annotation & Quality Engineering Specification
+### Kurdish Sorani-First • Gemini TTS + ElevenLabs • Continuous Expressive Speech
+
+**Document purpose:** Production handoff for the Audar V20 dataset engineering team.
+
+**Project status:** Dataset engineering and controlled pilot.
+
+**Primary language:** Kurdish Sorani (`ckb`).
+
+**Secondary languages:** Arabic (`ar`) and English (`en`).
+
+**Target production:** Up to 300,000 synthetic candidate recordings, subject to quality and experimental validation.
+
+---
+
+# 0. YOUR ROLE AND MISSION
+
+Act as a team of senior specialists:
+
+- Speech Dataset Architect
+- Kurdish Sorani Linguist
+- Acoustic Quality Engineer
+- Synthetic Speech Generation Engineer
+- TTS Training Data Engineer
+- Annotation and Alignment Specialist
+- Multilingual Speech Evaluation Researcher
+
+Your mission is to build the complete **Audar-TTS-V20 Expressive Speech Dataset System**.
+
+Do not deliver only an architecture document.
+
+Create working production code, provider integrations, validation tools, annotation schemas, test fixtures, reproducible configurations, and a controlled dataset pilot.
+
+The ultimate goal is to provide reliable training data for a model that can speak naturally in Kurdish Sorani while expressing multiple emotions, changing emotions during a sentence, combining simultaneous emotional states, switching vocal delivery, and producing natural nonverbal vocal events.
+
+**Do not assume that every requested emotion is already learnable or every provider can generate it accurately.**
+
+The dataset must preserve intended labels separately from verified audible behavior.
+
+---
+
+# 1. PROJECT BACKGROUND — AUDAR V19
+
+The existing Audar V19 model uses:
+
+- Qwen2 causal language model, approximately 0.55B parameters.
+- NeuCodec acoustic tokens.
+- 65,536 codec values.
+- Approximately 50 codec frames per second.
+- 24 kHz decoded audio.
+- Reference-text and reference-audio conditioning.
+- Nine learned emotional components.
+- Four existing delivery modes.
+- Nineteen signature presets.
+- Discrete emotion intensities.
+- Utterance-level emotion blending.
+
+Existing active training-token dataset:
+
+`datasets/tts/v18_clean_intro_20261011/tokens.jsonl`
+
+Previously reported active partition: 10,460 clips.
+
+Other reports mention 4,800 canonical rows. Reconcile these figures rather than assuming they refer to the same partition.
+
+### V19's central limitation
+
+V19 uses global emotional conditioning such as:
+
+`[emotions=happy:medium,sad:medium; delivery=normal]`
+
+Its training data lacks dedicated continuous recordings with labeled intra-utterance emotion changes.
+
+V20 must introduce verified examples of:
+
+- Neutral → Sad
+- Sad → Angry
+- Angry → Tender
+- Fearful → Relieved
+- Happy → Surprised → Anxious
+- Multiple emotions blended simultaneously
+- Gradual emotional changes
+- Delivery switching within uninterrupted performances
+
+Preserve the original V19 corpus and checkpoint.
+
+Dataset production must remain separate from model architecture experimentation.
+
+---
+
+# 2. ABSOLUTE PRIORITIES
+
+Rank priorities in this order:
+
+**P0 — Correct Kurdish Sorani pronunciation and intelligibility**
+
+**P0 — Genuine continuous multi-emotion audio**
+
+**P0 — Accurate annotations and provenance**
+
+**P1 — Natural emotion expression and intensity**
+
+**P1 — Stable speaker identity**
+
+**P1 — Delivery control and nonverbal actions**
+
+**P2 — Long-form narration**
+
+**P2 — Arabic and English expressive coverage**
+
+**P3 — Additional rare emotional styles and combinations**
+
+Never sacrifice linguistic accuracy for exaggerated expression.
+
+Never sacrifice realistic audio quality to meet numerical production quotas.
+
+---
+
+# 3. PROVIDERS AND AUTHORIZATION
+
+Two intended synthetic audio sources:
+
+**Provider A:** Gemini TTS, using the exact approved API model ID and version.
+
+**Provider B:** ElevenLabs, using the exact approved API model ID and version.
+
+The organization reports working relationships with both providers.
+
+Before dataset admission, register the relevant contractual authorization, permitted use, provider models, voices, and any restrictions covering training another TTS model from generated audio.
+
+Do not infer authorization merely from API access.
+
+Build one provider-neutral generation interface with separate provider adapters.
+
+Each adapter must implement:
+
+1. Model capability discovery.
+2. Supported language validation.
+3. Speaker/voice selection.
+4. Generation request creation.
+5. Emotion instruction translation.
+6. Continuous-performance instruction handling.
+7. Audio generation and retrieval.
+8. Retry and rate-limit handling.
+9. Error classification.
+10. Cost and usage tracking.
+11. Provenance capture.
+12. Original audio preservation.
+
+Never silently substitute a different source model.
+
+If a provider cannot generate a requested emotion or uninterrupted transition reliably, record that limitation and route the request to another approved strategy.
+
+---
+
+# 4. DATASET PRODUCTION TARGET
+
+## 4.1 Daily capacity
+
+Assume the following configurable maximum:
+
+| Provider | Daily candidate recordings |
+|---|---:|
+| Gemini | 5,000 |
+| ElevenLabs | 5,000 |
+| Total | 10,000 |
+
+These are planning assumptions, not required daily completion targets.
+
+At maximum capacity, 30 production days would produce 300,000 candidate recordings before filtering.
+
+## 4.2 Language allocation
+
+| Language | Gemini | ElevenLabs | Combined |
+|---|---:|---:|---:|
+| Kurdish Sorani | 120,000 | 120,000 | 240,000 |
+| Arabic | 20,000 | 20,000 | 40,000 |
+| English | 10,000 | 10,000 | 20,000 |
+| TOTAL | 150,000 | 150,000 | 300,000 |
+
+Allocation percentages:
+
+- Kurdish Sorani: 80%.
+- Arabic: 13.33%.
+- English: 6.67%.
+
+For daily quotas, use integer scheduling with cumulative rounding correction.
+
+Never allow rounding errors to inflate the totals.
+
+## 4.3 Dataset type allocation
+
+| Recording category | Gemini | ElevenLabs | Total |
+|---|---:|---:|---:|
+| Individual emotions | 40,000 | 40,000 | 80,000 |
+| Speaking/delivery styles | 20,000 | 20,000 | 40,000 |
+| Nonverbal vocal actions | 10,000 | 10,000 | 20,000 |
+| Continuous multi-emotion speech | 60,000 | 60,000 | 120,000 |
+| Long-form expressive narration | 20,000 | 20,000 | 40,000 |
+| TOTAL | 150,000 | 150,000 | 300,000 |
+
+These are distinct primary production categories.
+
+Individual recordings may receive multiple labels.
+
+Maintain actual retained-audio counts separately from generated-candidate counts.
+
+---
+
+# 5. THE COMPLETE EMOTION TAXONOMY
+
+The V20 target catalog contains 50 named emotional states.
+
+All nine V19 emotions must remain backward compatible.
+
+Every emotion needs:
+
+- Canonical key.
+- English description.
+- Natural Sorani equivalent verified by a native linguist.
+- Acoustic performance guidance.
+- Low/medium/high-intensity script templates.
+- Positive and negative test cases.
+- Contrastive examples against acoustically similar categories.
+- Human validation criteria.
+- Known provider limitations.
+- Multilingual support status.
+
+Descriptions below are acoustic guidance, not fixed physical rules.
+
+## E01 — Neutral
+
+**Tag:** `[neutral]`
+
+Emotionally balanced conversational speech.
+
+Expected delivery:
+- Natural cadence.
+- Relaxed articulation.
+- Moderate pitch variation.
+- No exaggerated emotional coloring.
+
+Example: "I arrived early and waited near the entrance."
+
+Distinguish neutral from boredom and serenity.
+
+## E02 — Happy
+
+**Tag:** `[happy]`
+
+Pleasant, positive emotional state.
+
+Expected delivery:
+- Warm vocal expression.
+- Smiling articulation when natural.
+- Lively but controlled prosody.
+
+Example: "I'm really happy that we finally met again."
+
+Differentiate from excitement and joy.
+
+## E03 — Sad
+
+**Tag:** `[sad]`
+
+Sorrow, emotional pain, or disappointment.
+
+Expected delivery:
+- Restrained energy.
+- Melancholic phrasing.
+- Naturally softened emphasis.
+
+Example: "I thought you would come back, but you never did."
+
+Avoid forcing all sadness to sound breathy or slow.
+
+## E04 — Angry
+
+**Tag:** `[angry]`
+
+Anger or confrontation.
+
+Expected delivery:
+- Tense articulation.
+- Forceful emphasis.
+- Strong intentional stress.
+
+Example: "You knew the truth, and you still lied to me!"
+
+Include both controlled anger and explosive anger.
+
+## E05 — Excited
+
+**Tag:** `[excited]`
+
+High emotional arousal, usually positive.
+
+Expected delivery:
+- Energetic rhythm.
+- Expressive pitch movement.
+- Increased enthusiasm.
+
+Example: "We did it! This is unbelievable!"
+
+Do not equate excitement exclusively with rapid speech.
+
+## E06 — Tender
+
+**Tag:** `[tender]`
+
+Gentleness and care.
+
+Expected delivery:
+- Warmth.
+- Relaxed articulation.
+- Soft emotional emphasis.
+
+Example: "It's okay. You don't need to be afraid."
+
+Distinguish tenderness from whispering.
+
+## E07 — Curious
+
+**Tag:** `[curious]`
+
+Genuine interest or inquiry.
+
+Expected delivery:
+- Exploratory intonation.
+- Attentive rhythm.
+- Questioning emphasis.
+
+Example: "How did you manage to solve that problem?"
+
+## E08 — Sarcastic
+
+**Tag:** `[sarcastic]`
+
+Irony, mockery, or meaning contrary to literal wording.
+
+Expected delivery:
+- Deliberate emphasis.
+- Context-dependent timing.
+- Ironic pitch contours.
+
+Example: "Oh, wonderful. Another excellent idea that failed."
+
+The intended meaning must be clear from context.
+
+## E09 — Fearful
+
+**Tag:** `[fearful]`
+
+Fear or apprehension.
+
+Expected delivery:
+- Heightened tension.
+- Uncertain pacing.
+- Possible breath irregularity.
+
+Example: "Did you hear that? I think somebody is outside."
+
+## E10 — Disgusted
+
+**Tag:** `[disgusted]`
+
+Repulsion or revulsion.
+
+Expected delivery:
+- Dismissive intonation.
+- Expressive rejection.
+- Tense articulation when natural.
+
+Example: "That's disgusting. Please take it away."
+
+## E11 — Surprised
+
+**Tag:** `[surprised]`
+
+Unexpected reaction to new information.
+
+Expected delivery:
+- Sudden intonation change.
+- Expressive onset.
+- Variable intensity.
+
+Example: "Wait, you actually won?"
+
+## E12 — Confused
+
+**Tag:** `[confused]`
+
+Difficulty understanding something.
+
+Expected delivery:
+- Thoughtful hesitation.
+- Questioning tone.
+- Uncertain rhythm.
+
+Example: "I don't understand. Didn't you say the opposite?"
+
+## E13 — Frustrated
+
+**Tag:** `[frustrated]`
+
+Irritation caused by repeated obstacles.
+
+Expected delivery:
+- Impatient emphasis.
+- Controlled tension.
+- Persistent irritation.
+
+Example: "I've tried this five times and it still doesn't work!"
+
+## E14 — Disappointed
+
+**Tag:** `[disappointed]`
+
+Expectations not fulfilled.
+
+Expected delivery:
+- Subdued energy.
+- Resigned phrasing.
+- Controlled hurt.
+
+Example: "I really believed you would keep your promise."
+
+## E15 — Anxious
+
+**Tag:** `[anxious]`
+
+Persistent worry.
+
+Expected delivery:
+- Restless intonation.
+- Tense phrasing.
+- Uneven emphasis.
+
+Example: "What if everything goes wrong tomorrow?"
+
+## E16 — Nervous
+
+**Tag:** `[nervous]`
+
+Immediate apprehension or social unease.
+
+Expected delivery:
+- Mild hesitation.
+- Self-conscious intonation.
+- Uneven pacing.
+
+Example: "Okay... I think I'm ready. Can we begin?"
+
+## E17 — Relieved
+
+**Tag:** `[relieved]`
+
+Release of previous anxiety.
+
+Expected delivery:
+- Relaxation.
+- Released vocal tension.
+- Gentle phrase endings.
+
+Example: "Thank goodness you're safe. I was so worried."
+
+## E18 — Hopeful
+
+**Tag:** `[hopeful]`
+
+Optimism about the future.
+
+Expected delivery:
+- Measured positive energy.
+- Warm anticipation.
+- Gentle uplifting intonation.
+
+Example: "Maybe tomorrow will finally be better."
+
+## E19 — Proud
+
+**Tag:** `[proud]`
+
+Satisfaction in achievement or identity.
+
+Expected delivery:
+- Confident expression.
+- Grounded enthusiasm.
+- Clear deliberate emphasis.
+
+Example: "You worked incredibly hard. I'm proud of you."
+
+## E20 — Ashamed
+
+**Tag:** `[ashamed]`
+
+Painful self-consciousness about perceived wrongdoing.
+
+Expected delivery:
+- Restrained expression.
+- Hesitation.
+- Emotionally subdued phrasing.
+
+Example: "I don't know how I can face them again."
+
+## E21 — Guilty
+
+**Tag:** `[guilty]`
+
+Regret over a perceived wrongdoing.
+
+Expected delivery:
+- Careful admission.
+- Hesitant pacing.
+- Regretful emphasis.
+
+Example: "It was my fault. I should have told you."
+
+## E22 — Jealous
+
+**Tag:** `[jealous]`
+
+Concern over losing something valued to someone else.
+
+Expected delivery:
+- Guarded tension.
+- Emotional questioning.
+- Possible resentment.
+
+Example: "You had time for everyone else, but not for me?"
+
+## E23 — Envious
+
+**Tag:** `[envious]`
+
+Wanting another person's advantages or possessions.
+
+Expected delivery:
+- Longing.
+- Resentment or admiration depending on context.
+
+Example: "Everything seems so easy for you. I wish I had that chance."
+
+## E24 — Contemptuous
+
+**Tag:** `[contemptuous]`
+
+Disdain or perceived superiority.
+
+Expected delivery:
+- Dismissive expression.
+- Controlled scorn.
+- Deliberate emphasis.
+
+Example: "And you expect me to believe that excuse?"
+
+## E25 — Resentful
+
+**Tag:** `[resentful]`
+
+Lingering anger from perceived unfairness.
+
+Expected delivery:
+- Restrained tension.
+- Bitter emphasis.
+- Controlled pacing.
+
+Example: "I gave them everything, and they never appreciated it."
+
+## E26 — Despairing
+
+**Tag:** `[despairing]`
+
+Severe loss of hope.
+
+Expected delivery:
+- Emotionally depleted expression.
+- Heavy phrasing.
+- Little optimism.
+
+Example: "I've tried everything, and nothing seems to help."
+
+## E27 — Grieving
+
+**Tag:** `[grieving]`
+
+Deep sadness following a loss.
+
+Expected delivery:
+- Fragile emotional tone.
+- Possible breaks in phrasing.
+- Natural breath irregularity.
+
+Example: "I still expect to hear their voice every morning."
+
+## E28 — Lonely
+
+**Tag:** `[lonely]`
+
+Emotional isolation.
+
+Expected delivery:
+- Reflective subdued tone.
+- Quiet emotional expression.
+
+Example: "The house feels empty when nobody is here."
+
+## E29 — Nostalgic
+
+**Tag:** `[nostalgic]`
+
+Emotional remembrance of the past.
+
+Expected delivery:
+- Reflective warmth.
+- Bittersweet phrasing.
+- Gentle pacing.
+
+Example: "Do you remember those evenings when we talked for hours?"
+
+## E30 — Affectionate
+
+**Tag:** `[affectionate]`
+
+Warm fondness or care.
+
+Expected delivery:
+- Familiar warmth.
+- Soft friendly prosody.
+
+Example: "It's really good to hear your voice again."
+
+## E31 — Loving
+
+**Tag:** `[loving]`
+
+Deep affectionate attachment.
+
+Expected delivery:
+- Sincere intimate warmth.
+- Gentle sustained expression.
+
+Example: "You'll always have a special place in my heart."
+
+## E32 — Grateful
+
+**Tag:** `[grateful]`
+
+Thankfulness.
+
+Expected delivery:
+- Appreciative emphasis.
+- Warm sincerity.
+
+Example: "Thank you for staying when I needed someone."
+
+## E33 — Admiring
+
+**Tag:** `[admiring]`
+
+Respect and appreciation.
+
+Expected delivery:
+- Positive focused emphasis.
+- Sincere enthusiasm.
+
+Example: "The way you handled that situation was remarkable."
+
+## E34 — Awed
+
+**Tag:** `[awed]`
+
+Deep wonder or reverence.
+
+Expected delivery:
+- Measured astonishment.
+- Possible hushed expression.
+
+Example: "I've never witnessed anything so extraordinary."
+
+## E35 — Amazed
+
+**Tag:** `[amazed]`
+
+Strong astonishment.
+
+Expected delivery:
+- Expressive pitch movement.
+- Enthusiastic surprise.
+
+Example: "That's incredible! How did you do that?"
+
+## E36 — Joyful
+
+**Tag:** `[joyful]`
+
+Intense, expressive happiness.
+
+Expected delivery:
+- Bright vocal expression.
+- Rich positive intonation.
+
+Example: "This is the happiest day of my life!"
+
+## E37 — Amused
+
+**Tag:** `[amused]`
+
+Finding something funny.
+
+Expected delivery:
+- Playfulness.
+- Smiling articulation.
+- Optional restrained laughter.
+
+Example: "I can't believe you said that with a straight face."
+
+## E38 — Embarrassed
+
+**Tag:** `[embarrassed]`
+
+Awkwardness caused by unwanted attention.
+
+Expected delivery:
+- Uneven pacing.
+- Self-conscious expression.
+
+Example: "Oh no... everyone saw that, didn't they?"
+
+## E39 — Bored
+
+**Tag:** `[bored]`
+
+Low interest or engagement.
+
+Expected delivery:
+- Reduced enthusiasm.
+- Narrower prosodic variation.
+
+Example: "We've been waiting here for three hours."
+
+## E40 — Exhausted
+
+**Tag:** `[exhausted]`
+
+Severe physical or mental tiredness.
+
+Expected delivery:
+- Reduced energy.
+- Fatigued pacing.
+- Possible breath weakness.
+
+Example: "I've barely slept. I can hardly keep my eyes open."
+
+Treat exhaustion as a physical state where appropriate.
+
+## E41 — Determined
+
+**Tag:** `[determined]`
+
+Firm commitment.
+
+Expected delivery:
+- Strong intentional emphasis.
+- Controlled energy.
+- Deliberate rhythm.
+
+Example: "No matter how difficult this becomes, I will finish it."
+
+## E42 — Confident
+
+**Tag:** `[confident]`
+
+Self-assurance.
+
+Expected delivery:
+- Stable delivery.
+- Clear articulation.
+- Controlled authority.
+
+Example: "I know exactly what needs to be done."
+
+## E43 — Suspicious
+
+**Tag:** `[suspicious]`
+
+Distrust or concern about motives.
+
+Expected delivery:
+- Guarded intonation.
+- Probing phrasing.
+
+Example: "Why are you suddenly asking me that?"
+
+## E44 — Skeptical
+
+**Tag:** `[skeptical]`
+
+Doubt or critical uncertainty.
+
+Expected delivery:
+- Questioning stress.
+- Restrained disbelief.
+
+Example: "That's an interesting claim, but where is your evidence?"
+
+## E45 — Anticipating
+
+**Tag:** `[anticipating]`
+
+Expecting an important event.
+
+Expected delivery:
+- Building emotional energy.
+- Expectant timing.
+
+Example: "Any moment now, we're finally going to find out."
+
+## E46 — Panicked
+
+**Tag:** `[panicked]`
+
+Sudden extreme alarm.
+
+Expected delivery:
+- Urgent rhythm.
+- High tension.
+- Possible breath disruption.
+
+Example: "We have to leave! Right now!"
+
+## E47 — Terrified
+
+**Tag:** `[terrified]`
+
+Intense fear.
+
+Expected delivery:
+- Heightened tension.
+- Possible tremor.
+- Urgent or frozen delivery depending on context.
+
+Example: "Please don't leave me here alone."
+
+## E48 — Defiant
+
+**Tag:** `[defiant]`
+
+Open resistance.
+
+Expected delivery:
+- Firm expression.
+- Assertive delivery.
+- Emphatic conviction.
+
+Example: "You can threaten me, but I won't change my mind."
+
+## E49 — Bitter
+
+**Tag:** `[bitter]`
+
+Resentment mixed with emotional hurt.
+
+Expected delivery:
+- Cold or dry expression.
+- Controlled hostile emphasis.
+
+Example: "Funny how they remembered me only when they needed help."
+
+## E50 — Serene
+
+**Tag:** `[serene]`
+
+Deep calm and peace.
+
+Expected delivery:
+- Smooth, relaxed cadence.
+- Gentle stable expression.
+- Comfortable breath.
+
+Example: "For the first time in years, everything feels peaceful."
+
+---
+
+# 6. EMOTION LABEL ENGINEERING RULES
+
+Do not assume 50 names represent 50 independent acoustically distinguishable states.
+
+Build a hierarchical registry containing:
+
+- Canonical emotion.
+- Emotion family.
+- Aliases.
+- Legacy V19 mapping.
+- Intensity control.
+- Valence/arousal annotations where useful.
+- Verified provider support.
+- Training support status.
+
+Preserve the exact nine V19 keys.
+
+Keep the 50 labels listed above as the requested target vocabulary.
+
+Do not silently replace them with a different list.
+
+Some states overlap. For instance:
+
+- Happy / Joyful / Excited
+- Sad / Grieving / Despairing
+- Fearful / Terrified / Panicked
+- Angry / Frustrated / Resentful
+- Tender / Loving / Affectionate
+- Surprised / Amazed / Awed
+
+Generate contrastive scripts that clarify their differences.
+
+If native listeners cannot reliably distinguish a category, mark it experimental and consider representing it as a blend, intensity, or style rather than forcing a separate acoustically learned class.
+
+---
+
+# 7. THE 30 DELIVERY AND SPEAKING STYLES
+
+These are separate from emotions.
+
+| ID | Style | Tag | Performance requirement |
+|---|---|---|---|
+| D01 | Normal | `[normal]` | Natural modal speech |
+| D02 | Whispering | `[whisper]` | Breathy, mostly unvoiced speech |
+| D03 | Laughing speech | `[laughing_speech]` | Intelligible speech mixed with chuckles |
+| D04 | Laughter | `[laughter]` | Standalone laughter event |
+| D05 | Shouting | `[shouting]` | Forcefully projected speech |
+| D06 | Screaming | `[screaming]` | Extremely intense vocal projection |
+| D07 | Crying speech | `[crying]` | Spoken words affected by crying |
+| D08 | Sobbing | `[sobbing]` | Broken crying episodes |
+| D09 | Trembling | `[trembling]` | Audible voice instability |
+| D10 | Breathless | `[breathless]` | Reduced breath support |
+| D11 | Gasping | `[gasping]` | Speech interrupted by gasps |
+| D12 | Sighing | `[sighing]` | Spoken language mixed with sighs |
+| D13 | Chuckling | `[chuckling]` | Quiet laughter during speech |
+| D14 | Giggling | `[giggling]` | Light repeated laughter |
+| D15 | Singing | `[singing]` | Melodic vocal performance |
+| D16 | Humming | `[humming]` | Pitched, mostly non-lexical sound |
+| D17 | Sleepy | `[sleepy]` | Drowsy vocal style |
+| D18 | Tired | `[tired]` | Low-energy delivery |
+| D19 | Strained | `[strained]` | Audible vocal effort |
+| D20 | Soft-spoken | `[soft_spoken]` | Gentle low-projection speech |
+| D21 | Robotic | `[robotic]` | Mechanically regular prosody |
+| D22 | Monotone | `[monotone]` | Minimal pitch variation |
+| D23 | Dramatic | `[dramatic]` | Theatrical emphasis |
+| D24 | Storytelling | `[storytelling]` | Expressive narrative pacing |
+| D25 | Commanding | `[commanding]` | Authoritative delivery |
+| D26 | Pleading | `[pleading]` | Imploring emotional expression |
+| D27 | Hesitant | `[hesitant]` | Uncertain pauses and starts |
+| D28 | Stuttering | `[stuttering]` | Intentionally scripted disfluency |
+| D29 | Rapid | `[rapid]` | Fast speech |
+| D30 | Slow | `[slow]` | Slower speech |
+
+## Important structural correction
+
+Do not implement all 30 as one mutually exclusive field.
+
+Instead separate:
+
+1. Phonation mode.
+2. Speaking style.
+3. Speaking rate.
+4. Vocal effort.
+5. Nonverbal actions.
+
+For example:
+
+Emotion: Fearful
+
+Phonation: Whisper
+
+Speaking rate: Rapid
+
+Speaking style: Confidential
+
+Action: Gasp
+
+All may coexist.
+
+---
+
+# 8. THE 16 NONVERBAL VOCAL ACTIONS
+
+| ID | Action | Tag | Description |
+|---|---|---|---|
+| A01 | Laugh | `[laugh]` | Standalone laugh |
+| A02 | Cry | `[cry]` | Audible crying |
+| A03 | Sob | `[sob]` | Broken crying burst |
+| A04 | Sigh | `[sigh]` | Audible exhalation |
+| A05 | Gasp | `[gasp]` | Sudden inhalation |
+| A06 | Scream | `[scream]` | Nonverbal scream |
+| A07 | Chuckle | `[chuckle]` | Brief quiet laugh |
+| A08 | Giggle | `[giggle]` | Small repeated laughs |
+| A09 | Groan | `[groan]` | Low expressive vocalization |
+| A10 | Grunt | `[grunt]` | Short forceful sound |
+| A11 | Yawn | `[yawn]` | Yawning |
+| A12 | Cough | `[cough]` | Cough |
+| A13 | Throat clear | `[throat_clear]` | Clearing throat |
+| A14 | Sniffle | `[sniffle]` | Nasal inhalation |
+| A15 | Panting | `[pant]` | Repeated heavy breathing |
+| A16 | Humming | `[hum]` | Nonverbal humming |
+
+For each action, generate examples in three contexts when supported:
+
+- Standalone.
+- Before or after speech.
+- Naturally embedded during a longer uninterrupted performance.
+
+Distinguish a vocal action from the word describing that action.
+
+For example, a transcript containing the literal word "laugh" is not necessarily a laughter recording.
+
+---
+
+# 9. EMOTION INTENSITY CONTROL
+
+Retain V19's established levels:
+
+- None: 0.0.
+- Low: 0.25.
+- Medium: 0.60.
+- High: 1.0.
+
+Investigate interpolation for arbitrary values between 0 and 1.
+
+Examples:
+
+`[angry:0.25]` — Mild irritation.
+
+`[angry:0.60]` — Noticeable anger.
+
+`[angry:1.00]` — Intense anger.
+
+The same label may have different acoustic realization depending on speaker, language, and situation.
+
+Never implement intensity solely as waveform amplification.
+
+Keep intended intensity separate from acoustically verified intensity.
+
+---
+
+# 10. SIMULTANEOUS EMOTION BLENDING
+
+V20 must include speech where more than one emotional component is expressed at the same moment.
+
+Required blending examples:
+
+| Emotional combination | Component specification | Interpretation |
+|---|---|---|
+| Bittersweet | happy 0.5 + sad 0.5 | Joy mixed with sadness |
+| Nervous excitement | excited 0.7 + fearful 0.3 | Enthusiasm mixed with concern |
+| Gentle grief | tender 0.6 + sad 0.8 | Compassionate sorrow |
+| Defensive panic | angry 0.6 + fearful 0.6 | Anger arising from fear |
+| Bitter sarcasm | sarcastic 0.7 + angry 0.5 | Resentful irony |
+| Tearful gratitude | grateful 0.8 + sad 0.4 | Appreciation with sadness |
+| Hopeful sadness | hopeful 0.5 + sad 0.5 | Sorrow with optimism |
+| Joyful affection | happy 0.6 + loving 0.7 | Loving happiness |
+| Terrified whisper | fearful 1.0 + whisper delivery | Quiet intense fear |
+| Mocking laughter | sarcastic 0.8 + laughing speech | Ironic amusement |
+
+These are target conditioning values, not guaranteed acoustic ratios.
+
+Use perceptual evaluation to confirm whether the intended blend is audible.
+
+Include single-component baselines for comparison.
+
+Avoid meaningless combinations created merely to fill quotas.
+
+---
+
+# 11. CONTINUOUS MULTI-EMOTION GENERATION — THE MOST IMPORTANT PART
+
+## Absolute rule
+
+A continuous multi-emotion dataset recording must be one genuine uninterrupted performance generated by the source TTS system.
+
+Do not concatenate independently generated emotional WAV files and describe the result as continuous.
+
+Do not confuse simultaneous emotion blending with sequential emotion switching.
+
+Do not assume that a source model generated the requested transition just because its prompt contained tags.
+
+Store both intended and verified emotional regions.
+
+## C01 — Two-emotion switching
+
+Example:
+
+`[neutral] I thought everything would be okay, [sad] but nothing happened the way I expected.`
+
+Target behavior:
+
+- Begins naturally in neutral speech.
+- Transitions into sadness.
+- Preserves one voice.
+- Maintains linguistic flow.
+- No unnatural silence at the boundary.
+
+Create many emotional pairs.
+
+Include neutral-to-emotion, emotion-to-neutral, and emotion-to-different-emotion transitions.
+
+## C02 — Three-emotion switching
+
+Example:
+
+`[happy] I finally received the letter, [surprised] but I never expected that name, [fearful] and suddenly I understood what it meant.`
+
+Target:
+
+Three distinct emotional regions in one uninterrupted recording.
+
+## C03 — Four-to-five emotion switching
+
+Example:
+
+`[neutral] I opened the door, [curious] wondering who had arrived, [surprised] and suddenly I recognized you, [sad] after all these years, [happy] I could finally smile again.`
+
+Target:
+
+Multiple distinct transitions without speaker reset.
+
+Use narrative situations that naturally justify the emotional progression.
+
+## C04 — Within-sentence transitions
+
+Example:
+
+`[tender] I wanted to believe you, [sad] even after everything that happened, [angry] but you betrayed me again.`
+
+This must be produced as one performance.
+
+Emotion changes may occur within a single grammatical sentence.
+
+Do not require a sentence-ending punctuation mark between emotional regions.
+
+## C05 — Gradual transitions
+
+Example emotional trajectory:
+
+Neutral → Uneasy → Anxious → Fearful → Panicked.
+
+The source recording should demonstrate an audible progression rather than a sudden switch.
+
+Annotate the intended change as a time-varying emotional curve.
+
+Store verified audible onset, peak, and transition regions when supported by reliable review.
+
+A smooth mathematical annotation curve does not guarantee smooth acoustic speech.
+
+## C06 — Simultaneous blends changing across time
+
+Example:
+
+Beginning: Happy 0.7 + Sad 0.3.
+
+Middle: Sad 0.8 + Tender 0.4.
+
+Ending: Relieved 0.9.
+
+All regions must belong to the same uninterrupted acoustic performance.
+
+## C07 — Delivery changes
+
+Example:
+
+Normal → Whisper → Normal.
+
+Example:
+
+Happy speech → Laughing speech → Happy speech.
+
+Example:
+
+Sad speech → Crying speech → Tender speech.
+
+Keep emotion and delivery annotation tracks separate.
+
+## C08 — Actions integrated into speech
+
+Example:
+
+`[sad] I never imagined this would happen... [sigh] [tender] But I'm glad you're still here.`
+
+Required result:
+
+Speech, a natural sigh, and continued speech, all in one recording.
+
+## C09 — Long-form expressive narration
+
+Generate stories and monologues ranging from approximately 20 to 90 seconds when supported.
+
+Prioritize:
+
+- Emotional storytelling.
+- Dramatic narration.
+- Personal reflection.
+- Confession.
+- Reunion.
+- Suspense.
+- Hope and loss.
+- Fear and relief.
+- Sarcastic dialogue.
+- Gentle reassurance.
+
+Do not label a long-form recording successful without validating its entire duration for repeated words, speaker drift, missing clauses, trailing artifacts, and emotion accuracy.
+
+---
+
+# 12. KURDISH SORANI SCRIPT REQUIREMENTS
+
+Kurdish Sorani must receive special linguistic treatment.
+
+Scripts must be written or reviewed by competent native Sorani speakers.
+
+Requirements:
+
+- Natural Central Kurdish grammar.
+- Correct Sorani script.
+- Reliable Unicode normalization.
+- Consistent punctuation.
+- Appropriate register.
+- Natural emotional vocabulary.
+- Cultural plausibility.
+- Dialect metadata when appropriate.
+- Correct treatment of Arabic and Persian loanwords.
+- No automatic word-for-word translation from English.
+- No unnecessary artificial English sentence structure.
+
+## Example continuous Sorani performance
+
+`[neutral] من پێم وابوو هەموو شتێک باش دەبێت، [sad] بەڵام هەموو شتێک گۆڕا، [angry] ئیتر بەسە! [tender] ئێستا دەمەوێت بە ئارامی قسە بکەین.`
+
+The audio must contain these four regions naturally.
+
+Do not simply place four separately generated clips together.
+
+## Language validation
+
+Build a Sorani-specific validator covering:
+
+- Arabic Kaf versus Kurdish Kaf.
+- Arabic Yeh versus Kurdish Yeh.
+- ZWNJ handling.
+- Unicode normalization.
+- Character offsets.
+- Script directionality.
+- Known text-normalization exceptions.
+- Mixed-script text.
+- Numerals and abbreviations.
+
+Never calculate character offsets by slicing UTF-8 bytes.
+
+Preserve original and normalized text independently.
+
+---
+
+# 13. PROVIDER COMPARISON DESIGN
+
+Do not blindly merge Gemini and ElevenLabs outputs.
+
+## Matched-script comparison
+
+Use approximately 20% of planned generation tasks for matched scripts.
+
+Both providers receive:
+
+- Equivalent text.
+- Same intended emotion.
+- Same intensity target.
+- Same emotional transition structure.
+- Same target language.
+- Similar intended duration where feasible.
+
+Provider-specific instructions may differ to achieve comparable intended performance.
+
+Measure:
+
+- Sorani pronunciation.
+- Naturalness.
+- Emotion accuracy.
+- Multi-emotion continuity.
+- Speaker identity consistency.
+- Missing or added words.
+- Audio artifacts.
+- Generation success rate.
+
+## Unique-script production
+
+Use approximately 80% for diverse scripts.
+
+Avoid near-duplicate scenarios, recycled phrases, and repeated narrative templates.
+
+## Important
+
+The best training mixture may not be 50/50.
+
+Track quality by provider and category.
+
+A provider may be better for neutral narration but worse for continuous emotion switching.
+
+Decide training weights experimentally.
+
+---
+
+# 14. CANONICAL DATASET ARCHITECTURE
+
+Preserve the existing two-manifest design.
+
+## 14.1 `metadata.jsonl`
+
+This is the canonical raw-audio corpus manifest.
+
+Keep original WAV paths, transcripts, provenance, alignments, quality reports, and independent annotation tracks.
+
+Use registered `x_audar_*` extension fields where required by the current canonical schema.
+
+The canonical manifest should not depend on a specific acoustic tokenizer.
+
+## 14.2 `tokens.jsonl`
+
+This is derived from the canonical manifest.
+
+It contains:
+
+- Sample ID.
+- Text.
+- Speaker.
+- Language.
+- Split.
+- NeuCodec acoustic token IDs.
+- Duration.
+- Backward-compatible emotion fields.
+- Derived frame-aligned emotional tracks.
+- Delivery tracks.
+- Action tracks.
+- Relevant reference-conditioning metadata.
+- Source provenance linkage.
+- Schema version.
+
+Derive this manifest deterministically.
+
+Do not independently edit the emotional labels in `tokens.jsonl`.
+
+## 14.3 Legacy compatibility
+
+Preserve all existing V19 emotion fields and values.
+
+Convert V19 utterance-level emotions into one coarse full-recording annotation span where appropriate.
+
+Never invent missing word alignments or verified emotional transitions.
+
+Keep old uncertainty explicit.
+
+---
+
+# 15. REQUIRED ANNOTATION TRACKS
+
+Each V20 recording may contain independent overlapping tracks.
+
+## Emotion track
+
+Contains:
+
+- Start and end time.
+- Intended emotion components.
+- Verified components where available.
+- Intensity.
+- Confidence.
+- Transition type.
+- Annotation method.
+- Human review information.
+
+## Delivery track
+
+Contains:
+
+- Start and end time.
+- Phonation mode.
+- Speaking style.
+- Speaking-rate control.
+- Vocal intensity.
+- Verification status.
+
+## Action track
+
+Contains:
+
+- Event type.
+- Start/end time.
+- Intensity.
+- Standalone or embedded status.
+- Text anchor where applicable.
+
+## Word alignment
+
+Contains:
+
+- Word.
+- Start/end time.
+- Normalized-text character span.
+- Confidence and alignment method.
+
+## Provenance
+
+Contains:
+
+- Provider.
+- Model ID.
+- Voice ID.
+- Generation parameters.
+- Request ID.
+- Generation timestamp.
+- Source script ID.
+- Audio checksum.
+- Permission/authorization reference.
+
+Do not fabricate timestamps or acoustic confidence scores.
+
+---
+
+# 16. ANNOTATION EXAMPLE
+
+The following is a proposed structural example, not a measured recording.
+
+```json
+{
+  "schema_version": 2,
+  "id": "audar_v20_ckb_000001",
+  "language": "ckb",
+  "speaker": "gemini__speaker_001",
+  "audio": "source_gemini/ckb/000001.wav",
+  "raw_text": "من پێم وابوو هەموو شتێک باش دەبێت، بەڵام هەموو شتێک گۆڕا.",
+  "normalized_text": "من پێم وابوو هەموو شتێک باش دەبێت بەڵام هەموو شتێک گۆڕا",
+  "duration": null,
+  "split": "unassigned",
+  "x_audar_provenance": {
+    "provider": "gemini",
+    "model_id": null,
+    "voice_id": null,
+    "generation_request_id": null,
+    "audio_sha256": null,
+    "training_use_authorization": null
+  },
+  "x_audar_tracks": {
+    "emotion": [
+      {
+        "text": "من پێم وابوو هەموو شتێک باش دەبێت،",
+        "intended_components": {
+          "neutral": 1.0
+        },
+        "verified_components": null,
+        "start_s": null,
+        "end_s": null
+      },
+      {
+        "text": "بەڵام هەموو شتێک گۆڕا.",
+        "intended_components": {
+          "sad": 0.8
+        },
+        "verified_components": null,
+        "start_s": null,
+        "end_s": null
+      }
+    ],
+    "delivery": [],
+    "action": []
+  },
+  "x_audar_word_alignment": null,
+  "x_audar_quality": {
+    "status": "pending",
+    "native_reviewed": false,
+    "emotion_verified": false,
+    "alignment_verified": false
+  }
+}
+```
+
+This is a **pre-ingestion draft**, not a valid final training row.
+
+Production must replace required nulls with measured or recorded information before promoting a sample into the canonical accepted corpus.
+
+Do not insert placeholder values into `tokens.jsonl`.
+
+---
+
+# 17. NEUCODEC TOKENIZATION AND FRAME ALIGNMENT
+
+Use the existing production NeuCodec tokenizer.
+
+Preserve the verified codec configuration.
+
+Expected nominal rate:
+
+50 acoustic frames per second.
+
+Frame duration:
+
+20 milliseconds.
+
+Map time annotations into codec frame indices only after successful audio alignment and tokenization.
+
+Conceptual mapping:
+
+`frame_index ≈ round(time_seconds × 50)`
+
+But verify against actual encoded frame counts and encoder timing conventions.
+
+Use half-open frame intervals:
+
+`[start_frame, end_frame)`
+
+Validate:
+
+- Code vocabulary range.
+- Frame count consistency.
+- Audio duration.
+- Boundary monotonicity.
+- Timeline coverage.
+- No invalid token IDs.
+- Valid speaker information.
+- Accurate normalized text.
+- Correct source metadata.
+
+Do not use repeating dummy token arrays as evidence of real codec compatibility.
+
+Codec round-trip tests must use genuine audio and genuine encoded tokens.
+
+---
+
+# 18. SYNTHETIC AUDIO QUALITY CONTROL
+
+Every candidate recording passes multiple stages.
+
+## Gate A — Structural validation
+
+- Valid WAV.
+- Supported sample rate.
+- Correct channel count.
+- Valid file duration.
+- No corruption.
+- No empty recording.
+- Valid metadata.
+
+## Gate B — Text correspondence
+
+- Speech matches the intended transcript.
+- No hallucinated words.
+- No dropped clauses.
+- No major substitutions.
+- Language matches declared language.
+
+Use ASR as a screening tool, not the sole authority.
+
+## Gate C — Acoustic quality
+
+- No clipping.
+- No severe distortion.
+- No excessive silence.
+- No trailing codec noise.
+- No unnatural truncation.
+- No repetitive audio loops.
+- No artificial joins.
+
+## Gate D — Expressive accuracy
+
+- Intended emotion is audible.
+- Emotional intensity is plausible.
+- Delivery is appropriate.
+- Continuous transitions are present.
+- Nonverbal actions sound genuine.
+
+## Gate E — Speaker stability
+
+- Speaker identity remains consistent.
+- No unintended voice changes.
+- No sudden accent drift.
+- No artificial speaker switching.
+
+## Gate F — Human validation
+
+Have native Sorani listeners review:
+
+- Pronunciation.
+- Grammar.
+- Naturalness.
+- Emotion.
+- Emotion-transition quality.
+- Speaker consistency.
+
+Use independent ratings and retain disagreement information.
+
+Do not impose universal acoustic rules such as every angry recording requiring higher RMS than neutral speech.
+
+Calibrate measurable thresholds using real recordings and listener judgments.
+
+---
+
+# 19. DEDUPLICATION AND DATA LEAKAGE
+
+Build deterministic script IDs from normalized text.
+
+The same transcript generated by Gemini and ElevenLabs must map to a shared script identity.
+
+Use speaker-specific family IDs separately.
+
+Apply additional protection:
+
+- Near-duplicate script detection.
+- Shared original story grouping.
+- Rewritten-text family grouping.
+- Audio fingerprinting.
+- Speaker leakage checks.
+- Voice-clone lineage checks where applicable.
+
+Never place the same or substantially duplicated script in both training and evaluation splits.
+
+Support separate evaluation designs for:
+
+- Unseen scripts.
+- Unseen voices.
+- Unseen emotion combinations.
+- Unseen transition patterns.
+- Unseen longer narratives.
+
+Do not overstate perfect leakage prevention from exact text hashing alone.
+
+---
+
+# 20. DATASET SPLITTING
+
+Use deterministic group-aware splitting.
+
+Recommended initial proportions:
+
+- Train: approximately 80%.
+- Validation: approximately 10%.
+- Test: approximately 10%.
+
+These are starting points, not requirements that override strict leakage prevention.
+
+Preserve a separate **human-recorded Sorani evaluation benchmark**.
+
+Do not rely exclusively on synthetic voices to measure naturalness.
+
+For speaker-independent evaluation, hold out entire speaker/voice identities.
+
+For provider generalization, run source-specific evaluations.
+
+Avoid comparing only matched scripts spoken by the same source voices.
+
+---
+
+# 21. LONG-FORM RECORDING POLICY
+
+The V19 training pipeline previously constrained clips to approximately 20 seconds.
+
+V20 should support longer continuous recordings after model-side sequence-length testing.
+
+Create separate duration buckets:
+
+- Short: 3–10 seconds.
+- Medium: 10–20 seconds.
+- Extended: 20–40 seconds.
+- Long: 40–60 seconds.
+- Experimental: 60–90 seconds.
+
+Do not force all categories into the longest duration bucket.
+
+Record the true acoustic duration and encoded frame count.
+
+For long continuous speech, inspect:
+
+- Pronunciation deterioration.
+- Repetition.
+- Word omissions.
+- Speaker drift.
+- Emotion resets.
+- Excessive pauses.
+- Unexpected ending.
+- Nonverbal hallucinations.
+
+Only enable training duration buckets that the selected V20 model architecture and hardware can support.
+
+---
+
+# 22. DATASET-GENERATOR ARCHITECTURE
+
+Implement the production system as modular stages:
+
+### Module A — Script Factory
+
+Produces contextually natural Sorani, Arabic, and English scripts.
+
+Supports all emotion labels, blends, transitions, styles, and vocal actions.
+
+### Module B — Emotion Scenario Planner
+
+Defines intended emotional trajectories.
+
+Supports sequential, gradual, simultaneous, and delivery-based controls.
+
+### Module C — Provider Adapters
+
+Maps normalized performance specifications into provider-specific generation requests.
+
+### Module D — Generation Scheduler
+
+Schedules jobs, enforces limits, handles retry policy, and records costs.
+
+### Module E — Audio Intake
+
+Downloads or receives generated audio and preserves originals.
+
+### Module F — Audio Quality Filter
+
+Evaluates recording integrity and acoustic defects.
+
+### Module G — Linguistic Validator
+
+Checks transcripts, language, normalization, and word correspondence.
+
+### Module H — Emotion Verification
+
+Separates requested emotions from audible emotions, estimates quality, and routes uncertain examples for native review.
+
+### Module I — Alignment Pipeline
+
+Produces word alignment, phrase timing, emotion-region annotations, and event boundaries.
+
+### Module J — Dataset Registry
+
+Maintains canonical metadata, provenance, and immutable sample IDs.
+
+### Module K — NeuCodec Tokenizer
+
+Generates codec-token manifests only for approved accepted samples.
+
+### Module L — Dataset Analytics
+
+Reports coverage, duplicate rates, rejection reasons, provider comparison, duration distribution, and emotion accuracy.
+
+---
+
+# 23. WORKFLOW STATE MACHINE
+
+Every candidate must have an explicit state:
+
+`planned → generated → validated → aligned → reviewed → accepted → tokenized → training_ready`
+
+Failures enter:
+
+`rejected`
+
+or
+
+`needs_review`
+
+Do not silently advance uncertain recordings.
+
+Log:
+
+- Current stage.
+- Processing version.
+- Error details.
+- Retry count.
+- Reviewer identity where applicable.
+- Rejection reason.
+- Artifact checksums.
+
+Use idempotent processing so restarting a batch does not duplicate output files or API charges.
+
+---
+
+# 24. EXPERIMENTAL PILOT BEFORE FULL-SCALE PRODUCTION
+
+Begin with **1,000 Kurdish Sorani candidate recordings**, divided equally between Gemini and ElevenLabs if both can support the required generation modes.
+
+Suggested pilot:
+
+| Category | Recordings |
+|---|---:|
+| Nine existing emotions | 270 |
+| Six selected new emotions | 180 |
+| Two-emotion transitions | 200 |
+| Three-to-five-emotion sequences | 120 |
+| Gradual emotion transitions | 80 |
+| Simultaneous emotion blends | 50 |
+| Delivery shifts | 50 |
+| Nonverbal actions | 50 |
+| TOTAL | 1,000 |
+
+The six selected new emotions should come from the canonical 50-label inventory.
+
+Include common, acoustically distinct additions before rare or highly overlapping categories.
+
+The pilot must answer:
+
+1. Does Gemini produce natural Sorani pronunciation?
+2. Does ElevenLabs produce natural Sorani pronunciation?
+3. Which produces stronger emotional expression?
+4. Which produces uninterrupted emotion transitions?
+5. Which produces better whispering and laughing speech?
+6. Which has more stable voice identity?
+7. Which has fewer transcription errors?
+8. Which source is more suitable for longer continuous speech?
+
+Do not approve mass production until the pilot has been reviewed.
+
+---
+
+# 25. TRAINING COMPATIBILITY REQUIREMENTS
+
+Coordinate with the Codex model-engineering workstream.
+
+The dataset pipeline must support potential V20 conditioning architectures without permanently committing to one prematurely.
+
+Preserve:
+
+- Original audio.
+- Original transcript.
+- Intended emotional schedule.
+- Verified emotional schedule.
+- Word timing.
+- Acoustic timing.
+- Provider provenance.
+- Independent control tracks.
+
+These allow future experiments with:
+
+- Inline text emotion tokens.
+- Interleaved acoustic control markers.
+- Aligned emotion conditioning.
+- Context-aware acoustic continuation.
+- Hybrid architectures.
+
+Do not make the canonical dataset schema depend on SCAP or on any other particular generation method.
+
+Do not confuse context-aware segment chaining with true one-pass generation.
+
+Training-manifest conversion must be versioned so multiple model experiments can use the same raw corpus.
+
+---
+
+# 26. COMPARATIVE TRAINING EXPERIMENTS
+
+After dataset quality has been established, prepare controlled training sets:
+
+**Experiment A:** Approved Gemini-only recordings.
+
+**Experiment B:** Approved ElevenLabs-only recordings.
+
+**Experiment C:** Approved Gemini + ElevenLabs mixture.
+
+**Experiment D:** Quality-weighted mixture.
+
+**Experiment E:** Mixture retaining verified V19 recordings.
+
+Control:
+
+- Total audio duration.
+- Language distribution.
+- Speaker distribution.
+- Emotion coverage.
+- Training steps.
+- Initialization checkpoint.
+- Validation and test benchmarks.
+
+Do not declare the 50/50 mixture optimal merely because both providers contributed equal candidate counts.
+
+---
+
+# 27. QUALITY REPORTING AND DASHBOARD
+
+Create a developer-facing dataset quality report or dashboard showing:
+
+- Total generated recordings.
+- Total accepted recordings.
+- Daily provider production.
+- Sorani / Arabic / English distribution.
+- Emotion coverage.
+- Delivery coverage.
+- Vocal action coverage.
+- Continuous-transition coverage.
+- Voice diversity.
+- Audio duration distribution.
+- Pronunciation-quality outcomes.
+- Emotion agreement.
+- Rejection reasons.
+- Near-duplicate rates.
+- Provider comparisons.
+- Generation costs.
+- Training-ready hours.
+
+All metrics must be calculated from real persisted data.
+
+Do not display invented quality scores.
+
+---
+
+# 28. SECURITY, RIGHTS, AND PRIVACY
+
+- Keep provider credentials in environment variables or secret management.
+- Never embed API keys in dataset manifests.
+- Restrict access to generated recordings and source metadata.
+- Record applicable training-use authorization.
+- Use only voices the organization is authorized to synthesize.
+- Do not clone or reproduce real people's voices without appropriate permission.
+- Preserve attribution and source rights information.
+- Track retention and deletion requirements.
+- Keep private voice samples separate from public evaluation artifacts.
+
+Provider usage permissions and voice permissions must be resolved before promoting recordings to training-ready status.
+
+---
+
+# 29. TESTING REQUIREMENTS
+
+Build automated tests for:
+
+1. Emotion taxonomy validation.
+2. Delivery taxonomy validation.
+3. Vocal action validation.
+4. Sorani Unicode normalization.
+5. Script hashing.
+6. Cross-provider duplicate handling.
+7. Audio sample-rate verification.
+8. Audio checksum integrity.
+9. Duration validation.
+10. Emotion track timing.
+11. Delivery track timing.
+12. Vocal action overlap.
+13. Word alignment.
+14. Codec-frame mapping.
+15. Training-manifest conversion.
+16. Legacy V19 migration.
+17. Provider API failures.
+18. Retries and partial batches.
+19. Workflow resumability.
+20. Evaluation split leakage.
+21. Manifest-schema version compatibility.
+22. Long-form sample handling.
+23. Speaker identity registry.
+24. Provenance completeness.
+25. Training-ready promotion rules.
+
+Tests must include real integration fixtures wherever possible and small synthetic fixtures for predictable edge cases.
+
+Clearly distinguish mock tests from actual audio-generation tests.
+
+---
+
+# 30. DELIVERABLES
+
+The final production system must provide:
+
+### Data contracts
+
+- Emotion catalog.
+- Delivery catalog.
+- Vocal-action catalog.
+- Intensity specification.
+- Canonical manifest schema.
+- Training-token schema.
+- Provenance schema.
+- Validation contracts.
+
+### Generators
+
+- Gemini adapter.
+- ElevenLabs adapter.
+- Script factory.
+- Emotion-scenario generator.
+- Long-form narrative generator.
+- Batch scheduler.
+
+### Processing
+
+- Audio ingestion.
+- Sorani normalization.
+- Audio quality control.
+- Transcript verification.
+- Emotion verification.
+- Word alignment.
+- Timeline validation.
+- NeuCodec tokenization.
+- Data splitting.
+- Deduplication.
+
+### Quality assurance
+
+- Provider comparison.
+- Native-Sorani listening protocol.
+- Rejection reports.
+- Distribution reports.
+- Voice consistency reports.
+- Continuous-emotion analysis.
+
+### Production documentation
+
+- Setup guide.
+- Configuration reference.
+- Generation workflow.
+- Recovery and retry process.
+- Quality acceptance guide.
+- V19 migration guide.
+- V20 dataset training handoff.
+
+---
+
+# 31. IMPLEMENTATION ORDER
+
+## Phase 0 — Repository Audit
+
+Inspect the existing Audar dataset pipeline.
+
+Reuse compatible modules.
+
+Identify exact code locations for manifests, normalization, tokenization, quality control, and generation.
+
+## Phase 1 — Registry and Schemas
+
+Implement the full label catalogs and manifest contracts.
+
+Preserve V19 compatibility.
+
+## Phase 2 — Provider Integrations
+
+Implement authorized Gemini and ElevenLabs adapters.
+
+Test small requests, error handling, and provenance capture.
+
+## Phase 3 — Controlled Pilot
+
+Generate the 1,000-recording Sorani test corpus.
+
+Evaluate both providers.
+
+Do not manufacture success metrics.
+
+## Phase 4 — Quality Pipeline
+
+Implement and validate pronunciation checks, emotional reviews, alignment, deduplication, and source tracking.
+
+## Phase 5 — Initial Scale
+
+Expand to 10,000–25,000 candidates only if pilot results justify it.
+
+## Phase 6 — Model Compatibility
+
+Work with Codex's V20 architecture experiments to confirm the selected training format.
+
+## Phase 7 — Full Production
+
+Scale toward the 300,000-candidate planning target as quality, permissions, budget, and model evaluation allow.
+
+## Phase 8 — Training Dataset Release
+
+Release immutable, versioned training-ready manifests and reproducible reports.
+
+---
+
+# 32. NON-NEGOTIABLE RULES
+
+- Kurdish Sorani is the highest priority.
+- Preserve all nine V19 emotions.
+- Implement the complete 50-emotion target registry.
+- Implement the complete 30-style target registry.
+- Implement the complete 16-action target registry.
+- Do not silently rename emotion categories.
+- Do not fabricate emotion intensity, alignments, or audio quality scores.
+- Do not mistake AI prompt compliance for audible emotional accuracy.
+- Do not create fake continuous performances from concatenated independent recordings.
+- Do not let source metadata overwrite verified annotations.
+- Do not merge source corpora destructively.
+- Do not train on unauthorized or rejected recordings.
+- Do not assume every label is independently learnable.
+- Do not overwrite the V19 training corpus.
+- Do not commit the canonical dataset to an unverified model architecture.
+- Do not declare production completion from candidate-recording counts alone.
+
+---
+
+# 33. FINAL EXECUTION DIRECTIVE
+
+Your goal is to build a reproducible, production-grade **Audar-TTS-V20 Expressive Speech Dataset Factory**.
+
+This factory must be able to create, validate, annotate, and organize a large Kurdish Sorani-first synthetic audio corpus using approved Gemini and ElevenLabs models.
+
+The dataset must cover individual emotions, emotion blends, gradual transitions, multiple emotions within one uninterrupted sentence, changes in vocal delivery, nonverbal vocal actions, and long-form expressive narration.
+
+Prioritize real acoustic quality and verified emotional performances over simply maximizing generated audio counts.
+
+**Begin by inspecting the existing repository and producing a concrete implementation plan tied to its actual files. Then implement the dataset contracts and working pilot pipeline. Do not initiate expensive mass generation or model training until the controlled pilot passes review.**
+
+The final result must be a working production system with testable outputs, not another theoretical specification.

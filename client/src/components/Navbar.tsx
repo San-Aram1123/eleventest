@@ -16,8 +16,8 @@ import {
 import { SystemConfig } from '../types';
 
 interface NavbarProps {
-  activeTab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch';
-  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch') => void;
+  activeTab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot';
+  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot') => void;
   onOpenSettings: () => void;
   config: SystemConfig | null;
   datasetCount: number;
@@ -115,6 +115,16 @@ export const Navbar: React.FC<NavbarProps> = ({
             <Languages size={18} className="nav-tab-icon" style={{ color: '#10B981' }} />
             <span>Context Switching</span>
             <span className="nav-count-badge" style={{ background: '#059669' }}>3-Lang</span>
+          </button>
+
+          <button
+            id="nav-tab-dual-pilot"
+            className={`nav-tab-btn ${activeTab === 'dual-pilot' ? 'active' : ''}`}
+            onClick={() => onSelectTab('dual-pilot')}
+          >
+            <GitCompare size={18} className="nav-tab-icon" style={{ color: '#F472B6' }} />
+            <span>Dual Pilot</span>
+            <span className="nav-count-badge" style={{ background: '#EC4899' }}>V20</span>
           </button>
         </nav>
 

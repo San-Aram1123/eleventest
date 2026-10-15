@@ -89,9 +89,35 @@ export async function exportDatasetZip(res, filters = {}, getAllSamplesFn = null
     }
 
     if (fs.existsSync(jsonPath)) {
-      archive.file(jsonPath, { name: `dataset/${baseId}.json` });
+      try {
+        const rawJson = JSON.parse(fs.readFileSync(jsonPath, { encoding: 'utf-8' }));
+        if (rawJson.text) {
+          rawJson.text = String(rawJson.text)
+            .replace(/(?:\[|【|［|\()([a-zA-Z0-9_\s\u0600-\u06FF-]+)(?:\]|】|］|\))/g, '')
+            .replace(/^([a-zA-Z\u0600-\u06FF]{2,15}):\s+/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        if (rawJson.cleanText) {
+          rawJson.cleanText = String(rawJson.cleanText)
+            .replace(/(?:\[|【|［|\()([a-zA-Z0-9_\s\u0600-\u06FF-]+)(?:\]|】|］|\))/g, '')
+            .replace(/^([a-zA-Z\u0600-\u06FF]{2,15}):\s+/, '')
+            .replace(/\s+/g, ' ')
+            .trim();
+        }
+        archive.append(JSON.stringify(rawJson, null, 2), { name: `dataset/${baseId}.json` });
+      } catch {
+        archive.file(jsonPath, { name: `dataset/${baseId}.json` });
+      }
     } else {
       const { hasAudio, audioUrl, ...jsonMetadata } = s;
+      if (jsonMetadata.text) {
+        jsonMetadata.text = String(jsonMetadata.text)
+          .replace(/(?:\[|【|［|\()([a-zA-Z0-9_\s\u0600-\u06FF-]+)(?:\]|】|］|\))/g, '')
+          .replace(/^([a-zA-Z\u0600-\u06FF]{2,15}):\s+/, '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
       archive.append(JSON.stringify(jsonMetadata, null, 2), { name: `dataset/${baseId}.json` });
     }
   }

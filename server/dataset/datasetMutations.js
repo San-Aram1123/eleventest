@@ -10,6 +10,7 @@ import {
 import { resolveSampleGender } from './datasetGender.js';
 import { getNextSampleId } from './datasetIdService.js';
 import { writeExclusiveFile } from '../shared/exclusiveFile.js';
+import { extractEmotionAndCleanText } from '../emotionUtils.js';
 
 /**
  * Saves a new sample atomically: saving audio WAV on disk, metadata in MySQL, and writing JSON backup.
@@ -38,8 +39,13 @@ export async function saveSample({
   allowDuplicateText = false,
   exclusive = false
 }, { datasetDir, findSampleByTextFn, invalidateCacheFn }) {
+  const parsed = extractEmotionAndCleanText(text, emotion);
+  const resolvedEmotion = parsed.hasInlineTag ? parsed.emotion : String(emotion || 'neutral').toLowerCase();
+  const resolvedEmotionTag = parsed.hasInlineTag ? parsed.emotionTag : (emotionTag || (resolvedEmotion !== 'neutral' ? `[${resolvedEmotion}]` : undefined));
+  const finalCleanText = parsed.cleanText || String(text || '').trim();
+
   if (!id && !allowDuplicateText && !family_id && findSampleByTextFn) {
-    const existing = await findSampleByTextFn(text);
+    const existing = await findSampleByTextFn(finalCleanText);
     if (existing) {
       console.log(`[Dataset] Sample with matching Kurdish text already exists (#${existing.id}). Returning existing sample.`);
       return existing;
@@ -95,10 +101,11 @@ export async function saveSample({
     speaker_name: resolvedSpeaker,
     gender: resolvedGender,
     voice_gender: resolvedGender,
-    text: String(text || '').trim(),
+    text: finalCleanText,
+    cleanText: finalCleanText,
     dialect: dialect || 'sorani',
-    emotion: String(emotion || 'neutral').toLowerCase(),
-    emotion_tag: emotionTag || undefined,
+    emotion: resolvedEmotion,
+    emotion_tag: resolvedEmotionTag,
     voice_id: voiceId || undefined,
     voice_name: voiceName || undefined,
     model_id: modelId || undefined,
@@ -168,9 +175,20 @@ export async function updateSampleMetadata(id, updates = {}, { datasetDir, getDb
     if (dbItem) existing = dbItem;
   }
 
+  const cleanUpdates = { ...updates };
+  if (cleanUpdates.text) {
+    const parsed = extractEmotionAndCleanText(cleanUpdates.text, cleanUpdates.emotion || existing.emotion || 'neutral');
+    cleanUpdates.text = parsed.cleanText;
+    cleanUpdates.cleanText = parsed.cleanText;
+    if (parsed.hasInlineTag) {
+      cleanUpdates.emotion = parsed.emotion;
+      cleanUpdates.emotion_tag = parsed.emotionTag;
+    }
+  }
+
   const updated = {
     ...existing,
-    ...updates,
+    ...cleanUpdates,
     id: safeId,
     updated_at: new Date().toISOString()
   };

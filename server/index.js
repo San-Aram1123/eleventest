@@ -15,6 +15,7 @@ import geminiRoutes from './routes/geminiRoutes.js';
 import datasetRoutes from './routes/datasetRoutes.js';
 import batchRoutes from './routes/batchRoutes.js';
 import audioRoutes from './routes/audioRoutes.js';
+import dualPilotRoutes from './routes/dualPilotRoutes.js';
 
 dotenv.config();
 
@@ -46,6 +47,7 @@ app.use('/api/gemini', geminiRoutes);
 app.use('/api/dataset', datasetRoutes);
 app.use('/api', batchRoutes);
 app.use('/api/paired', audioRoutes);
+app.use('/api/dual-pilot', dualPilotRoutes);
 
 // Serve frontend in production if built
 const clientDist = path.resolve(__dirname, '..', 'client', 'dist');

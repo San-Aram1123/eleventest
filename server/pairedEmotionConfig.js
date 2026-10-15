@@ -82,65 +82,18 @@ export const SPEAKER_PRESETS = [
   { id: 'spk52', name: 'Speaker 52 (Zuri)', voice: 'Zuri', gender: 'female', description: 'Storytelling, warm tone' }
 ];
 
-export const EMOTION_PROFILE_VERSION = 'gemini38-v1';
+import { V20_EMOTION_PROFILES, getV20EmotionProfile } from './shared/v20EmotionCatalog.js';
+
+export const EMOTION_PROFILE_VERSION = 'gemini38-v20';
 export const SLICER_VERSION = 'gemini38-longpause-v1';
 export const DEFAULT_LAUGH_VOCAL_EVENT_MODE = 'style_only';
 
 /**
  * Gemini 3.8 Centralized Emotion Style Profiles.
- * Emphasizes natural prosody, pitch contour, pacing, and emotional expression
- * without caricaturing or altering the underlying speaker identity.
+ * Comprehensive 50-emotion acoustic acting and prosody profiles from V20 catalog.
  */
-export const EMOTION_STYLE_PROFILES = {
-  neutral: {
-    name: 'Neutral',
-    style: 'Natural conversational speech with emotionally neutral delivery. Steady comfortable pace, ordinary pitch variation, clear articulation, relaxed energy, no exaggerated emotion, and no announcer-style performance.'
-  },
-  happy: {
-    name: 'Happy',
-    style: 'Genuinely happy, warm, upbeat and smiling delivery. Bright natural intonation with increased positive energy and expressive pitch movement. Conversational and believable rather than cartoonish or exaggerated.'
-  },
-  cackle: {
-    name: 'Cackle',
-    style: 'Playful, smiling, amused cackle-infused delivery with cheerful energy while speaking each sentence. During pauses between sentences, remain completely quiet so each sentence is clearly articulated and distinctly separated.'
-  },
-  laugh: {
-    name: 'Laugh',
-    style: 'Strongly amused, cheerful and smiling chuckle-infused delivery with playful positive energy while speaking each sentence. During pauses between sentences, remain quiet so each sentence is clearly articulated and distinctly separated.'
-  },
-  sad: {
-    name: 'Sad',
-    style: 'Genuinely sad, subdued and melancholic delivery. Lower emotional energy, softer restrained expression and slightly slower natural pacing. Emotionally affected without crying, sobbing, or becoming unintelligible.'
-  },
-  angry: {
-    name: 'Angry',
-    style: 'Strongly angry, tense, forceful and agitated delivery. Sharper consonants, increased vocal energy, firm emphasis and emotionally charged prosody. Intelligible and controlled rather than shouting.'
-  },
-  whisper: {
-    name: 'Whisper',
-    style: 'Whisper continuously from beginning to end. Soft, breathy, quiet and confidential delivery with clear intelligible articulation. Remain fully whispered for the entire sentence and do not transition back into normal voiced speech.'
-  },
-  excited: {
-    name: 'Excited',
-    style: 'High positive energy, vivid enthusiasm, energetic inflection and dynamic pacing with natural breathing.'
-  },
-  sigh: {
-    name: 'Sigh',
-    style: 'Slight weary breath or heavy breath of relief/exhaustion accompanying speech, unhurried and emotionally grounded.'
-  },
-  tender: {
-    name: 'Tender',
-    style: 'Gentle, warm, loving and affectionate delivery with soft melodic intonation and gentle vocal onset.'
-  },
-  fearful: {
-    name: 'Fearful',
-    style: 'Nervous, trembling, urgent and anxious delivery with heightened tension and breathless pacing.'
-  },
-  curious: {
-    name: 'Curious',
-    style: 'Genuine curiosity, inquisitive questioning inflection, attentive and engaging prosody.'
-  }
-};
+export const EMOTION_STYLE_PROFILES = V20_EMOTION_PROFILES;
+export { getV20EmotionProfile };
 
 /**
  * Standard Slicing Configuration for Gemini 3.8 <long pause> boundaries.
@@ -272,13 +225,15 @@ export function getEmotionPromptDirective(emotion, intensity = 0.8, languageOrDi
   } else if (langKey === 'en' || langKey === 'english') {
     langLabel = 'English';
     languageDirective = 'Clear, fluent English speech with natural native articulation and pronunciation.';
+  } else if (langKey === 'mixed' || langKey === 'multilingual') {
+    langLabel = 'multilingual Kurdish, English, and Arabic';
+    languageDirective = 'Authentic multilingual pronunciation with fluid code-switching across Kurdish, English, and Arabic, clear Arabic phonetics, and native English articulation.';
   } else {
     langLabel = 'Central Kurdish (Sorani / سۆرانی)';
     languageDirective = 'Authentic Central Kurdish (Sorani / سۆرانی) Erbil/Sulaymaniyah dialect with precise Kurdish vowels (ۆ, ێ, ە).';
   }
 
-  const emoKey = String(emotion || 'neutral').toLowerCase();
-  const profile = EMOTION_STYLE_PROFILES[emoKey] || EMOTION_STYLE_PROFILES.neutral;
+  const profile = getV20EmotionProfile(emotion);
   const numIntensity = Math.max(0.0, Math.min(1.0, parseFloat(intensity) || 0.8));
 
   return `You are an expert voice actor synthesizing a high-fidelity ${langLabel} speech training clip.
@@ -292,8 +247,7 @@ export function getEmotionPromptDirective(emotion, intensity = 0.8, languageOrDi
  * for Gemini 3.8 speech_metadata.style.
  */
 export function getEmotionSpeechStyle(emotion, intensity = 0.8, languageOrDialect = 'ckb') {
-  const emoKey = String(emotion || 'neutral').toLowerCase();
-  const profile = EMOTION_STYLE_PROFILES[emoKey] || EMOTION_STYLE_PROFILES.neutral;
+  const profile = getV20EmotionProfile(emotion);
   const numIntensity = Math.max(0.0, Math.min(1.0, parseFloat(intensity) || 0.8));
 
   const langKey = String(languageOrDialect || 'ckb').toLowerCase();
@@ -304,6 +258,8 @@ export function getEmotionSpeechStyle(emotion, intensity = 0.8, languageOrDialec
     langHint = 'Authentic Modern Standard Arabic speech with clear Arabic phonetics.';
   } else if (langKey === 'en' || langKey === 'english') {
     langHint = 'Clear, fluent English speech with natural native articulation.';
+  } else if (langKey === 'mixed' || langKey === 'multilingual') {
+    langHint = 'Fluid code-switching across Kurdish, English, and Arabic with authentic pronunciation and clear phonetics.';
   } else {
     langHint = 'Central Kurdish (Sorani / سۆرانی) Erbil/Sulaymaniyah dialect with authentic Kurdish vowels (ۆ, ێ, ە).';
   }

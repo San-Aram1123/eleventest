@@ -8,6 +8,8 @@
  * - Kurdish / Sorani emotion terms: [چرپە], [پێکەنین], [دڵخۆش], [ئارام], [تووڕە], etc.
  */
 
+import { V20_EMOTION_PROFILES } from './shared/v20EmotionCatalog.js';
+
 export const EMOTION_CANONICAL_MAP = {
   // Whispering / Soft
   'whisper': 'whisper',
@@ -139,6 +141,20 @@ export const EMOTION_CANONICAL_MAP = {
   'ئاسایی': 'neutral'
 };
 
+// Register all 50 V20 emotions and Sorani descriptors into canonical map
+if (V20_EMOTION_PROFILES && typeof V20_EMOTION_PROFILES === 'object') {
+  for (const [id, prof] of Object.entries(V20_EMOTION_PROFILES)) {
+    EMOTION_CANONICAL_MAP[id.toLowerCase()] = id;
+    if (prof.name) EMOTION_CANONICAL_MAP[prof.name.toLowerCase()] = id;
+    if (prof.sorani) {
+      const parts = prof.sorani.split(/[/,]/).map(p => p.trim().toLowerCase()).filter(Boolean);
+      for (const p of parts) {
+        EMOTION_CANONICAL_MAP[p] = id;
+      }
+    }
+  }
+}
+
 /**
  * Normalizes an emotion string or raw tag to its canonical form
  * @param {string} rawTag
@@ -156,7 +172,7 @@ export function normalizeEmotionName(rawTag) {
  * 
  * @param {string} rawText 
  * @param {string} fallbackEmotion - default emotion if no tags found
- * @returns {{ cleanText: string, emotion: string, emotionTag: string | undefined, detectedTags: string[] }}
+ * @returns {{ cleanText: string, emotion: string, emotionTag: string | undefined, detectedTags: string[], hasInlineTag: boolean }}
  */
 export function extractEmotionAndCleanText(rawText, fallbackEmotion = 'neutral') {
   if (!rawText || typeof rawText !== 'string') {
@@ -164,7 +180,8 @@ export function extractEmotionAndCleanText(rawText, fallbackEmotion = 'neutral')
       cleanText: '',
       emotion: fallbackEmotion || 'neutral',
       emotionTag: fallbackEmotion && fallbackEmotion !== 'neutral' ? `[${fallbackEmotion}]` : undefined,
-      detectedTags: []
+      detectedTags: [],
+      hasInlineTag: false
     };
   }
 
@@ -206,7 +223,7 @@ export function extractEmotionAndCleanText(rawText, fallbackEmotion = 'neutral')
   let finalEmotionTag = undefined;
 
   if (uniqueTags.length > 0) {
-    finalEmotion = uniqueTags.join(', ');
+    finalEmotion = uniqueTags[0];
     finalEmotionTag = uniqueTags.map(t => `[${t}]`).join(' ');
   } else if (fallbackEmotion && fallbackEmotion !== 'neutral') {
     finalEmotion = fallbackEmotion;
@@ -217,6 +234,7 @@ export function extractEmotionAndCleanText(rawText, fallbackEmotion = 'neutral')
     cleanText: clean || rawText.trim(),
     emotion: finalEmotion,
     emotionTag: finalEmotionTag,
-    detectedTags: uniqueTags
+    detectedTags: uniqueTags,
+    hasInlineTag: uniqueTags.length > 0
   };
 }

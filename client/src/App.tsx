@@ -8,11 +8,12 @@ import { DatasetManagerPage } from './pages/DatasetManagerPage';
 import { ComparisonPage } from './pages/ComparisonPage';
 import { ExpressivePilotPage } from './pages/expressive/ExpressivePilotPage';
 import { ContextSwitchingPage } from './pages/ContextSwitchingPage';
+import { DualPilotPage } from './pages/dual_pilot/DualPilotPage';
 import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch'>(() => window.location.hash === '#context-auto' ? 'context-switch' : 'gemini');
+  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot'>(() => window.location.hash === '#context-auto' ? 'context-switch' : 'gemini');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -154,6 +155,12 @@ export const App: React.FC = () => {
         <div style={{ display: activeTab === 'context-switch' ? 'block' : 'none' }}>
           <ContextSwitchingPage
             onSampleCreated={handleSampleCreated}
+            addToast={addToast}
+          />
+        </div>
+
+        <div style={{ display: activeTab === 'dual-pilot' ? 'block' : 'none' }}>
+          <DualPilotPage
             addToast={addToast}
           />
         </div>

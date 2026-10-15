@@ -38,6 +38,9 @@ export async function callElevenLabsTTS({
                        response.headers.get('request-id') || 
                        'gen_' + Date.now();
 
+  const sampleRateMatch = String(outputFormat || '').match(/(\d{4,5})/);
+  const sampleRate = sampleRateMatch ? parseInt(sampleRateMatch[1], 10) : 44100;
+
   if (response.ok) {
     const data = await response.json();
     const rawAudioBase64 = data.audio_base64;
@@ -46,7 +49,7 @@ export async function callElevenLabsTTS({
     }
 
     const rawBuffer = Buffer.from(rawAudioBase64, 'base64');
-    const audioBuffer = ensureWavBuffer(rawBuffer, 44100);
+    const audioBuffer = ensureWavBuffer(rawBuffer, sampleRate);
 
     return {
       audioBuffer,
@@ -107,7 +110,7 @@ export async function callElevenLabsTTS({
 
   const rawArrayBuffer = await fallbackResponse.arrayBuffer();
   const rawBuffer = Buffer.from(rawArrayBuffer);
-  const audioBuffer = ensureWavBuffer(rawBuffer, 44100);
+  const audioBuffer = ensureWavBuffer(rawBuffer, sampleRate);
 
   return {
     audioBuffer,

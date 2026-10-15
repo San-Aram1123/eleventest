@@ -195,6 +195,7 @@ export async function getKeyPoolDetails() {
         const remaining = Math.max(0, charLimit - charCount);
         const isExhausted = remaining <= 0;
 
+        const isReady = !isExhausted && (sub.status === 'active' || sub.status === 'free' || sub.status === 'trialing' || !sub.status);
         return {
           id: `key_${idx}`,
           index: idx,
@@ -203,7 +204,7 @@ export async function getKeyPoolDetails() {
           characterCount: charCount,
           characterLimit: charLimit,
           remainingCharacters: remaining,
-          status: isExhausted ? 'exhausted' : (sub.status === 'active' || !sub.status ? 'ready' : sub.status),
+          status: isExhausted ? 'exhausted' : (isReady ? 'ready' : sub.status || 'ready'),
           isValid: true,
           error: null
         };
