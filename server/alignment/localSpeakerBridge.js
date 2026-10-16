@@ -6,7 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const SCRIPT = fileURLToPath(new URL('../slicing/detect.py', import.meta.url));
-const MODES = new Set(['all', 'timbre_dp', 'spectral_change', 'speaker_embedding', 'speaker_resnet', 'speaker_eres2net', 'speaker_consensus', 'speaker_strict']);
+const MODES = new Set(['all', 'timbre_dp', 'spectral_change', 'speaker_embedding', 'speaker_resnet', 'speaker_eres2net', 'speaker_consensus', 'speaker_strict', 'emotion_experiments']);
 const TIMEOUT_MS = 180_000;
 const OUTPUT_LIMIT = 4 * 1024 * 1024;
 const TIME_TOLERANCE = 0.02;
@@ -22,7 +22,8 @@ export async function checkLocalSpeakerModels() {
 }
 
 function failure(result, message) {
-  return { ...result, success: false, error: message, segments: [] };
+  const rawSegments = Array.isArray(result?.segments) && result.segments.length > 0 ? result.segments : result?.rawSegments;
+  return { ...result, rawSegments, success: false, error: message, segments: [] };
 }
 
 /** Independently reject unsafe boundaries before any clip is written. */
@@ -58,16 +59,16 @@ export function validateEngineResult(result, expectedCount, options = {}, totalD
       return failure(result, `Unsafe segmentation: segment ${i + 1} has invalid timestamps.`);
     }
     if (Math.abs(segment.start - previousEnd) > CONTIGUITY_TOLERANCE) {
-      return failure(result, `Unsafe segmentation: segment ${i + 1} leaves a gap or overlaps the previous segment.`);
+      return failure(result, `Unsafe segmentation: segment ${i + 1} leaves a gap or overlaps the previous segment (start: ${segment.start.toFixed(2)}s vs prev end: ${previousEnd.toFixed(2)}s).`);
     }
     const duration = segment.end - segment.start;
     const effectiveMin = expectedCount === 1 ? Math.min(minDuration, totalDuration) : minDuration;
     if (duration + 0.001 < effectiveMin || duration - 0.001 > maxDuration) {
-      return failure(result, `Unsafe segmentation: segment ${i + 1} violates duration limits.`);
+      return failure(result, `Unsafe segmentation: segment ${i + 1} violates duration limits (${duration.toFixed(2)}s outside [${effectiveMin.toFixed(2)}s - ${Number.isFinite(maxDuration) ? maxDuration.toFixed(2) + 's' : '∞'}]).`);
     }
     if (segment.duration !== undefined &&
         (!Number.isFinite(segment.duration) || Math.abs(segment.duration - duration) > TIME_TOLERANCE)) {
-      return failure(result, `Unsafe segmentation: segment ${i + 1} has inconsistent duration metadata.`);
+      return failure(result, `Unsafe segmentation: segment ${i + 1} has inconsistent duration metadata (${segment.duration}s vs calculated ${duration.toFixed(2)}s).`);
     }
     segments.push({ ...segment, start: segment.start, end: segment.end, duration });
     previousEnd = segment.end;
@@ -203,7 +204,8 @@ export function validateDetectorResult(raw, expectedCount, mode, options, durati
     if (Object.keys(engines).length === 0) return validateEngineResult(raw, expectedCount, options, totalDuration);
     const successful = Object.values(engines).some(engine => engine.success);
     const result = { ...raw, totalDuration, engines, success: successful, segments: [] };
-    if (mode !== 'all') {
+    if (mode === 'emotion_experiments') return result;
+    if (mode !== 'all' && mode !== 'emotion_experiments') {
       const selected = engines[mode];
       if (!selected) return failure(result, `Local detector did not return the requested ${mode} engine.`);
       return { ...result, ...selected, engines };

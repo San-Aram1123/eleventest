@@ -175,8 +175,15 @@ export async function generateContextSwitchingSlicedBatch({
         maxClipDur: 60.0
       });
 
+      if (segResult && Array.isArray(segResult.segments) && segResult.segments.length > 0) {
+        const cuts = segResult.segments.slice(0, -1).map(s => (s.end ? s.end.toFixed(2) + 's' : '?')).join(', ');
+        const durs = segResult.segments.map(s => (s.duration ? s.duration.toFixed(2) + 's' : '?')).join(', ');
+        console.log(`[Context Slicing] Detected ${segResult.segments.length}/${cleanParagraphs.length} segments: cuts=[${cuts}] durations=[${durs}]`);
+      }
+
       if (!segResult.success || !Array.isArray(segResult.segments) || segResult.segments.length !== cleanParagraphs.length) {
         const errReason = segResult?.error || `Expected ${cleanParagraphs.length} clips, but detected ${segResult?.segments?.length || 0}`;
+        console.warn(`[Context Slicing] ❌ Acoustic detection rejected: ${errReason}`);
         throw new Error(`Acoustic QC failed: ${errReason}`);
       }
 

@@ -182,7 +182,7 @@ export const DualPilotConfigCard: React.FC<DualPilotConfigCardProps> = ({
           </div>
 
           <div style={{ fontSize: '0.74rem', color: '#94A3B8', marginBottom: '0.85rem' }}>
-            Chunks of 6 sentences in 1 call • Segmented by all 7 neural slicing engines (auto-selecting best cut).
+            Chunks of 6 sentences in 1 call • Segmented by 8 slicers (7 neural + silence, auto-selecting best cut).
           </div>
 
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>

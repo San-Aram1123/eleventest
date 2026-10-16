@@ -164,7 +164,7 @@ Nonverbal tokens represent physiological and expressive acoustic events that occ
 
 ## 5. Canonical Data Contracts (`metadata.jsonl` Schema)
 
-Each candidate recording in `metadata.jsonl` adheres to this JSON schema:
+Each candidate recording in `metadata.jsonl` adheres to this official JSON schema:
 
 ```json
 {
@@ -172,70 +172,299 @@ Each candidate recording in `metadata.jsonl` adheres to this JSON schema:
   "title": "AudarV20CanonicalRecord",
   "type": "object",
   "required": [
+    "schema_version",
     "id",
     "language",
     "speaker",
+    "gender",
     "audio_path",
     "raw_text",
     "normalized_text",
+    "conditioned_text",
+    "duration_s",
+    "split",
     "x_audar_provenance",
     "x_audar_tracks",
     "x_audar_quality"
   ],
   "properties": {
-    "id": { "type": "string" },
-    "language": { "type": "string", "enum": ["ckb", "ar", "en"] },
-    "speaker": { "type": "string" },
+    "schema_version": { "type": "integer", "const": 2 },
+    "id": { 
+      "type": "string", 
+      "pattern": "^audar_v20_[a-z]{2,3}_\\d{6}$",
+      "description": "Unique record identifier (e.g. audar_v20_ckb_000142)"
+    },
+    "language": { 
+      "type": "string", 
+      "enum": ["ckb", "ar", "en", "kmr"],
+      "description": "ckb (Sorani), ar (Arabic), en (English), kmr (Kurmanji)"
+    },
+    "speaker": { 
+      "type": "string",
+      "description": "Namespaced ID: <provider>__<voice>_<gender> (e.g. gemini__lora_female, human__fatih_male)"
+    },
+    "gender": {
+      "type": "string",
+      "enum": ["male", "female", "unknown"],
+      "description": "Explicit speaker gender for training and evaluation balancing"
+    },
     "audio_path": { "type": "string" },
     "raw_text": { "type": "string" },
     "normalized_text": { "type": "string" },
-    "duration_s": { "type": ["number", "null"] },
+    "conditioned_text": { 
+      "type": "string",
+      "description": "Text with embedded prompt action/emotion tags (e.g. [sigh], [whisper])"
+    },
+    "duration_s": { "type": "number", "minimum": 0.5, "maximum": 30.0 },
     "split": { "type": "string", "enum": ["train", "val", "test", "unassigned"] },
+
     "x_audar_provenance": {
       "type": "object",
-      "required": ["provider", "model_id", "voice_id"],
+      "required": ["provider", "model_id", "voice_id", "audio_sha256", "training_use_authorization"],
       "properties": {
-        "provider": { "type": "string", "enum": ["gemini", "elevenlabs"] },
+        "provider": { 
+          "type": "string", 
+          "enum": ["gemini", "elevenlabs", "human", "studio", "custom"] 
+        },
         "model_id": { "type": "string" },
         "voice_id": { "type": "string" },
         "generation_request_id": { "type": ["string", "null"] },
-        "audio_sha256": { "type": ["string", "null"] },
-        "script_id": { "type": "string" },
-        "created_at": { "type": "string" }
+        "audio_sha256": { "type": "string", "pattern": "^[a-f0-9]{64}$" },
+        "script_id": { "type": ["string", "null"] },
+        "training_use_authorization": { "type": "string" },
+        "created_at": { "type": "string", "format": "date-time" }
       }
     },
+
     "x_audar_tracks": {
       "type": "object",
+      "required": ["emotion", "delivery", "action"],
       "properties": {
         "emotion": {
           "type": "array",
           "items": {
             "type": "object",
-            "required": ["text_span", "intended_components"],
+            "required": ["text_span", "intended_components", "start_s", "end_s"],
             "properties": {
               "text_span": { "type": "string" },
-              "intended_components": { "type": "object" },
-              "verified_components": { "type": ["object", "null"] },
-              "start_s": { "type": ["number", "null"] },
-              "end_s": { "type": ["number", "null"] },
-              "confidence": { "type": ["number", "null"] }
+              "intended_components": {
+                "type": "object",
+                "additionalProperties": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+              },
+              "verified_components": {
+                "type": ["object", "null"],
+                "additionalProperties": { "type": "number", "minimum": 0.0, "maximum": 1.0 }
+              },
+              "start_s": { "type": "number", "minimum": 0.0 },
+              "end_s": { "type": "number", "minimum": 0.0 },
+              "transition_type": { "type": "string", "enum": ["discrete", "gradual", "blended"] },
+              "confidence": { "type": ["number", "null"], "minimum": 0.0, "maximum": 1.0 }
             }
           }
         },
-        "delivery": { "type": "array" },
-        "action": { "type": "array" }
+
+        "delivery": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["start_s", "end_s"],
+            "properties": {
+              "phonation_mode": { "type": "string", "enum": ["modal", "whisper", "breathy", "creaky"] },
+              "speaking_style": { "type": "string", "enum": ["storytelling", "dramatic", "robotic", "monotone", "commanding", "pleading"] },
+              "speaking_rate": { "type": "string", "enum": ["slow", "normal", "rapid"] },
+              "vocal_effort": { "type": "string", "enum": ["soft_spoken", "normal", "shouting", "screaming", "strained"] },
+              "disfluency_mode": { "type": "string", "enum": ["hesitant", "stuttering", "crying_speech", "laughing_speech"] },
+              "start_s": { "type": "number" },
+              "end_s": { "type": "number" }
+            }
+          }
+        },
+
+        "action": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": ["action_tag", "event_type", "start_s", "end_s"],
+            "properties": {
+              "action_tag": { "type": "string" },
+              "event_type": {
+                "type": "string",
+                "enum": [
+                  "laugh", "cry", "sob", "sigh", "gasp", "scream",
+                  "chuckle", "giggle", "groan", "grunt", "yawn",
+                  "cough", "throat_clear", "sniffle", "pant", "hum"
+                ]
+              },
+              "start_s": { "type": "number" },
+              "end_s": { "type": "number" },
+              "intensity": { "type": "number", "minimum": 0.0, "maximum": 1.0 },
+              "embedded": { "type": "boolean" },
+              "text_anchor": { "type": ["string", "null"] }
+            }
+          }
+        }
       }
     },
+
+    "x_audar_word_alignment": {
+      "type": ["array", "null"],
+      "items": {
+        "type": "object",
+        "required": ["word", "start_s", "end_s", "char_start", "char_end"],
+        "properties": {
+          "word": { "type": "string" },
+          "start_s": { "type": "number" },
+          "end_s": { "type": "number" },
+          "char_start": { "type": "integer" },
+          "char_end": { "type": "integer" },
+          "confidence": { "type": "number" }
+        }
+      }
+    },
+
     "x_audar_quality": {
       "type": "object",
+      "required": ["status", "native_reviewed", "emotion_verified", "alignment_verified"],
       "properties": {
         "status": { "type": "string", "enum": ["pending", "accepted", "rejected", "needs_review"] },
         "native_reviewed": { "type": "boolean" },
         "emotion_verified": { "type": "boolean" },
-        "alignment_verified": { "type": "boolean" }
+        "alignment_verified": { "type": "boolean" },
+        "snr_db": { "type": ["number", "null"] },
+        "boundary_qc_pass": { "type": "boolean" }
       }
     }
   }
 }
 ```
+
+---
+
+## 6. Official Concrete Example Record (`metadata.jsonl`)
+
+```json
+{
+  "schema_version": 2,
+  "id": "audar_v20_ckb_000142",
+  "language": "ckb",
+  "speaker": "gemini__lora_female",
+  "gender": "female",
+  "audio_path": "audio/audar_v20_ckb_000142.wav",
+  "raw_text": "من پێم وابوو هەموو شتێک باش دەبێت، بەڵام هەموو شتێک گۆڕا.",
+  "normalized_text": "من پێم وابوو هەموو شتێک باش دەبێت بەڵام هەموو شتێک گۆڕا",
+  "conditioned_text": "من پێم وابوو هەموو شتێک باش دەبێت، [sigh] بەڵام هەموو شتێک گۆڕا.",
+  "duration_s": 4.86,
+  "split": "train",
+  "x_audar_provenance": {
+    "provider": "gemini",
+    "model_id": "gemini-3.8-flash-tts",
+    "voice_id": "Lora",
+    "generation_request_id": "gem_req_981240182",
+    "audio_sha256": "4b72a6b22bbf58145a805f458156157831d34c679237ec9b5336d391669466da",
+    "script_id": "script_ckb_narrative_0081",
+    "training_use_authorization": "audar_v20_authorized_synthetic",
+    "created_at": "2026-10-15T15:00:00Z"
+  },
+  "x_audar_tracks": {
+    "emotion": [
+      {
+        "text_span": "من پێم وابوو هەموو شتێک باش دەبێت،",
+        "intended_components": { "neutral": 0.0 },
+        "verified_components": { "neutral": 0.94 },
+        "start_s": 0.08,
+        "end_s": 2.45,
+        "transition_type": "gradual",
+        "confidence": 0.95
+      },
+      {
+        "text_span": "بەڵام هەموو شتێک گۆڕا.",
+        "intended_components": { "sad": 0.8 },
+        "verified_components": { "sad": 0.82 },
+        "start_s": 2.45,
+        "end_s": 4.78,
+        "transition_type": "gradual",
+        "confidence": 0.91
+      }
+    ],
+    "delivery": [
+      {
+        "phonation_mode": "modal",
+        "speaking_style": "storytelling",
+        "speaking_rate": "normal",
+        "vocal_effort": "normal",
+        "start_s": 0.08,
+        "end_s": 4.78
+      }
+    ],
+    "action": [
+      {
+        "action_tag": "[sigh]",
+        "event_type": "sigh",
+        "start_s": 2.30,
+        "end_s": 2.60,
+        "intensity": 0.65,
+        "embedded": true,
+        "text_anchor": "بەڵام"
+      }
+    ]
+  },
+  "x_audar_word_alignment": [
+    { "word": "من", "start_s": 0.08, "end_s": 0.35, "char_start": 0, "char_end": 2, "confidence": 0.98 },
+    { "word": "پێم", "start_s": 0.36, "end_s": 0.62, "char_start": 3, "char_end": 6, "confidence": 0.97 },
+    { "word": "وابوو", "start_s": 0.63, "end_s": 1.05, "char_start": 7, "char_end": 12, "confidence": 0.96 }
+  ],
+  "x_audar_quality": {
+    "status": "accepted",
+    "native_reviewed": true,
+    "emotion_verified": true,
+    "alignment_verified": true,
+    "snr_db": 34.2,
+    "boundary_qc_pass": true
+  }
+}
+```
+
+---
+
+## 7. Derived Token Manifest (`tokens.jsonl` — 50Hz NeuCodec)
+
+```json
+{
+  "schema_version": 2,
+  "id": "audar_v20_ckb_000142",
+  "text": "من پێم وابوو هەموو شتێک باش دەبێت بەڵام هەموو شتێک گۆڕا",
+  "speaker": "gemini__lora_female",
+  "gender": "female",
+  "language": "ckb",
+  "split": "train",
+  "duration_s": 4.86,
+  "codec_frame_count": 243,
+  "tokens": [
+    [1042, 8540, 1204, 309, 4421, 9821]
+  ],
+  "frame_tracks": {
+    "emotion_frames": [
+      { "start_frame": 4, "end_frame": 122, "emotion": "neutral", "intensity": 0.0 },
+      { "start_frame": 123, "end_frame": 239, "emotion": "sad", "intensity": 0.8 }
+    ],
+    "delivery_frames": [
+      { "start_frame": 4, "end_frame": 239, "mode": "modal", "style": "storytelling" }
+    ],
+    "action_frames": [
+      { "start_frame": 115, "end_frame": 130, "action": "sigh", "intensity": 0.65 }
+    ]
+  },
+  "provenance_ref": "4b72a6b22bbf58145a805f458156157831d34c679237ec9b5336d391669466da"
+}
+```
+
+---
+
+## 8. Mandatory Production Rules (Kak Faraidun Specifications)
+
+1. **Explicit Gender**: Always export explicit `"gender": "male"`, `"female"`, or `"unknown"`.
+2. **`conditioned_text` Inclusion**: Whenever an emotion or action occurs (e.g., sigh, laughter, whisper), `conditioned_text` must contain the inline tag (e.g. `[sigh]`, `[whisper]`) so the TTS/STT conditioning models can train on it directly.
+3. **Namespaced Speaker IDs**: Strictly format speaker IDs as `<provider>__<voice>_<gender>` (e.g. `gemini__lora_female`, `elevenlabs__sarah_female`, `studio__azad_male`).
+4. **50Hz Frame Math**: Since NeuCodec runs at 50Hz, enforce `codec_frame_count == Math.round(duration_s * 50)`.
+
 

@@ -68,6 +68,8 @@ export async function generateGeminiDualPilotChunk(payload: {
     gender: 'Female' | 'Male';
     duration: number;
     audioUrl: string;
+    rejected?: boolean;
+    rejectionReason?: string;
   }>;
   masterAudioUrl: string;
 }> {

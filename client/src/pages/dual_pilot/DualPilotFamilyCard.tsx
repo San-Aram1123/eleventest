@@ -215,10 +215,15 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
               </span>
             </div>
             {gTake ? (
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
+              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
                 <span style={{ color: '#38BDF8', fontWeight: 600 }}>{gTake.slicingEngine || 'best_engine'}</span>
                 <span>• {gTake.duration.toFixed(1)}s</span>
                 <span style={{ textTransform: 'capitalize', color: '#C084FC' }}>[{gTake.emotion}]</span>
+                {gTake.rejected && (
+                  <span style={{ color: '#EF4444', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }} title={gTake.rejectionReason || 'Rejected by silence duration guardrail'}>
+                    REJECTED ({gTake.duration < 6 ? '<6s' : '>=16s'})
+                  </span>
+                )}
               </div>
             ) : (
               <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>Waiting for batch condition...</div>

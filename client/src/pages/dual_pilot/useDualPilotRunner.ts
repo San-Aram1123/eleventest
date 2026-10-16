@@ -193,6 +193,8 @@ export function useDualPilotRunner({ paragraphs = [], geminiParagraphs, elevenPa
                     audioUrl: clip.audioUrl,
                     slicingEngine: geminiRes.selectedEngine,
                     slicingScore: geminiRes.selectionScore,
+                    rejected: clip.rejected,
+                    rejectionReason: clip.rejectionReason,
                     createdAt: Date.now()
                   };
                   return {

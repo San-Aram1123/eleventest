@@ -16,6 +16,7 @@ import {
 } from '../datasetService.js';
 import { extractEmotionAndCleanText, normalizeEmotionName } from '../emotionUtils.js';
 import { exportAudarCanonicalZip, getAudarDatasetSummary } from '../audarExporter.js';
+import { exportV20DatasetZip } from '../v20Exporter.js';
 import { setSampleReviewStatus } from '../dataset/sampleReview.js';
 
 const router = express.Router();
@@ -111,6 +112,17 @@ router.get('/export/zip', async (req, res) => {
 router.get('/export/audar-zip', async (req, res) => {
   try {
     await exportAudarCanonicalZip(res, req.query);
+  } catch (err) {
+    if (!res.headersSent) res.status(500).json({ error: err.message });
+  }
+});
+
+/**
+ * Download dataset formatted strictly in Audar V20 Master Schema (metadata.jsonl + tokens.jsonl + audio)
+ */
+router.get('/export/v20-zip', async (req, res) => {
+  try {
+    await exportV20DatasetZip(res, req.query);
   } catch (err) {
     if (!res.headersSent) res.status(500).json({ error: err.message });
   }

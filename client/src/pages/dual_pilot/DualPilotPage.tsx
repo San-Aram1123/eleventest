@@ -8,6 +8,7 @@ import { useDualPilotRunner } from './useDualPilotRunner';
 import { fetchDualPilotConfig, DualPilotConfigResponse, FALLBACK_ELEVEN_VOICES } from './dualPilotApi';
 import { DualPilotConfig, DUAL_PILOT_LANGUAGES } from './dualPilotTypes';
 import { V20_PRESET_TIERS } from './v20Conditions';
+import { DualPilotEmotionExperiment } from './DualPilotEmotionExperiment';
 
 interface DualPilotPageProps {
   addToast: (toast: { type: 'success' | 'error' | 'info'; title: string; message?: string }) => void;
@@ -131,7 +132,7 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
             </span>
           </h2>
           <p style={{ margin: '0.25rem 0 0', color: '#94A3B8', fontSize: '0.85rem' }}>
-            Transposed 6-sentence master with 7 neural slicing engines (Gemini) • 1-by-1 with key rotation (ElevenLabs v4 Turbo) • Auto-loops through all tier conditions.
+            Transposed 6-sentence master with 8 slicing engines (7 neural + silence, Gemini) • 1-by-1 with key rotation (ElevenLabs v4 Turbo) • Auto-loops through all tier conditions.
           </p>
         </div>
 
@@ -228,6 +229,16 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
           </div>
         )}
       </div>
+
+      <DualPilotEmotionExperiment
+        paragraphs={geminiParagraphs}
+        femaleVoice={config.geminiFemaleVoice}
+        maleVoice={config.geminiMaleVoice}
+        emotion={config.smokeEmotion || 'neutral'}
+        language={config.language}
+        dialect={config.dialect}
+        disabled={runner.progress.isActive}
+      />
 
       {/* Generated Families List */}
       {runner.families.length > 0 && (

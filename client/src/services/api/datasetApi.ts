@@ -84,6 +84,10 @@ export function getAudarZipExportUrl(filters?: DatasetExportFilters): string {
   return `${API_BASE}/dataset/export/audar-zip${buildExportQuery(filters)}`;
 }
 
+export function getV20ZipExportUrl(filters?: DatasetExportFilters): string {
+  return `${API_BASE}/dataset/export/v20-zip${buildExportQuery(filters)}`;
+}
+
 export async function fetchExportPreview(filters?: DatasetExportFilters): Promise<{
   count: number;
   totalSamples: number;

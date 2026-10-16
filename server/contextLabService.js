@@ -4,12 +4,13 @@ import os from 'os';
 import { generateGeminiSpeech } from './geminiService.js';
 import { detectViaSpeakerAcoustics } from './alignment/whisperBridge.js';
 import { detectLocalSpeakerSegments, validateEngineResult } from './alignment/localSpeakerBridge.js';
+import { detectViaSilence } from './alignment/silenceDetector.js';
 import { readPcmWav, decodeWavDataUrl, slicePcmWav } from './shared/wavPcm.js';
 import { buildContextLabBatchPrompt } from './contextLabPrompt.js';
 
 export { buildContextLabBatchPrompt } from './contextLabPrompt.js';
 
-const LOCAL_ENGINES = ['timbre_dp', 'spectral_change', 'speaker_embedding', 'speaker_resnet', 'speaker_eres2net', 'speaker_consensus', 'speaker_strict', 'all'];
+const LOCAL_ENGINES = ['timbre_dp', 'spectral_change', 'speaker_embedding', 'speaker_resnet', 'speaker_eres2net', 'speaker_consensus', 'speaker_strict', 'silence', 'all'];
 const LEGACY_ENGINES = ['pyannote', 'pitch_f0', 'neural_crossover', 'tri_hybrid', 'iterative_dp'];
 
 function abortIfNeeded(signal) {
@@ -108,15 +109,35 @@ export function createContextLabService({
       abortIfNeeded(params.signal);
       let detection;
       try {
-        detection = LEGACY_ENGINES.includes(config.mode)
-          ? await detectLegacy(master, config.cleanParagraphs.length, config.mode, config.cleanParagraphs)
-          : await detectSegments(master, config.cleanParagraphs.length, config.mode, options, params.signal);
+        if (config.mode === 'silence') {
+          detection = await detectViaSilence(master, config.cleanParagraphs.length, {
+            sentences: config.cleanParagraphs,
+            minClipDur: 6.0,
+            maxClipDur: 16.5
+          });
+        } else {
+          detection = LEGACY_ENGINES.includes(config.mode)
+            ? await detectLegacy(master, config.cleanParagraphs.length, config.mode, config.cleanParagraphs)
+            : await detectSegments(master, config.cleanParagraphs.length, config.mode, options, params.signal);
+        }
       } catch (error) {
         abortIfNeeded(params.signal);
         detection = { success: false, error: error.message };
       }
       abortIfNeeded(params.signal);
       const rawEngines = detection.engines || { [config.mode]: detection };
+      if (config.mode === 'all') {
+        try {
+          const sil = await detectViaSilence(master, config.cleanParagraphs.length, {
+            sentences: config.cleanParagraphs,
+            minClipDur: 6.0,
+            maxClipDur: 16.5
+          });
+          if (sil?.success && Array.isArray(sil.segments) && sil.segments.length === config.cleanParagraphs.length) {
+            rawEngines.silence = sil;
+          }
+        } catch (_) {}
+      }
       const engineResults = {};
       for (const [key, raw] of Object.entries(rawEngines)) {
         const checked = validateEngineResult(raw, config.cleanParagraphs.length, options, wav.duration);

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import { atomicJson, readJson } from './fileStore.js';
 import { compactAnalysis, selectBestEngine } from './selection.js';
 import { logAutoProgress as writeLog } from './progressLog.js';
+import { logSlicingReport } from '../alignment/slicingLogger.js';
 
 export async function analyzeAutoBatch(job, batch, { store, analyze, saveClips }, update) {
   const logAutoProgress = (job, message, batch) => writeLog(job, message, batch, store.root);
@@ -23,7 +24,23 @@ export async function analyzeAutoBatch(job, batch, { store, analyze, saveClips }
         score: item.diagnostics?.minConfidence, elapsedMs: item.diagnostics?.elapsedMs
       }));
       logAutoProgress(job, batch.methods.map(method => `${method.engine}: ${method.success ? 'accepted' : 'rejected'}`).join(' | '), batch);
-      selection = selectBestEngine(result, batch.paragraphs, job.config.options);
+      let selErr = null;
+      try {
+        selection = selectBestEngine(result, batch.paragraphs, job.config.options);
+      } catch (err) {
+        selErr = err;
+      }
+      logSlicingReport({
+        title: `Context Auto Job ${job.id.slice(0, 8)} Group ${batch.number + 1} Slicing Report`,
+        provider: job.config?.model || 'Gemini 3.8',
+        masterPath: masterFile,
+        duration: result.durationSeconds,
+        expectedCount: batch.paragraphs.length,
+        engineResults: result.engineResults,
+        selection,
+        failureError: selErr?.message
+      });
+      if (selErr) throw selErr;
       atomicJson(selectionFile, selection);
     }
     batch.selectedEngine = selection.engine; batch.selectionReason = selection.reason;

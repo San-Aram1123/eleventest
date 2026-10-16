@@ -7,8 +7,10 @@ import sys
 from audio_features import load_audio
 from engines import DESCRIPTIONS, run_engine
 from consensus import consensus, NEURAL_ENGINES, DESCRIPTION
+from emotion_experiments import run_emotion_experiments
 
 MODES = {**DESCRIPTIONS, 'speaker_consensus': DESCRIPTION}
+EXPERIMENT_MODE = 'emotion_experiments'
 
 
 def validate_options(options, count, duration):
@@ -47,10 +49,14 @@ def validate_options(options, count, duration):
 def detect(filename, count, mode='all', options=None):
     if not isinstance(count, int) or isinstance(count, bool) or not 1 <= count <= 40:
         raise ValueError('Expected count must be an integer from 1 to 40.')
-    if mode != 'all' and mode not in MODES:
+    if mode not in ('all', EXPERIMENT_MODE) and mode not in MODES:
         raise ValueError('Unknown local speaker detection mode.')
     audio, rate, duration = load_audio(filename)
     options = validate_options(dict(options or {}), count, duration)
+    if mode == EXPERIMENT_MODE:
+        results = run_emotion_experiments(audio, rate, count, options)
+        return {'success': any(item['success'] for item in results.values()),
+                'totalDuration': round(duration, 6), 'engines': results}
     names = list(DESCRIPTIONS) if mode == 'all' else list(NEURAL_ENGINES) if mode == 'speaker_consensus' else [mode]
     identity_cache = {}
     engines = {name: run_engine(name, audio, rate, count, options, identity_cache) for name in names}
@@ -86,7 +92,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('audio')
     parser.add_argument('count', type=int)
-    parser.add_argument('--mode', choices=[*MODES, 'all'], default='all')
+    parser.add_argument('--mode', choices=[*MODES, EXPERIMENT_MODE, 'all'], default='all')
     parser.add_argument('--options-file')
     args = parser.parse_args()
     try:

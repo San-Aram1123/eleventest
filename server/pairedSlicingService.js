@@ -236,14 +236,18 @@ export async function generateTransposedEmotionBatch({
 
     if (signal?.aborted) throw new Error('[Transposed Batch] Aborted by user.');
 
-    // Step 1: Detect sentence segments using chosen strategy (kurdish_align, markers, or silence)
     console.log(`[Transposed Batch] Segmenting audio with strategy "${slicingStrategy}" (expecting ${cleanSentences.length} sentences)...`);
     const segResult = await detectWhisperSegments(tempMaster, cleanSentences.length, { slicingStrategy, sentences: cleanSentences });
 
     const segConfidence = Number(segResult.confidence || 0.95);
+    if (segResult.segments?.length) {
+      const cuts = segResult.segments.slice(0, -1).map(s => (s.end ? s.end.toFixed(2) + 's' : '?')).join(', ');
+      const durs = segResult.segments.map(s => (s.duration ? s.duration.toFixed(2) + 's' : '?')).join(', ');
+      console.log(`[Transposed Batch] Strategy "${slicingStrategy}" detected ${segResult.segments.length}/${cleanSentences.length} cuts=[${cuts}] durs=[${durs}] (confidence: ${segConfidence.toFixed(3)})`);
+    }
     if (!segResult.success || segResult.hasOutlier || segConfidence < 0.70) {
-      const errReason = segResult.error || segResult.outlierReason || `Segmentation confidence too low (${segConfidence})`;
-      console.error(`[Transposed Batch] Slicing QC failed: ${errReason}`);
+      const errReason = segResult.error || segResult.outlierReason || `Segmentation confidence too low (${segConfidence.toFixed(3)})`;
+      console.error(`[Transposed Batch] ❌ Slicing QC failed: ${errReason}`);
       throw new Error(`[Transposed Batch] Slicing aborted: ${errReason}`);
     }
 

@@ -17,6 +17,8 @@ export interface DualPilotTake {
   keyUsedMasked?: string;
   slicingEngine?: string;
   slicingScore?: number;
+  rejected?: boolean;
+  rejectionReason?: string;
   createdAt: number;
 }
 

@@ -3,7 +3,8 @@ import path from 'node:path';
 import os from 'node:os';
 import { generateGeminiSpeech, sanitizeVoice, normalizeMultilingualBidiText, analyzeMultilingualContent } from './geminiService.js';
 import { detectLocalSpeakerSegments, validateEngineResult } from './alignment/localSpeakerBridge.js';
-import { selectBestEngine } from './contextAuto/selection.js';
+import { evaluateGeminiClipAcceptance } from './shared/geminiClipAcceptance.js';
+import { buildHybridCutPlan } from './hybridCutSelector.js';
 import { readPcmWav, slicePcmWav } from './shared/wavPcm.js';
 import { getEmotionPromptDirective, getEmotionSpeechStyle } from './pairedEmotionConfig.js';
 import { callElevenLabsTTS } from './elevenlabs/ttsClient.js';
@@ -11,6 +12,8 @@ import { getKeyPool } from './elevenlabs/keyPoolManager.js';
 import { saveSample } from './datasetService.js';
 import { getElevenLabsEmotionSettings } from './shared/v20EmotionCatalog.js';
 import { extractEmotionAndCleanText } from './emotionUtils.js';
+import { detectViaSilence } from './alignment/silenceDetector.js';
+import { logSlicingReport, formatSlicingFailureSummary } from './alignment/slicingLogger.js';
 
 let elevenlabsKeyIndex = 0;
 
@@ -102,7 +105,7 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
   });
 
   const baseDirective = options.customInstruction || getEmotionPromptDirective(baseEmotion, intensity, language);
-  const instruction = `You are directing two native ${langLabel} voice actors. Speaker1 (${femaleVoice}, Female) and Speaker2 (${maleVoice}, Male) alternate turns. Deliver every line in order. ${baseDirective}.${deliveryNote}${codeSwitchingRule}`;
+  const instruction = `You are directing two native ${langLabel} voice actors. Speaker1 (${femaleVoice}, Female) and Speaker2 (${maleVoice}, Male) alternate turns. Deliver every line in order. Pause clearly between speaker turns. ${baseDirective}.${deliveryNote}${codeSwitchingRule}`;
 
   return {
     cleanParagraphs,
@@ -162,7 +165,7 @@ export async function generateGeminiDualPilotBatch(params = {}) {
   const wav = readPcmWav(audioBuffer);
 
   console.log(`   ✓ [Gemini 3.8] Master WAV received: ${wav.duration.toFixed(2)}s (${(audioBuffer.length / 1024).toFixed(1)} KB)`);
-  console.log(`   ├─ Running 7 neural slicing engines across master WAV...`);
+  console.log(`   ├─ Running 8 neural & silence slicing engines across master WAV...`);
 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dual_gemini_'));
   const masterPath = path.join(directory, 'master.wav');
@@ -170,51 +173,153 @@ export async function generateGeminiDualPilotBatch(params = {}) {
 
   try {
     const count = config.cleanParagraphs.length;
-    const detection = await detectLocalSpeakerSegments(masterPath, count, 'all', {}, signal);
+    const [detection, silenceResult] = await Promise.all([
+      detectLocalSpeakerSegments(masterPath, count, 'all', {}, signal),
+      detectViaSilence(masterPath, count, {
+        sentences: config.cleanParagraphs,
+        minClipDur: 6.0,
+        maxClipDur: 16
+      }).catch(err => ({ success: false, error: err.message }))
+    ]);
 
     if (signal?.aborted) throw new Error('Aborted by user.');
 
     const rawEngines = detection.engines || { all: detection };
+
+    // Register silence slicing engine from Expressive Pilot among candidates
+    if (silenceResult?.success && Array.isArray(silenceResult.segments) && silenceResult.segments.length === count) {
+      rawEngines.silence = {
+        success: true,
+        totalDuration: wav.duration,
+        segments: silenceResult.segments,
+        confidence: silenceResult.confidence || 0.88,
+        diagnostics: {
+          minConfidence: silenceResult.confidence || 0.88,
+          strategy: 'silence',
+          qcMetrics: silenceResult.qcMetrics || null
+        }
+      };
+    } else {
+      rawEngines.silence = {
+        success: false,
+        totalDuration: wav.duration,
+        error: silenceResult?.error || `Expected ${count} pauses, found ${silenceResult?.segments?.length || 0}`,
+        segments: silenceResult?.segments || [],
+        confidence: silenceResult?.confidence || 0,
+        diagnostics: {
+          strategy: 'silence',
+          error: silenceResult?.error || 'Acoustic pause count mismatch'
+        }
+      };
+    }
+
     const engineResults = {};
 
     for (const [key, raw] of Object.entries(rawEngines)) {
       const checked = validateEngineResult(raw, count, {}, wav.duration);
-      if (checked.success) {
+      const originalStrictRejection = checked.success ? null : (checked.error || raw.error || 'Strict acoustic gate rejected this method.');
+      const acceptance = evaluateGeminiClipAcceptance(checked, count, wav.duration);
+      checked.success = acceptance.accepted;
+      checked.acceptedByGeminiClipPolicy = acceptance.accepted;
+      checked.diagnostics = { ...(checked.diagnostics || {}), clipAcceptancePolicy: {
+        expectedCount: count, minSeconds: 6, maxSeconds: 16, accepted: acceptance.accepted,
+        reason: acceptance.reason, originalStrictRejection
+      } };
+      if (acceptance.accepted) {
+        checked.originalStrictRejection = originalStrictRejection;
+        checked.error = undefined;
         try {
-          const segments = checked.segments.map((seg, idx) => ({
-            ...seg,
-            start: idx === 0 ? 0 : checked.segments[idx - 1].end,
-            end: idx === checked.segments.length - 1 ? wav.duration : seg.end
+          const segments = acceptance.segments.map((segment, idx) => ({
+            ...segment,
+            start: idx === 0 ? 0 : acceptance.segments[idx - 1].end,
+            end: idx === acceptance.segments.length - 1 ? wav.duration : segment.end
           }));
           const buffers = await slicePcmWav(audioBuffer, segments);
+          checked.segments = segments;
           checked.buffers = buffers;
           checked.clips = config.parsedParagraphs.map((para, idx) => ({
-            index: idx + 1,
-            engine: key,
-            text: para.cleanText,
-            rawText: para.rawText,
-            emotion: para.emotion,
-            emotionTag: para.emotionTag,
-            hasInlineTag: para.hasInlineTag,
+            index: idx + 1, engine: key, text: para.cleanText, rawText: para.rawText,
+            emotion: para.emotion, emotionTag: para.emotionTag, hasInlineTag: para.hasInlineTag,
             speakerName: idx % 2 === 0 ? config.cleanSpk1 : config.cleanSpk2,
-            gender: idx % 2 === 0 ? 'Female' : 'Male',
-            start: segments[idx].start,
-            end: segments[idx].end,
-            duration: segments[idx].end - segments[idx].start,
+            gender: idx % 2 === 0 ? 'Female' : 'Male', start: segments[idx].start,
+            end: segments[idx].end, duration: segments[idx].duration,
             audioUrl: `data:audio/wav;base64,${buffers[idx].toString('base64')}`
           }));
-        } catch {
+        } catch (err) {
           checked.success = false;
+          checked.acceptedByGeminiClipPolicy = false;
+          checked.error = `PCM buffer slicing failed: ${err.message}`;
         }
+      } else {
+        checked.error = acceptance.reason;
       }
       engineResults[key] = checked;
     }
 
-    const selection = selectBestEngine({ engineResults, durationSeconds: wav.duration }, config.cleanParagraphs, {});
+    const acceptedMethods = Object.entries(engineResults).filter(([, item]) =>
+      item.acceptedByGeminiClipPolicy && item.clips?.length === count && item.buffers?.length === count);
+    const hybridPlan = acceptedMethods.length ? null : buildHybridCutPlan(
+      Object.entries(engineResults).map(([name, item]) => ({ name, ...item })), count, wav.duration, config.cleanParagraphs);
+    let selection;
+    if (acceptedMethods.length) {
+      acceptedMethods.sort((left, right) =>
+        Number(right[1].diagnostics?.minConfidence || right[1].confidence || 0) -
+        Number(left[1].diagnostics?.minConfidence || left[1].confidence || 0));
+      const [engine, item] = acceptedMethods[0];
+      selection = { engine, score: Number(item.diagnostics?.minConfidence || item.confidence || 0),
+        segments: item.segments, pendingReview: false,
+        reason: item.originalStrictRejection
+          ? `Accepted by Gemini clip policy: exact ${count}-clip partition and every clip is 6.00–16.00 seconds; original strict gate: ${item.originalStrictRejection}`
+          : `Accepted by Gemini clip policy: exact ${count}-clip partition and every clip is 6.00–16.00 seconds.` };
+    } else if (hybridPlan?.success) {
+      const acceptance = evaluateGeminiClipAcceptance(hybridPlan, count, wav.duration);
+      if (acceptance.accepted) {
+        const buffers = await slicePcmWav(audioBuffer, acceptance.segments);
+        const clips = config.parsedParagraphs.map((para, idx) => ({
+          index: idx + 1, engine: 'per_boundary_hybrid', text: para.cleanText, rawText: para.rawText,
+          emotion: para.emotion, emotionTag: para.emotionTag, hasInlineTag: para.hasInlineTag,
+          speakerName: idx % 2 === 0 ? config.cleanSpk1 : config.cleanSpk2,
+          gender: idx % 2 === 0 ? 'Female' : 'Male', start: acceptance.segments[idx].start,
+          end: acceptance.segments[idx].end, duration: acceptance.segments[idx].duration,
+          audioUrl: `data:audio/wav;base64,${buffers[idx].toString('base64')}`
+        }));
+        engineResults.per_boundary_hybrid = { success: true, acceptedByGeminiClipPolicy: true,
+          segments: acceptance.segments, clips, buffers, diagnostics: { hybridPlan },
+          clipAcceptancePolicy: { accepted: true, reason: acceptance.reason } };
+        selection = { engine: 'per_boundary_hybrid', score: 1, segments: acceptance.segments,
+          pendingReview: false, reason: `Accepted hybrid: each handoff uses the best available slicer proposal; ${acceptance.reason}` };
+      }
+    }
+    if (!selection) {
+      logSlicingReport({
+        title: 'Dual Pilot Gemini Master Slicing Report',
+        provider: 'Gemini 3.8',
+        masterPath,
+        duration: wav.duration,
+        expectedCount: count,
+        engineResults,
+        selection: null,
+        failureError: 'No Gemini method produced the expected number of clips with every duration in the inclusive 6.00–16.00 second range.'
+      });
+      const summary = formatSlicingFailureSummary(engineResults);
+      throw new Error(`Slicing failed: no method produced exactly ${count} clips all within 6.00–16.00 seconds.\nEngine breakdown: [${summary}]`);
+    }
+
+    logSlicingReport({
+      title: 'Dual Pilot Gemini Master Slicing Report',
+      provider: 'Gemini 3.8',
+      masterPath,
+      duration: wav.duration,
+      expectedCount: count,
+      engineResults,
+      selection
+    });
+
     const chosenResult = engineResults[selection.engine];
 
     if (!chosenResult || !chosenResult.clips || chosenResult.clips.length !== count) {
-      throw new Error(`Slicing failed: Best engine ${selection.engine} could not resolve clean segments.`);
+      const summary = formatSlicingFailureSummary(engineResults);
+      throw new Error(`Slicing failed: Best engine ${selection.engine} could not resolve clean segments. Engine breakdown: [${summary}]`);
     }
 
     console.log(`   ✓ [Gemini 3.8] Slicing succeeded with engine: [${selection.engine}] (Score: ${selection.score})`);
@@ -226,6 +331,12 @@ export async function generateGeminiDualPilotBatch(params = {}) {
         const clip = chosenResult.clips[i];
         const clipEmotion = clip.emotion || params.emotion || 'neutral';
         const clipEmotionTag = clip.emotionTag || (clipEmotion !== 'neutral' ? `[${clipEmotion}]` : '');
+
+        if (clip.rejected) {
+          console.warn(`   ⚠️ [Gemini Clip Policy] Clip #${i + 1} (${clip.duration.toFixed(2)}s) is outside the inclusive 6.0–16.0s range. Skipping dataset registration.`);
+          continue;
+        }
+
         try {
           const saved = await saveSample({
             text: clip.text,

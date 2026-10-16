@@ -2,6 +2,7 @@ import express from 'express';
 import { generateGeminiDualPilotBatch, generateElevenLabsDualPilotTake } from '../dualPilotService.js';
 import { getAvailableGeminiVoices, getGeminiKeyPoolDetails } from '../geminiService.js';
 import { getVoices as getElevenVoices, getModels as getElevenModels, getKeyPoolDetails as getElevenKeyPoolDetails } from '../elevenlabs.js';
+import { runGeminiEmotionExperiment } from '../dualPilotEmotionExperiment.js';
 
 const router = express.Router();
 const activeControllers = new Set();
@@ -51,6 +52,24 @@ router.post('/gemini-chunk', async (req, res) => {
     res.status(400).json({ error: err.message });
   } finally {
     activeControllers.delete(controller);
+  }
+});
+
+router.post('/gemini-emotion-experiment', async (req, res) => {
+  const controller = new AbortController();
+  res.setHeader('Content-Type', 'text/event-stream; charset=utf-8');
+  res.setHeader('Cache-Control', 'no-cache, no-transform');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders?.();
+  const send = event => { if (!res.writableEnded) res.write(`data: ${JSON.stringify(event)}\n\n`); };
+  res.on('close', () => controller.abort());
+  try {
+    const result = await runGeminiEmotionExperiment({ ...req.body, signal: controller.signal, onProgress: send });
+    send({ stage: 'result', result });
+  } catch (error) {
+    send({ stage: 'error', detail: error.message });
+  } finally {
+    res.end();
   }
 });
 

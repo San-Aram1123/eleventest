@@ -1,7 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { X, Download } from 'lucide-react';
 import { Sample, DatasetExportFilters } from '../types';
-import { getZipExportUrl, getAudarZipExportUrl } from '../services/api';
+import { getZipExportUrl, getAudarZipExportUrl, getV20ZipExportUrl } from '../services/api';
 import { getSampleGender, GEMINI_FEMALE_VOICES, GEMINI_MALE_VOICES } from '../utils/genderUtils';
 import { formatDuration } from '../utils/audioFormatters';
 import { ExportPresetSelector, PresetType } from './dataset/export/ExportPresetSelector';
@@ -35,7 +35,7 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
   const [filterDialect, setFilterDialect] = useState<string>('all');
   const [filterEmotion, setFilterEmotion] = useState<string>('all');
   const [filterMethod, setFilterMethod] = useState<string>('all');
-  const [copiedLink, setCopiedLink] = useState<'raw' | 'audar' | null>(null);
+  const [copiedLink, setCopiedLink] = useState<'raw' | 'audar' | 'v20' | null>(null);
 
   const { maleCount, femaleCount, soraniCount, badiniCount, ckbCount, enCount } = useMemo(() => {
     let m = 0;
@@ -139,9 +139,10 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
 
   const rawZipUrl = useMemo(() => getZipExportUrl(effectiveFilters), [effectiveFilters]);
   const audarZipUrl = useMemo(() => getAudarZipExportUrl(effectiveFilters), [effectiveFilters]);
+  const v20ZipUrl = useMemo(() => getV20ZipExportUrl(effectiveFilters), [effectiveFilters]);
 
-  const handleCopyLink = (type: 'raw' | 'audar') => {
-    const relativeUrl = type === 'raw' ? rawZipUrl : audarZipUrl;
+  const handleCopyLink = (type: 'raw' | 'audar' | 'v20') => {
+    const relativeUrl = type === 'raw' ? rawZipUrl : type === 'audar' ? audarZipUrl : v20ZipUrl;
     navigator.clipboard.writeText(`${window.location.origin}${relativeUrl}`).then(() => {
       setCopiedLink(type);
       addToast?.({ type: 'success', title: 'Link Copied', message: 'Direct download link copied to clipboard!' });
@@ -229,6 +230,7 @@ export const ExportDatasetModal: React.FC<ExportDatasetModalProps> = ({
           <ExportDownloadCards
             rawZipUrl={rawZipUrl}
             audarZipUrl={audarZipUrl}
+            v20ZipUrl={v20ZipUrl}
             matchedCount={matchedStats.count}
             copiedLink={copiedLink}
             onCopyLink={handleCopyLink}
