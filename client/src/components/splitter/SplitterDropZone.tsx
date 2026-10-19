@@ -36,9 +36,9 @@ export const SplitterDropZone: React.FC<SplitterDropZoneProps> = ({
       }}
       style={{
         padding: '18px',
-        border: isDragOver ? '2px dashed #38BDF8' : '2px dashed rgba(255, 255, 255, 0.15)',
+        border: isDragOver ? '2px dashed #38BDF8' : '2px dashed var(--border-subtle)',
         borderRadius: 'var(--radius-md)',
-        background: isDragOver ? 'rgba(56, 189, 248, 0.1)' : 'rgba(15, 23, 42, 0.5)',
+        background: isDragOver ? 'rgba(56, 189, 248, 0.1)' : 'var(--bg-box)',
         cursor: 'pointer',
         textAlign: 'center',
         minWidth: 0,
@@ -57,7 +57,7 @@ export const SplitterDropZone: React.FC<SplitterDropZoneProps> = ({
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px', minWidth: 0, maxWidth: '100%', overflow: 'hidden' }}>
         <Upload size={20} className="text-cyan" style={{ flexShrink: 0 }} />
         <div style={{ textAlign: 'left', minWidth: 0, overflow: 'hidden' }}>
-          <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#F8FAFC', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <span style={{ fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)', display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
             {uploadedFileName
               ? `Active File: ${uploadedFileName} (${allParagraphsCount} samples)${fileQueueLength > 1 ? ` • ${fileQueueLength} files in queue` : ''}`
               : 'Drop Kurdish .txt files here (Single or Multiple) or click to browse'}

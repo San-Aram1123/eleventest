@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Pause, Square, AlertCircle, Clock, Zap, Layers } from 'lucide-react';
+import { Play, Pause, Square, AlertCircle, Clock } from 'lucide-react';
 import { AutomatedBatchState } from './expressiveFamilyTypes';
 
 interface ExpressiveBatchProgressBarProps {
@@ -31,28 +31,32 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
   };
 
   return (
-    <div className="card" style={{
-      padding: '1.25rem',
-      marginBottom: '1.25rem',
-      background: 'linear-gradient(135deg, rgba(30, 34, 48, 0.95) 0%, rgba(20, 24, 36, 0.95) 100%)',
-      border: '1px solid rgba(139, 92, 246, 0.3)',
-      borderRadius: '12px',
-      boxShadow: '0 8px 24px rgba(0, 0, 0, 0.3)'
-    }}>
+    <div
+      className="glass-card"
+      style={{
+        padding: '1.25rem',
+        marginBottom: '1.25rem',
+        borderRadius: '16px',
+        border: '1px solid var(--border-medium)',
+        borderTop: '1px solid var(--border-specular)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        boxShadow: '0 8px 32px rgba(0, 0, 0, 0.28)'
+      }}
+    >
       {/* Top Header with Controls */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.85rem', flexWrap: 'wrap', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <div style={{
-            width: '10px',
-            height: '10px',
+            width: '9px',
+            height: '9px',
             borderRadius: '50%',
-            background: batchState.isPaused ? '#F59E0B' : batchState.isActive ? '#10B981' : '#64748B',
-            boxShadow: batchState.isActive && !batchState.isPaused ? '0 0 10px #10B981' : 'none'
+            background: batchState.isPaused ? '#FF9F0A' : batchState.isActive ? '#30D158' : 'var(--text-tertiary)',
+            boxShadow: batchState.isActive && !batchState.isPaused ? '0 0 10px rgba(48, 209, 88, 0.8)' : 'none'
           }} />
-          <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#F8FAFC' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.94rem', letterSpacing: '-0.015em' }}>
             {batchState.isActive ? (batchState.isPaused ? 'Batch Paused' : 'Automated Family Pipeline Running') : 'Batch Finished'}
           </span>
-          <span style={{ fontSize: '0.78rem', background: 'rgba(139, 92, 246, 0.2)', color: '#C084FC', padding: '2px 8px', borderRadius: '12px', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.74rem', background: 'rgba(191, 90, 242, 0.15)', color: '#BF5AF2', padding: '3px 9px', borderRadius: '9999px', fontWeight: 700, border: '1px solid rgba(191, 90, 242, 0.3)' }}>
             {batchState.completedClips} / {batchState.totalClips} Clips ({percent}%)
           </span>
         </div>
@@ -61,8 +65,19 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
           <div style={{ display: 'flex', gap: '6px' }}>
             <button
               onClick={onTogglePause}
-              className={`btn btn-sm ${batchState.isPaused ? 'btn-primary' : 'btn-secondary'}`}
-              style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+              className="btn btn-sm"
+              style={{
+                fontSize: '0.76rem',
+                borderRadius: '9999px',
+                padding: '5px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 600,
+                background: batchState.isPaused ? '#0A84FF' : 'rgba(255, 255, 255, 0.08)',
+                color: '#FFFFFF',
+                border: '1px solid var(--border-subtle)'
+              }}
             >
               {batchState.isPaused ? <Play size={13} /> : <Pause size={13} />}
               {batchState.isPaused ? 'Resume' : 'Pause'}
@@ -70,7 +85,16 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
             <button
               onClick={onStop}
               className="btn btn-danger btn-sm"
-              style={{ fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: '5px' }}
+              style={{
+                fontSize: '0.76rem',
+                borderRadius: '9999px',
+                padding: '5px 12px',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '5px',
+                fontWeight: 600,
+                background: 'linear-gradient(145deg, #FF453A, #D62B20)'
+              }}
             >
               <Square size={13} /> Stop
             </button>
@@ -78,43 +102,43 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
         )}
       </div>
 
-      {/* Progress Bar Track */}
+      {/* Apple Gradient Progress Bar Track */}
       <div style={{
-        height: '8px',
-        background: 'rgba(0, 0, 0, 0.4)',
-        borderRadius: '4px',
+        height: '7px',
+        background: 'rgba(255, 255, 255, 0.08)',
+        borderRadius: '9999px',
         overflow: 'hidden',
-        marginBottom: '0.75rem'
+        marginBottom: '0.85rem'
       }}>
         <div style={{
           width: `${percent}%`,
           height: '100%',
-          background: 'linear-gradient(90deg, #6366F1 0%, #A855F7 50%, #EC4899 100%)',
-          borderRadius: '4px',
-          transition: 'width 0.3s ease'
+          background: 'linear-gradient(90deg, #0A84FF 0%, #BF5AF2 50%, #30D158 100%)',
+          borderRadius: '9999px',
+          transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)'
         }} />
       </div>
 
       {/* Live Context Details */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.8rem', color: '#94A3B8', flexWrap: 'wrap', gap: '8px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: '0.78rem', color: 'var(--text-secondary)', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {batchState.currentFamilyId && (
-            <span>Family: <strong style={{ color: '#38BDF8' }}>{batchState.currentFamilyId}</strong></span>
+            <span>Family: <strong style={{ color: '#0A84FF' }}>{batchState.currentFamilyId}</strong></span>
           )}
           {batchState.totalSentences > 0 && (
-            <span>Sentence: <strong style={{ color: '#F1F5F9' }}>{batchState.currentSentenceIdx} / {batchState.totalSentences}</strong></span>
+            <span>Sentence: <strong style={{ color: 'var(--text-primary)' }}>{batchState.currentSentenceIdx} / {batchState.totalSentences}</strong></span>
           )}
           {batchState.currentConditionLabel && (
-            <span>Condition: <strong style={{ color: '#EC4899' }}>{batchState.currentConditionLabel}</strong></span>
+            <span>Condition: <strong style={{ color: '#FF375F' }}>{batchState.currentConditionLabel}</strong></span>
           )}
           {batchState.usedKeyMasked && (
-            <span style={{ color: '#10B981', display: 'flex', alignItems: 'center', gap: '3px' }}>
+            <span style={{ color: '#30D158', display: 'flex', alignItems: 'center', gap: '3px' }}>
               Key: <strong>{batchState.usedKeyMasked}</strong>
             </span>
           )}
         </div>
 
-        <div style={{ display: 'flex', alignItems: 'center', gap: '4px', color: '#64748B' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '5px', color: 'var(--text-tertiary)', fontFamily: 'var(--font-mono)' }}>
           <Clock size={13} />
           <span>Elapsed: {formatTime(elapsedSeconds)}</span>
         </div>
@@ -124,15 +148,15 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
       {batchState.errors.length > 0 && (
         <div style={{
           marginTop: '0.75rem',
-          padding: '0.6rem 0.8rem',
-          background: 'rgba(239, 68, 68, 0.1)',
-          border: '1px solid rgba(239, 68, 68, 0.25)',
-          borderRadius: '6px',
-          fontSize: '0.78rem',
-          color: '#FCA5A5'
+          padding: '0.65rem 0.85rem',
+          background: 'rgba(255, 69, 58, 0.08)',
+          border: '1px solid rgba(255, 69, 58, 0.25)',
+          borderRadius: '10px',
+          fontSize: '0.76rem',
+          color: '#FF6961'
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '5px', fontWeight: 600, marginBottom: '2px' }}>
-            <AlertCircle size={14} color="#EF4444" /> {batchState.errors.length} Generation Notices:
+            <AlertCircle size={14} /> {batchState.errors.length} Generation Notices:
           </div>
           <ul style={{ margin: '2px 0 0 16px', padding: 0 }}>
             {batchState.errors.slice(-2).map((err, idx) => (
@@ -144,4 +168,3 @@ export const ExpressiveBatchProgressBar: React.FC<ExpressiveBatchProgressBarProp
     </div>
   );
 };
-

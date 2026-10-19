@@ -162,10 +162,10 @@ export const DurationOutlierRow: React.FC<DurationOutlierRowProps> = ({
         dir="rtl"
         style={{
           fontSize: '0.86rem',
-          color: '#f1f5f9',
+          color: 'var(--text-main)',
           lineHeight: '1.5',
           fontFamily: 'Tahoma, Arial, sans-serif',
-          background: 'rgba(0, 0, 0, 0.25)',
+          background: 'var(--bg-box)',
           padding: '8px 10px',
           borderRadius: '5px',
           borderRight: isUnder ? '3px solid #ef4444' : '3px solid #f59e0b'

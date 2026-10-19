@@ -345,7 +345,7 @@ export function getV20EmotionProfile(emotionKey) {
  */
 export function getElevenLabsEmotionSettings(emotionKey, intensity = 0.8) {
   const profile = getV20EmotionProfile(emotionKey);
-  const numIntensity = Math.max(0.0, Math.min(1.0, parseFloat(intensity) || 0.8));
+  const numIntensity = normalizeEmotionIntensity(intensity);
 
   switch (profile.family) {
     case 'Joy':
@@ -384,3 +384,8 @@ export function getElevenLabsEmotionSettings(emotionKey, intensity = 0.8) {
   }
 }
 
+
+export function normalizeEmotionIntensity(value, fallback = 0.8) {
+  const number = Number.parseFloat(value);
+  return Math.max(0, Math.min(1, Number.isFinite(number) ? number : fallback));
+}

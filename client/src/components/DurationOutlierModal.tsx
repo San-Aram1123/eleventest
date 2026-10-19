@@ -93,23 +93,23 @@ export const DurationOutlierModal: React.FC<DurationOutlierModalProps> = ({
 
   return (
     <div className="modal-backdrop" style={{ zIndex: 1050 }}>
-      <div className="modal-content" style={{ maxWidth: '720px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: '#0b1120', border: '1px solid rgba(245, 158, 11, 0.35)', boxShadow: '0 20px 40px rgba(0,0,0,0.7)' }}>
+      <div className="modal-content" style={{ maxWidth: '720px', width: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', background: 'var(--bg-card)', border: '1px solid rgba(245, 158, 11, 0.35)', boxShadow: 'var(--shadow-card)', color: 'var(--text-main)' }}>
         {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #1e293b' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid var(--border-subtle)' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
             <div style={{ background: 'rgba(245, 158, 11, 0.15)', padding: '7px', borderRadius: '8px', color: '#fbbf24' }}>
               <Clock size={20} />
             </div>
             <div>
-              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#f8fafc' }}>Review & Clean Duration Outliers</h3>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>Listen to audio & inspect Kurdish text before permanently deleting (≤ {minSeconds}s or &gt; {maxSeconds}s)</p>
+              <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>Review & Clean Duration Outliers</h3>
+              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Listen to audio & inspect Kurdish text before permanently deleting (≤ {minSeconds}s or &gt; {maxSeconds}s)</p>
             </div>
           </div>
-          <button onClick={onClose} disabled={isDeleting} style={{ background: 'transparent', border: 'none', color: '#64748b', cursor: 'pointer' }}><X size={18} /></button>
+          <button onClick={onClose} disabled={isDeleting} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer' }}><X size={18} /></button>
         </div>
 
         {/* Filter Bar & Tabs */}
-        <div style={{ padding: '12px 20px', borderBottom: '1px solid #1e293b', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'rgba(15, 23, 42, 0.5)' }}>
+        <div style={{ padding: '12px 20px', borderBottom: '1px solid var(--border-subtle)', display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '10px', background: 'var(--bg-box)' }}>
           <div style={{ display: 'flex', gap: '6px' }}>
             <button type="button" onClick={() => setActiveTab('all')} className={`btn btn-xs ${activeTab === 'all' ? 'btn-primary' : 'btn-secondary'}`} style={{ fontSize: '0.75rem' }}>All Outliers ({allOutliers.length})</button>
             <button type="button" onClick={() => setActiveTab('short')} className={`btn btn-xs ${activeTab === 'short' ? 'btn-danger' : 'btn-secondary'}`} style={{ fontSize: '0.75rem' }}>Too Short ≤ {minSeconds}s ({underSamples.length})</button>
@@ -117,16 +117,16 @@ export const DurationOutlierModal: React.FC<DurationOutlierModalProps> = ({
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <button type="button" onClick={() => setSelectedIds(new Set(displayedOutliers.map(s => s.id)))} style={{ background: 'transparent', border: 'none', color: '#38bdf8', fontSize: '0.74rem', cursor: 'pointer' }}>Select All</button>
-            <span style={{ color: '#475569' }}>|</span>
-            <button type="button" onClick={() => setSelectedIds(new Set())} style={{ background: 'transparent', border: 'none', color: '#94a3b8', fontSize: '0.74rem', cursor: 'pointer' }}>Deselect All</button>
+            <span style={{ color: 'var(--border-medium)' }}>|</span>
+            <button type="button" onClick={() => setSelectedIds(new Set())} style={{ background: 'transparent', border: 'none', color: 'var(--text-muted)', fontSize: '0.74rem', cursor: 'pointer' }}>Deselect All</button>
           </div>
         </div>
 
         {/* Body with Review List */}
         <div style={{ padding: '14px 20px', overflowY: 'auto', flex: 1, display: 'flex', flexDirection: 'column', gap: '10px' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: '#64748b' }} />
-            <input type="text" placeholder="Search by ID or Kurdish text..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: '0.78rem', background: '#090d16', border: '1px solid #1e293b', borderRadius: '6px', color: '#f8fafc' }} />
+            <Search size={14} style={{ position: 'absolute', left: '10px', top: '10px', color: 'var(--text-tertiary)' }} />
+            <input type="text" placeholder="Search by ID or Kurdish text..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} style={{ width: '100%', padding: '7px 10px 7px 32px', fontSize: '0.78rem', background: 'var(--bg-input)', border: '1px solid var(--border-medium)', borderRadius: '6px', color: 'var(--text-main)' }} />
           </div>
 
           {displayedOutliers.length > 0 ? (
@@ -149,14 +149,14 @@ export const DurationOutlierModal: React.FC<DurationOutlierModalProps> = ({
             <div style={{ textAlign: 'center', padding: '32px 10px', background: 'rgba(34, 197, 94, 0.08)', borderRadius: '8px', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
               <CheckCircle2 size={32} style={{ color: '#22c55e', margin: '0 auto 8px auto' }} />
               <p style={{ margin: 0, fontWeight: 700, color: '#86efac', fontSize: '0.95rem' }}>{allOutliers.length === 0 ? 'No Duration Outliers Found!' : 'No items match filter'}</p>
-              <p style={{ margin: '4px 0 0 0', color: '#94a3b8', fontSize: '0.76rem' }}>All remaining clips conform to the safe training duration window [{minSeconds}s - {maxSeconds}s].</p>
+              <p style={{ margin: '4px 0 0 0', color: 'var(--text-secondary)', fontSize: '0.76rem' }}>All remaining clips conform to the safe training duration window [{minSeconds}s - {maxSeconds}s].</p>
             </div>
           )}
         </div>
 
         {/* Footer */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid #1e293b', background: '#090d16' }}>
-          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: '#cbd5e1', cursor: 'pointer', userSelect: 'none' }}>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 20px', borderTop: '1px solid var(--border-subtle)', background: 'var(--bg-box-subtle)' }}>
+          <label style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.76rem', color: 'var(--text-secondary)', cursor: 'pointer', userSelect: 'none' }}>
             <input type="checkbox" checked={confirmChecked} onChange={(e) => setConfirmChecked(e.target.checked)} disabled={isDeleting || selectedIds.size === 0} />
             <span>Confirm deletion of {selectedIds.size} selected clip(s)</span>
           </label>

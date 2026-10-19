@@ -3,11 +3,9 @@ import {
   Sparkles, 
   Database, 
   GitCompare, 
-  Settings, 
   KeyRound, 
   CheckCircle2, 
   AlertCircle,
-  Layers,
   Bot,
   Sun,
   Moon,
@@ -16,8 +14,8 @@ import {
 import { SystemConfig } from '../types';
 
 interface NavbarProps {
-  activeTab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot';
-  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot') => void;
+  activeTab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot' | 'statistics';
+  onSelectTab: (tab: 'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot' | 'statistics') => void;
   onOpenSettings: () => void;
   config: SystemConfig | null;
   datasetCount: number;
@@ -39,7 +37,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   return (
     <header className="app-header">
       <div className="navbar-container">
-        {/* Brand Logo & Name */}
+        {/* Apple Brand Logo & Typography */}
         <div className="navbar-brand">
           <div className="brand-icon-wrapper">
             <span className="brand-flag-icon">☀️</span>
@@ -47,22 +45,22 @@ export const Navbar: React.FC<NavbarProps> = ({
           <div className="brand-text">
             <div className="brand-title">
               <span>دەنگساز</span>
-              <span className="brand-badge">PRO</span>
+              <span className="brand-badge">STUDIO</span>
             </div>
             <div className="brand-subtitle">
-              ElevenLabs & Gemini Voice Testing & Dataset Engine
+              ElevenLabs &amp; Gemini 3.8 Dataset Engine
             </div>
           </div>
         </div>
 
-        {/* Navigation Tabs */}
+        {/* Apple Segmented Control Rail */}
         <nav className="navbar-nav">
           <button
             id="nav-tab-api"
             className={`nav-tab-btn ${activeTab === 'api' ? 'active' : ''}`}
             onClick={() => onSelectTab('api')}
           >
-            <Sparkles size={18} className="nav-tab-icon" />
+            <Sparkles size={16} className="nav-tab-icon" />
             <span>ElevenLabs</span>
           </button>
 
@@ -71,9 +69,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'gemini' ? 'active' : ''}`}
             onClick={() => onSelectTab('gemini')}
           >
-            <Bot size={18} className="nav-tab-icon" />
+            <Bot size={16} className="nav-tab-icon" />
             <span>Gemini Studio</span>
-            <span className="nav-count-badge" style={{ background: '#7C3AED' }}>2.0</span>
+            <span className="nav-count-badge" style={{ background: '#BF5AF2' }}>3.8</span>
           </button>
 
           <button
@@ -81,7 +79,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'dataset' ? 'active' : ''}`}
             onClick={() => onSelectTab('dataset')}
           >
-            <Database size={18} className="nav-tab-icon" />
+            <Database size={16} className="nav-tab-icon" />
             <span>Dataset Manager</span>
             {datasetCount > 0 && (
               <span className="nav-count-badge">{datasetCount}</span>
@@ -93,8 +91,8 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'compare' ? 'active' : ''}`}
             onClick={() => onSelectTab('compare')}
           >
-            <GitCompare size={18} className="nav-tab-icon" />
-            <span>Compare & Evaluate</span>
+            <GitCompare size={16} className="nav-tab-icon" />
+            <span>Compare</span>
           </button>
 
           <button
@@ -102,9 +100,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'expressive' ? 'active' : ''}`}
             onClick={() => onSelectTab('expressive')}
           >
-            <Sparkles size={18} className="nav-tab-icon" style={{ color: '#C084FC' }} />
-            <span>Expressive Pilot</span>
-            <span className="nav-count-badge" style={{ background: '#7C3AED' }}>27</span>
+            <Sparkles size={16} className="nav-tab-icon" style={{ color: '#BF5AF2' }} />
+            <span>Expressive</span>
+            <span className="nav-count-badge" style={{ background: '#BF5AF2' }}>27</span>
           </button>
 
           <button
@@ -112,9 +110,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'context-switch' ? 'active' : ''}`}
             onClick={() => onSelectTab('context-switch')}
           >
-            <Languages size={18} className="nav-tab-icon" style={{ color: '#10B981' }} />
-            <span>Context Switching</span>
-            <span className="nav-count-badge" style={{ background: '#059669' }}>3-Lang</span>
+            <Languages size={16} className="nav-tab-icon" style={{ color: '#30D158' }} />
+            <span>Context</span>
+            <span className="nav-count-badge" style={{ background: '#30D158' }}>3-Lang</span>
           </button>
 
           <button
@@ -122,13 +120,15 @@ export const Navbar: React.FC<NavbarProps> = ({
             className={`nav-tab-btn ${activeTab === 'dual-pilot' ? 'active' : ''}`}
             onClick={() => onSelectTab('dual-pilot')}
           >
-            <GitCompare size={18} className="nav-tab-icon" style={{ color: '#F472B6' }} />
+            <GitCompare size={16} className="nav-tab-icon" style={{ color: '#FF375F' }} />
             <span>Dual Pilot</span>
-            <span className="nav-count-badge" style={{ background: '#EC4899' }}>V20</span>
+            <span className="nav-count-badge" style={{ background: '#FF375F' }}>V20</span>
           </button>
+          <button id="nav-tab-statistics" className={`nav-tab-btn ${activeTab === 'statistics' ? 'active' : ''}`}
+            onClick={() => onSelectTab('statistics')}><Database size={16}/> <span>Statistics</span></button>
         </nav>
 
-        {/* Right Actions & Status */}
+        {/* Right Actions & Apple Floating Pills */}
         <div className="navbar-actions">
           {/* Key Pool Status Pill */}
           <button 
@@ -138,12 +138,12 @@ export const Navbar: React.FC<NavbarProps> = ({
           >
             {config?.keyValid ? (
               <>
-                <CheckCircle2 size={15} className="status-icon" />
+                <CheckCircle2 size={14} className="status-icon" />
                 <span>Pool: {poolCount} Active</span>
               </>
             ) : (
               <>
-                <AlertCircle size={15} className="status-icon" />
+                <AlertCircle size={14} className="status-icon" />
                 <span>API Keys Needed</span>
               </>
             )}
@@ -158,9 +158,9 @@ export const Navbar: React.FC<NavbarProps> = ({
             aria-label="Toggle Theme"
           >
             {theme === 'dark' ? (
-              <Sun size={18} style={{ color: '#FBBF24' }} />
+              <Sun size={17} style={{ color: '#FF9F0A' }} />
             ) : (
-              <Moon size={18} style={{ color: '#6366F1' }} />
+              <Moon size={17} style={{ color: '#0A84FF' }} />
             )}
           </button>
 
@@ -171,7 +171,7 @@ export const Navbar: React.FC<NavbarProps> = ({
             onClick={onOpenSettings}
             title="Multi-Key Pool & Settings"
           >
-            <KeyRound size={18} />
+            <KeyRound size={17} />
           </button>
         </div>
       </div>

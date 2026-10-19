@@ -38,7 +38,7 @@ export const ExportDownloadCards: React.FC<ExportDownloadCardsProps> = ({
             <div>
               <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
                 <Layers size={18} style={{ color: '#c084fc' }} />
-                <span style={{ fontWeight: 700, fontSize: '1rem', color: '#f8fafc' }}>
+                <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-main)' }}>
                   Audar V20 Master Dataset (Official Schema v2)
                 </span>
                 <span
@@ -56,7 +56,7 @@ export const ExportDownloadCards: React.FC<ExportDownloadCardsProps> = ({
                   Official
                 </span>
               </div>
-              <p style={{ fontSize: '0.75rem', color: '#cbd5e1', lineHeight: 1.45, margin: 0 }}>
+              <p style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', lineHeight: 1.45, margin: 0 }}>
                 Includes official <code>metadata.jsonl</code> (raw, normalized, conditioned text), NeuCodec 50Hz <code>tokens.jsonl</code>, audio corpus, and manifest summary.
               </p>
             </div>
@@ -106,19 +106,19 @@ export const ExportDownloadCards: React.FC<ExportDownloadCardsProps> = ({
           className="glass-card"
           style={{
             padding: '0.9rem',
-            border: '1px solid rgba(255,255,255,0.1)',
+            border: '1px solid var(--border-subtle)',
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'rgba(255,255,255,0.02)'
+            background: 'var(--bg-box)'
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <FileArchive size={16} style={{ color: '#f59e0b' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f1f5f9' }}>Raw Dataset ZIP</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>Raw Dataset ZIP</span>
             </div>
-            <p style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.4, margin: '0 0 0.8rem 0' }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0 0 0.8rem 0' }}>
               Includes exact <code>.wav</code> audio clips, individual <code>.json</code> files, and <code>export_manifest.json</code>.
             </p>
           </div>
@@ -165,15 +165,15 @@ export const ExportDownloadCards: React.FC<ExportDownloadCardsProps> = ({
             display: 'flex',
             flexDirection: 'column',
             justifyContent: 'space-between',
-            background: 'rgba(6, 182, 212, 0.05)'
+            background: 'var(--bg-box)'
           }}
         >
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
               <Sparkles size={16} style={{ color: '#38bdf8' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: '#f1f5f9' }}>Audar Canonical ZIP</span>
+              <span style={{ fontWeight: 700, fontSize: '0.9rem', color: 'var(--text-main)' }}>Audar Canonical ZIP</span>
             </div>
-            <p style={{ fontSize: '0.72rem', color: '#94a3b8', lineHeight: 1.4, margin: '0 0 0.8rem 0' }}>
+            <p style={{ fontSize: '0.72rem', color: 'var(--text-muted)', lineHeight: 1.4, margin: '0 0 0.8rem 0' }}>
               Audar Speech Schema v2.0 with <code>data.jsonl</code>, <code>metadata.csv</code>, and <code>whisper.jsonl</code>.
             </p>
           </div>

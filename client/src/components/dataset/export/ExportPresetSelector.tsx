@@ -21,7 +21,7 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
 }) => {
   return (
     <div>
-      <label style={{ fontSize: '0.78rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
+      <label style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: '0.5px', display: 'block', marginBottom: '8px' }}>
         Quick Filter Preset:
       </label>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(130px, 1fr))', gap: '8px' }}>
@@ -32,9 +32,9 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
           style={{
             padding: '0.75rem 0.6rem',
             borderRadius: '10px',
-            border: preset === 'all' ? '1.5px solid #38bdf8' : '1px solid rgba(255,255,255,0.08)',
-            background: preset === 'all' ? 'rgba(56, 189, 248, 0.18)' : 'rgba(255,255,255,0.03)',
-            color: preset === 'all' ? '#ffffff' : '#94a3b8',
+            border: preset === 'all' ? '1.5px solid #38bdf8' : '1px solid var(--border-subtle)',
+            background: preset === 'all' ? 'rgba(56, 189, 248, 0.18)' : 'var(--bg-box)',
+            color: preset === 'all' ? 'var(--text-main)' : 'var(--text-secondary)',
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -44,10 +44,10 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
             gap: '4px'
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'all' ? '#38bdf8' : '#e2e8f0' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'all' ? '#38bdf8' : 'var(--text-main)' }}>
             📦 All Samples
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             {samplesCount} total items
           </div>
         </button>
@@ -59,9 +59,9 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
           style={{
             padding: '0.75rem 0.6rem',
             borderRadius: '10px',
-            border: preset === 'male' ? '1.5px solid #3b82f6' : '1px solid rgba(255,255,255,0.08)',
-            background: preset === 'male' ? 'rgba(59, 130, 246, 0.18)' : 'rgba(255,255,255,0.03)',
-            color: preset === 'male' ? '#ffffff' : '#94a3b8',
+            border: preset === 'male' ? '1.5px solid #3b82f6' : '1px solid var(--border-subtle)',
+            background: preset === 'male' ? 'rgba(59, 130, 246, 0.18)' : 'var(--bg-box)',
+            color: preset === 'male' ? 'var(--text-main)' : 'var(--text-secondary)',
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -71,10 +71,10 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
             gap: '4px'
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'male' ? '#60a5fa' : '#e2e8f0', display: 'center', alignItems: 'center', gap: '4px' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'male' ? '#60a5fa' : 'var(--text-main)', display: 'center', alignItems: 'center', gap: '4px' }}>
             👨 Male Voices
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             {maleCount} items in dataset
           </div>
         </button>
@@ -86,9 +86,9 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
           style={{
             padding: '0.75rem 0.6rem',
             borderRadius: '10px',
-            border: preset === 'female' ? '1.5px solid #ec4899' : '1px solid rgba(255,255,255,0.08)',
-            background: preset === 'female' ? 'rgba(236, 72, 153, 0.18)' : 'rgba(255,255,255,0.03)',
-            color: preset === 'female' ? '#ffffff' : '#94a3b8',
+            border: preset === 'female' ? '1.5px solid #ec4899' : '1px solid var(--border-subtle)',
+            background: preset === 'female' ? 'rgba(236, 72, 153, 0.18)' : 'var(--bg-box)',
+            color: preset === 'female' ? 'var(--text-main)' : 'var(--text-secondary)',
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -98,10 +98,10 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
             gap: '4px'
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'female' ? '#f472b6' : '#e2e8f0', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'female' ? '#f472b6' : 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             👩 Female Voices
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             {femaleCount} items in dataset
           </div>
         </button>
@@ -113,9 +113,9 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
           style={{
             padding: '0.75rem 0.6rem',
             borderRadius: '10px',
-            border: preset === 'current' ? '1.5px solid #10b981' : '1px solid rgba(255,255,255,0.08)',
-            background: preset === 'current' ? 'rgba(16, 185, 129, 0.18)' : 'rgba(255,255,255,0.03)',
-            color: preset === 'current' ? '#ffffff' : '#94a3b8',
+            border: preset === 'current' ? '1.5px solid #10b981' : '1px solid var(--border-subtle)',
+            background: preset === 'current' ? 'rgba(16, 185, 129, 0.18)' : 'var(--bg-box)',
+            color: preset === 'current' ? 'var(--text-main)' : 'var(--text-secondary)',
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -125,10 +125,10 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
             gap: '4px'
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'current' ? '#34d399' : '#e2e8f0' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'current' ? '#34d399' : 'var(--text-main)' }}>
             🎯 Current View
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             {currentFilteredCount} filtered items
           </div>
         </button>
@@ -140,9 +140,9 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
           style={{
             padding: '0.75rem 0.6rem',
             borderRadius: '10px',
-            border: preset === 'custom' ? '1.5px solid #a855f7' : '1px solid rgba(255,255,255,0.08)',
-            background: preset === 'custom' ? 'rgba(168, 85, 247, 0.18)' : 'rgba(255,255,255,0.03)',
-            color: preset === 'custom' ? '#ffffff' : '#94a3b8',
+            border: preset === 'custom' ? '1.5px solid #a855f7' : '1px solid var(--border-subtle)',
+            background: preset === 'custom' ? 'rgba(168, 85, 247, 0.18)' : 'var(--bg-box)',
+            color: preset === 'custom' ? 'var(--text-main)' : 'var(--text-secondary)',
             textAlign: 'center',
             cursor: 'pointer',
             transition: 'all 0.15s ease',
@@ -152,10 +152,10 @@ export const ExportPresetSelector: React.FC<ExportPresetSelectorProps> = ({
             gap: '4px'
           }}
         >
-          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'custom' ? '#c084fc' : '#e2e8f0' }}>
+          <div style={{ fontWeight: 700, fontSize: '0.88rem', color: preset === 'custom' ? '#c084fc' : 'var(--text-main)' }}>
             ⚙️ Custom
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
             Detailed selectors
           </div>
         </button>

@@ -15,6 +15,8 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
   onTogglePlay,
   onRateFamily
 }) => {
+  const showGemini = Boolean(family.geminiTranscript || Object.keys(family.geminiTakes).length);
+  const showEleven = Boolean(family.elevenlabsTranscript || Object.keys(family.elevenlabsTakes).length);
   const isFemale = family.gender === 'Female';
   const genderColor = isFemale ? '#EC4899' : '#3B82F6';
 
@@ -36,8 +38,8 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
 
   return (
     <div style={{
-      background: 'rgba(30, 34, 48, 0.75)',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'var(--bg-card)',
+      border: '1px solid var(--border-medium)',
       borderRadius: '10px',
       marginBottom: '1rem',
       overflow: 'hidden'
@@ -45,7 +47,7 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
       {/* Family Header */}
       <div style={{
         padding: '0.65rem 1rem',
-        background: 'rgba(0, 0, 0, 0.25)',
+        background: 'var(--bg-box)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
@@ -80,7 +82,7 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
         </div>
 
         {/* Evaluation Buttons */}
-        {selectedCond && (
+        {selectedCond && gTake && eTake && (
           <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
             {currentRating && (
               <span className="badge" style={{
@@ -163,7 +165,7 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
 
       {/* Condition Pills Selector */}
       {conditionKeys.length > 0 && (
-        <div style={{ padding: '0.45rem 1rem', display: 'flex', gap: '6px', overflowX: 'auto', background: 'rgba(0,0,0,0.15)', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <div style={{ padding: '0.45rem 1rem', display: 'flex', gap: '6px', overflowX: 'auto', background: 'var(--bg-box)', borderBottom: '1px solid var(--border-subtle)' }}>
           {conditionKeys.map(cId => {
             const isSel = cId === selectedCond;
             return (
@@ -171,9 +173,9 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
                 key={cId}
                 onClick={() => setActiveCond(cId)}
                 style={{
-                  background: isSel ? 'rgba(99, 102, 241, 0.25)' : 'rgba(255, 255, 255, 0.04)',
-                  border: isSel ? '1px solid #818CF8' : '1px solid rgba(255, 255, 255, 0.08)',
-                  color: isSel ? '#FFFFFF' : '#94A3B8',
+                  background: isSel ? 'rgba(99, 102, 241, 0.25)' : 'var(--bg-box-subtle)',
+                  border: isSel ? '1px solid #818CF8' : '1px solid var(--border-subtle)',
+                  color: isSel ? '#FFFFFF' : 'var(--text-secondary)',
                   padding: '2px 8px',
                   borderRadius: '4px',
                   fontSize: '0.74rem',
@@ -198,79 +200,81 @@ export const DualPilotFamilyCard: React.FC<DualPilotFamilyCardProps> = ({
         gap: '0.85rem'
       }}>
         {/* Gemini Take Card */}
-        <div style={{
-          background: 'rgba(124, 58, 237, 0.06)',
-          border: isPlayingGemini ? '1px solid #8B5CF6' : '1px solid rgba(124, 58, 237, 0.25)',
-          borderRadius: '8px',
-          padding: '0.65rem 0.85rem',
+        {showGemini && <div style={{
+          background: 'rgba(191, 90, 242, 0.08)',
+          border: isPlayingGemini ? '1px solid #BF5AF2' : '1px solid rgba(191, 90, 242, 0.22)',
+          borderTop: '1px solid rgba(255, 255, 255, 0.25)',
+          borderRadius: '14px',
+          padding: '0.75rem 1rem',
           display: 'flex',
           justifyContent: 'space-between',
-          alignItems: 'center'
+          alignItems: 'center',
+          transition: 'all 0.2s ease'
         }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Bot size={14} style={{ color: '#A78BFA' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#DDD6FE' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Bot size={15} style={{ color: '#BF5AF2' }} />
+              <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#F5F5F7' }}>
                 Gemini 3.8: {gTake?.voiceName || 'Pending'}
               </span>
             </div>
             {gTake ? (
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap', alignItems: 'center' }}>
-                <span style={{ color: '#38BDF8', fontWeight: 600 }}>{gTake.slicingEngine || 'best_engine'}</span>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '5px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{ color: '#0A84FF', fontWeight: 600 }}>{gTake.slicingEngine || 'best_engine'}</span>
                 <span>• {gTake.duration.toFixed(1)}s</span>
-                <span style={{ textTransform: 'capitalize', color: '#C084FC' }}>[{gTake.emotion}]</span>
+                <span style={{ textTransform: 'capitalize', color: '#BF5AF2' }}>[{gTake.emotion}]</span>
                 {gTake.rejected && (
-                  <span style={{ color: '#EF4444', background: 'rgba(239, 68, 68, 0.15)', padding: '1px 5px', borderRadius: '4px', fontWeight: 700 }} title={gTake.rejectionReason || 'Rejected by silence duration guardrail'}>
+                  <span style={{ color: 'var(--accent-red)', background: 'rgba(255, 69, 58, 0.15)', padding: '1px 6px', borderRadius: '9999px', fontWeight: 700 }} title={gTake.rejectionReason || 'Rejected by silence duration guardrail'}>
                     REJECTED ({gTake.duration < 6 ? '<6s' : '>=16s'})
                   </span>
                 )}
               </div>
             ) : (
-              <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>Waiting for batch condition...</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '3px' }}>Waiting for batch condition...</div>
             )}
           </div>
 
           {gTake && (
             <button
               onClick={() => onTogglePlay(gTake)}
-              style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '50%', background: isPlayingGemini ? '#EF4444' : '#7C3AED', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '34px', height: '34px', minWidth: '34px', borderRadius: '50%', background: isPlayingGemini ? '#FF453A' : '#BF5AF2', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', transition: 'transform 0.15s ease' }}
               title={isPlayingGemini ? 'Pause Gemini' : 'Play Gemini'}
             >
               {isPlayingGemini ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '1px' }} />}
             </button>
           )}
-        </div>
+        </div>}
 
         {/* ElevenLabs Take Card */}
-        <div style={{ background: 'rgba(16, 185, 129, 0.06)', border: isPlayingEleven ? '1px solid #10B981' : '1px solid rgba(16, 185, 129, 0.25)', borderRadius: '8px', padding: '0.65rem 0.85rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        {showEleven && <div style={{ background: 'rgba(48, 209, 88, 0.08)', border: isPlayingEleven ? '1px solid #30D158' : '1px solid rgba(48, 209, 88, 0.22)', borderTop: '1px solid rgba(255, 255, 255, 0.25)', borderRadius: '14px', padding: '0.75rem 1rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', transition: 'all 0.2s ease' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-              <Sparkles size={14} style={{ color: '#34D399' }} />
-              <span style={{ fontWeight: 700, fontSize: '0.82rem', color: '#A7F3D0' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+              <Sparkles size={15} style={{ color: '#30D158' }} />
+              <span style={{ fontWeight: 700, fontSize: '0.84rem', color: '#F5F5F7' }}>
                 ElevenLabs v4 Turbo: {eTake?.voiceName || 'Pending'}
               </span>
             </div>
             {eTake ? (
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '3px', display: 'flex', gap: '4px', flexWrap: 'wrap' }}>
-                <span style={{ color: '#34D399', fontFamily: 'monospace' }}>Key: {eTake.keyUsedMasked}</span>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '4px', display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                <span style={{ color: '#30D158', fontFamily: 'monospace' }}>Key: {eTake.keyUsedMasked}</span>
                 <span>• {eTake.duration.toFixed(1)}s</span>
-                <span style={{ textTransform: 'capitalize', color: '#6EE7B7' }}>[{eTake.emotion}]</span>
+                <span style={{ textTransform: 'capitalize', color: '#30D158' }}>[{eTake.emotion}]</span>
               </div>
             ) : (
-              <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>Waiting for generation...</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', marginTop: '3px' }}>Waiting for generation...</div>
             )}
           </div>
 
           {eTake && (
             <button
               onClick={() => onTogglePlay(eTake)}
-              style={{ width: '32px', height: '32px', minWidth: '32px', borderRadius: '50%', background: isPlayingEleven ? '#EF4444' : '#10B981', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+              style={{ width: '34px', height: '34px', minWidth: '34px', borderRadius: '50%', background: isPlayingEleven ? '#FF453A' : '#30D158', border: 'none', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', boxShadow: '0 2px 8px rgba(0,0,0,0.3)', transition: 'transform 0.15s ease' }}
               title={isPlayingEleven ? 'Pause ElevenLabs' : 'Play ElevenLabs'}
             >
               {isPlayingEleven ? <Pause size={14} /> : <Play size={14} style={{ marginLeft: '1px' }} />}
             </button>
           )}
-        </div>
+        </div>}
       </div>
     </div>
   );

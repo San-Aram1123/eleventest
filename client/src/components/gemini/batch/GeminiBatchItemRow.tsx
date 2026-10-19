@@ -27,7 +27,7 @@ export const GeminiBatchItemRow: React.FC<GeminiBatchItemRowProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
-        background: isCurrent ? 'rgba(2, 132, 199, 0.12)' : 'rgba(15, 23, 42, 0.65)',
+        background: isCurrent ? 'rgba(2, 132, 199, 0.12)' : 'var(--bg-box)',
         border: isCurrent ? '1px solid #38BDF8' : (item.status === 'completed' ? '1px solid rgba(16, 185, 129, 0.25)' : (item.status === 'failed' ? '1px solid rgba(239, 68, 68, 0.3)' : '1px solid var(--border-subtle)')),
         padding: '12px 16px',
         borderRadius: 'var(--radius-md)',
@@ -157,8 +157,8 @@ export const GeminiBatchItemRow: React.FC<GeminiBatchItemRowProps> = ({
               display: 'inline-flex', 
               alignItems: 'center', 
               gap: '3px',
-              color: '#94A3B8',
-              border: '1px solid rgba(255, 255, 255, 0.08)'
+              color: 'var(--text-secondary)',
+              border: '1px solid var(--border-subtle)'
             }}
           >
             <X size={12} />
@@ -168,7 +168,7 @@ export const GeminiBatchItemRow: React.FC<GeminiBatchItemRowProps> = ({
       </div>
 
       {/* Kurdish Text */}
-      <div dir="rtl" className="transcript-box" style={{ padding: '8px 12px', fontSize: '0.98rem', background: 'rgba(0, 0, 0, 0.3)' }}>
+      <div dir="rtl" className="transcript-box" style={{ padding: '8px 12px', fontSize: '0.98rem', background: 'var(--bg-box-subtle)', color: 'var(--text-main)', border: '1px solid var(--border-subtle)' }}>
         {item.text}
       </div>
 

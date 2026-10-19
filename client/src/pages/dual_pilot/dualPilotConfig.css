@@ -1,0 +1,99 @@
+.dp-config {
+  padding: 24px;
+  margin-bottom: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--border-medium);
+  color: var(--text-main);
+}
+.dp-config-toolbar, .dp-config-title, .dp-config-settings, .dp-config-save,
+.dp-config-flow, .dp-config-provider-heading, .dp-config-voice-label, .dp-config-provider-footer {
+  display: flex;
+  align-items: center;
+}
+.dp-config-toolbar { justify-content: space-between; gap: 16px; margin-bottom: 24px; }
+.dp-config-title { gap: 12px; }
+.dp-config-icon {
+  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  background: rgba(99, 102, 241, .12); border: 1px solid rgba(129, 140, 248, .2); color: #a5b4fc;
+}
+.dp-config h3, .dp-config h4, .dp-config p { margin: 0; }
+.dp-config h3 { font-size: 16px; font-weight: 700; letter-spacing: -.3px; }
+.dp-config-title p { margin-top: 4px; color: var(--text-secondary); font-size: 12px; }
+.dp-config-pill {
+  display: inline-flex; align-items: center; gap: 7px; font-size: 11px; font-weight: 600;
+  border: 1px solid rgba(129, 140, 248, .2); background: rgba(99, 102, 241, .08);
+  color: #a5b4fc; padding: 7px 11px; border-radius: 99px; white-space: nowrap;
+}
+.dp-config-pill > span, .dp-config-status-dot { width: 5px; height: 5px; background: currentColor; border-radius: 50%; flex-shrink: 0; }
+.dp-config-settings { gap: 20px; justify-content: space-between; }
+.dp-config-language { width: 290px; max-width: 100%; }
+.dp-config-language > span { display: flex; align-items: center; gap: 7px; color: var(--text-secondary); font-size: 11px; font-weight: 600; margin-bottom: 8px; }
+.dp-config-select-wrap { position: relative; min-width: 0; }
+.dp-config-select-wrap > svg { pointer-events: none; position: absolute; right: 12px; top: 50%; transform: translateY(-50%); color: var(--text-secondary); }
+.dp-config .dp-config-select {
+  appearance: none; -webkit-appearance: none; width: 100%; max-width: 100%; height: 40px;
+  padding: 0 33px 0 12px; border-radius: 8px; border: 1px solid var(--border-medium);
+  background: var(--bg-box); color: var(--text-main); font: inherit; font-size: 12px;
+  text-overflow: ellipsis; cursor: pointer; transition: border-color .15s, box-shadow .15s;
+}
+.dp-config-select option { background: var(--bg-card, #18181b); color: var(--text-main); }
+.dp-config .dp-config-select:focus-visible { outline: none; border-color: #818cf8; box-shadow: 0 0 0 3px rgba(129,140,248,.14); }
+.dp-config select:disabled, .dp-config input:disabled { opacity: .5; cursor: not-allowed; }
+.dp-config-save { gap: 12px; padding: 12px 14px; border: 1px solid var(--border-subtle); border-radius: 10px; background: var(--bg-box-subtle); cursor: pointer; }
+.dp-config-save-icon { color: var(--text-secondary); display: flex; }
+.dp-config-save strong { display: block; font-size: 12px; font-weight: 600; }
+.dp-config-save small { display: block; font-size: 11px; color: var(--text-secondary); margin-top: 4px; }
+.dp-config-toggle {
+  appearance: none; -webkit-appearance: none; position: relative; width: 34px; height: 20px; flex-shrink: 0;
+  margin: 0 0 0 20px; border-radius: 99px; border: 1px solid var(--border-medium); background: var(--bg-box); cursor: pointer;
+}
+.dp-config-toggle::after { content: ''; position: absolute; width: 14px; height: 14px; top: 2px; left: 2px; background: #b6bac3; border-radius: 50%; transition: transform .15s; }
+.dp-config-toggle:checked { background: #30a876; border-color: #30a876; }
+.dp-config-toggle:checked::after { transform: translateX(14px); background: white; }
+.dp-config-toggle:focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+.dp-config-flow { gap: 12px; padding: 13px 0; margin: 18px 0 22px; border-top: 1px solid var(--border-subtle); border-bottom: 1px solid var(--border-subtle); color: var(--text-secondary); font-size: 11px; }
+.dp-config-flow strong { font-size: 12px; color: var(--text-main); margin-right: 3px; }
+.dp-config-flow > svg { opacity: .45; }
+.dp-config-flow small { margin-left: auto; font-size: 11px; }
+.dp-config-providers { display: grid; grid-template-columns: minmax(0, .85fr) minmax(0, 1.4fr); gap: 16px; }
+.dp-config-provider { min-width: 0; border: 1px solid var(--border-medium); border-radius: 13px; padding: 18px; display: flex; flex-direction: column; }
+.dp-config-gemini { --provider-color: #c084fc; background: linear-gradient(145deg, rgba(168,85,247,.055), transparent); border-color: rgba(168,85,247,.2); }
+.dp-config-eleven { --provider-color: #6ee7b7; background: linear-gradient(145deg, rgba(16,185,129,.045), transparent); border-color: rgba(16,185,129,.2); }
+.dp-config-provider-heading { gap: 10px; margin-bottom: 20px; }
+.dp-config-provider-icon { color: var(--provider-color); display: grid; place-items: center; width: 35px; height: 35px; border: 1px solid color-mix(in srgb, var(--provider-color) 20%, transparent); border-radius: 10px; background: color-mix(in srgb, var(--provider-color) 8%, transparent); }
+.dp-config-provider-heading h4 { font-size: 14px; font-weight: 650; }
+.dp-config-provider-heading p { font-size: 11px; color: var(--text-secondary); margin-top: 4px; line-height: 1.4; }
+.dp-config-model { margin-left: auto; font-size: 9px; font-weight: 600; white-space: nowrap; color: var(--provider-color); border: 1px solid color-mix(in srgb, var(--provider-color) 22%, transparent); border-radius: 5px; padding: 4px 6px; }
+.dp-config-voice-grid { display: grid; gap: 12px; }
+.dp-config-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.dp-config-six { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.dp-config-voice { min-width: 0; display: block; padding: 11px; background: var(--bg-box-subtle); border: 1px solid var(--border-subtle); border-radius: 9px; }
+.dp-config-voice-label { gap: 8px; font-size: 11px; font-weight: 600; margin-bottom: 11px; }
+.dp-config-voice-label small { display: block; color: var(--text-secondary); font-size: 9px; font-weight: 400; margin-top: 3px; }
+.dp-config-avatar { display: grid; place-items: center; width: 27px; height: 29px; border-radius: 7px; font-size: 10px; font-weight: 700; flex-shrink: 0; }
+.dp-config-female .dp-config-avatar { background: rgba(244,114,182,.1); color: #f9a8d4; }
+.dp-config-male .dp-config-avatar { background: rgba(56,189,248,.1); color: #7dd3fc; }
+.dp-config-voice .dp-config-select { height: 35px; font-size: 11px; padding-left: 9px; }
+.dp-config .dp-config-provider-note { font-size: 11px; color: var(--text-secondary); line-height: 1.6; margin: 16px 0; max-width: 300px; }
+.dp-config-provider-footer { flex-wrap: wrap; gap: 6px; font-size: 10px; color: var(--provider-color); padding-top: 15px; margin-top: auto; }
+.dp-config-provider-footer > span:last-child { margin-left: auto; color: var(--text-secondary); }
+@media (max-width: 1050px) {
+  .dp-config-providers { grid-template-columns: 1fr; }
+  .dp-config-pair { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .dp-config { padding: 16px; }
+  .dp-config-toolbar, .dp-config-settings { align-items: stretch; flex-direction: column; gap: 16px; }
+  .dp-config-pill { align-self: flex-start; }
+  .dp-config-language { width: 100%; }
+  .dp-config-save { gap: 9px; }
+  .dp-config-toggle { margin-left: auto; }
+  .dp-config-flow { flex-wrap: wrap; gap: 8px; }
+  .dp-config-flow small { margin-left: 0; flex-basis: 100%; margin-top: 4px; }
+  .dp-config-six { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .dp-config-provider { padding: 13px; }
+}
+@media (max-width: 380px) {
+  .dp-config-pair, .dp-config-six { grid-template-columns: 1fr; }
+  .dp-config-model { display: none; }
+}

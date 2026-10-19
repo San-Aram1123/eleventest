@@ -1,3 +1,6 @@
+import { dualPilotIdentity, saveDualPilotSample, cachedGeminiMaster } from './shared/dualPilotRunStore.js';
+import { extractEmotionAndCleanText } from './emotionUtils.js';
+export { generateElevenLabsDualPilotTake, getRotatedElevenLabsKey } from './dualPilotElevenService.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
@@ -6,29 +9,9 @@ import { detectLocalSpeakerSegments, validateEngineResult } from './alignment/lo
 import { evaluateGeminiClipAcceptance } from './shared/geminiClipAcceptance.js';
 import { buildHybridCutPlan } from './hybridCutSelector.js';
 import { readPcmWav, slicePcmWav } from './shared/wavPcm.js';
-import { getEmotionPromptDirective, getEmotionSpeechStyle } from './pairedEmotionConfig.js';
-import { callElevenLabsTTS } from './elevenlabs/ttsClient.js';
-import { getKeyPool } from './elevenlabs/keyPoolManager.js';
-import { saveSample } from './datasetService.js';
-import { getElevenLabsEmotionSettings } from './shared/v20EmotionCatalog.js';
-import { extractEmotionAndCleanText } from './emotionUtils.js';
+import { getEmotionSpeechStyle } from './pairedEmotionConfig.js';
 import { detectViaSilence } from './alignment/silenceDetector.js';
 import { logSlicingReport, formatSlicingFailureSummary } from './alignment/slicingLogger.js';
-
-let elevenlabsKeyIndex = 0;
-
-/**
- * Returns the next ElevenLabs key via round-robin rotation.
- */
-export function getRotatedElevenLabsKey() {
-  const pool = getKeyPool();
-  if (!pool || pool.length === 0) {
-    throw new Error('No ElevenLabs API keys configured. Please add keys in the Key Pool.');
-  }
-  const key = pool[elevenlabsKeyIndex % pool.length];
-  elevenlabsKeyIndex = (elevenlabsKeyIndex + 1) % pool.length;
-  return { key, keyIndex: elevenlabsKeyIndex, totalKeys: pool.length };
-}
 
 /**
  * Builds the multi-speaker alternating prompt for Gemini 3.8.
@@ -42,7 +25,6 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
 
   const femaleVoice = sanitizeVoice(options.femaleVoice || 'Aoede');
   const maleVoice = sanitizeVoice(options.maleVoice || 'Puck');
-  const baseEmotion = options.emotion || 'neutral';
   const intensity = options.intensity ?? 0.8;
   const language = options.language || (options.dialect === 'badini' ? 'kmr' : 'ckb');
   const delivery = options.deliveryStyle || 'normal';
@@ -54,19 +36,14 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
     deliveryNote = ' Speak with bubbling chuckles and laughing speech while keeping words clearly intelligible.';
   }
 
-  // Parse each paragraph for inline tags, prioritizing them over the auto condition emotion
-  const parsedParagraphs = rawParagraphs.map((raw) => {
-    const parsed = extractEmotionAndCleanText(raw, baseEmotion);
-    const paraEmotion = parsed.hasInlineTag ? parsed.emotion : baseEmotion;
-    const paraEmotionTag = parsed.hasInlineTag ? parsed.emotionTag : (baseEmotion !== 'neutral' ? `[${baseEmotion}]` : '');
-    return {
-      rawText: raw,
-      cleanText: parsed.cleanText || raw,
-      emotion: paraEmotion,
-      emotionTag: paraEmotionTag,
-      hasInlineTag: parsed.hasInlineTag
-    };
-  });
+  const baseEmotion = options.emotion || 'neutral';
+  const parsedParagraphs = rawParagraphs.map(raw => ({
+    rawText: raw, cleanText: extractEmotionAndCleanText(raw).cleanText,
+    emotion: baseEmotion, emotionTag: `[${baseEmotion}]`, hasInlineTag: false
+  }));
+  const voices = rawParagraphs.map((_, index) => sanitizeVoice(options.voices?.[index] || (index % 2 === 0 ? femaleVoice : maleVoice)));
+  const uniqueVoices = [...new Set(voices)];
+  if (uniqueVoices.length > 2) throw new Error('Gemini supports at most two distinct voices per call.');
 
   const cleanParagraphs = parsedParagraphs.map(p => p.cleanText);
 
@@ -93,22 +70,23 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
   }
 
   const speechParts = parsedParagraphs.map((para, index) => {
-    const paraEmotionStyle = options.customStyle || getEmotionSpeechStyle(para.emotion, intensity, language);
+    const paraEmotionStyle = getEmotionSpeechStyle(para.emotion, intensity, language);
     const lineCombinedStyle = `${paraEmotionStyle}.${deliveryNote}${codeSwitchingRule} Maintain natural conversational ${langIntonation}.`;
     return {
       text: para.cleanText,
       speech_metadata: {
-        speaker: index % 2 === 0 ? 'Speaker1' : 'Speaker2',
+        speaker: `Speaker${uniqueVoices.indexOf(voices[index]) + 1}`,
         style: lineCombinedStyle
       }
     };
   });
 
-  const baseDirective = options.customInstruction || getEmotionPromptDirective(baseEmotion, intensity, language);
+  const baseDirective = 'Apply the requested emotion to every line. Speak only the transcript, without saying tag names.';
   const instruction = `You are directing two native ${langLabel} voice actors. Speaker1 (${femaleVoice}, Female) and Speaker2 (${maleVoice}, Male) alternate turns. Deliver every line in order. Pause clearly between speaker turns. ${baseDirective}.${deliveryNote}${codeSwitchingRule}`;
 
   return {
     cleanParagraphs,
+    voices,
     parsedParagraphs,
     cleanSpk1: femaleVoice,
     cleanSpk2: maleVoice,
@@ -116,10 +94,9 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
     instruction,
     legacyPrompt: speechParts.map(p => `${p.speech_metadata.speaker}: ${p.text}`).join('\n\n'),
     multiSpeakerConfig: {
-      speakerVoiceConfigs: [
-        { speaker: 'Speaker1', voiceConfig: { prebuiltVoiceConfig: { voiceName: femaleVoice } } },
-        { speaker: 'Speaker2', voiceConfig: { prebuiltVoiceConfig: { voiceName: maleVoice } } }
-      ]
+      speakerVoiceConfigs: uniqueVoices.map((voiceName, index) => ({
+        speaker: `Speaker${index + 1}`, voiceConfig: { prebuiltVoiceConfig: { voiceName } }
+      }))
     }
   };
 }
@@ -127,8 +104,8 @@ export function buildDualPilotGeminiPrompt(paragraphs, options = {}) {
 /**
  * Executes a 6-paragraph Gemini batch:
  * 1. Generates 1 continuous master WAV via Gemini 3.8.
- * 2. Runs all local neural speaker slicing engines.
- * 3. Selects the best engine via selectBestEngine.
+ * 2. Runs baseline and emotion-aware local neural speaker slicing engines.
+ * 3. Applies Gemini clip acceptance and hybrid per-boundary fallback.
  * 4. Slices the master WAV into individual takes.
  */
 export async function generateGeminiDualPilotBatch(params = {}) {
@@ -147,7 +124,7 @@ export async function generateGeminiDualPilotBatch(params = {}) {
   console.log(`   ├─ Paragraphs: ${count} alternating speaker turns`);
   console.log(`   └─ Dispatching to Google Gemini 3.8 Flash TTS...`);
 
-  const generated = await generateGeminiSpeech({
+  const generated = await cachedGeminiMaster(params, () => generateGeminiSpeech({
     speechParts: config.speechParts,
     speechStyle: config.instruction,
     text: config.legacyPrompt,
@@ -158,14 +135,14 @@ export async function generateGeminiDualPilotBatch(params = {}) {
     model,
     multiSpeakerConfig: config.multiSpeakerConfig,
     signal
-  });
+  }));
 
   if (signal?.aborted) throw new Error('Aborted by user.');
   const audioBuffer = generated.audioBuffer;
   const wav = readPcmWav(audioBuffer);
 
   console.log(`   ✓ [Gemini 3.8] Master WAV received: ${wav.duration.toFixed(2)}s (${(audioBuffer.length / 1024).toFixed(1)} KB)`);
-  console.log(`   ├─ Running 8 neural & silence slicing engines across master WAV...`);
+  console.log(`   ├─ Running baseline and emotion-aware neural slicers plus silence across master WAV...`);
 
   const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'dual_gemini_'));
   const masterPath = path.join(directory, 'master.wav');
@@ -185,6 +162,15 @@ export async function generateGeminiDualPilotBatch(params = {}) {
     if (signal?.aborted) throw new Error('Aborted by user.');
 
     const rawEngines = detection.engines || { all: detection };
+    console.log('   ├─ Running Gemini emotion-aware slicing experiments...');
+    const emotionDetection = await detectLocalSpeakerSegments(masterPath, count, 'emotion_experiments', {}, signal);
+    for (const [name, result] of Object.entries(emotionDetection.engines || {})) rawEngines[name] = result;
+    if (!Object.keys(emotionDetection.engines || {}).length) {
+      rawEngines.emotion_experiments = { ...emotionDetection, name: 'emotion_experiments' };
+    }
+    for (const [name, result] of Object.entries(emotionDetection.engines || {})) {
+      console.log(`   │  ${result.success ? '✓' : '·'} ${name}: ${result.success ? 'proposals ready' : (result.error || 'rejected')}`);
+    }
 
     // Register silence slicing engine from Expressive Pilot among candidates
     if (silenceResult?.success && Array.isArray(silenceResult.segments) && silenceResult.segments.length === count) {
@@ -240,7 +226,7 @@ export async function generateGeminiDualPilotBatch(params = {}) {
           checked.clips = config.parsedParagraphs.map((para, idx) => ({
             index: idx + 1, engine: key, text: para.cleanText, rawText: para.rawText,
             emotion: para.emotion, emotionTag: para.emotionTag, hasInlineTag: para.hasInlineTag,
-            speakerName: idx % 2 === 0 ? config.cleanSpk1 : config.cleanSpk2,
+            speakerName: config.voices[idx],
             gender: idx % 2 === 0 ? 'Female' : 'Male', start: segments[idx].start,
             end: segments[idx].end, duration: segments[idx].duration,
             audioUrl: `data:audio/wav;base64,${buffers[idx].toString('base64')}`
@@ -278,7 +264,7 @@ export async function generateGeminiDualPilotBatch(params = {}) {
         const clips = config.parsedParagraphs.map((para, idx) => ({
           index: idx + 1, engine: 'per_boundary_hybrid', text: para.cleanText, rawText: para.rawText,
           emotion: para.emotion, emotionTag: para.emotionTag, hasInlineTag: para.hasInlineTag,
-          speakerName: idx % 2 === 0 ? config.cleanSpk1 : config.cleanSpk2,
+          speakerName: config.voices[idx],
           gender: idx % 2 === 0 ? 'Female' : 'Male', start: acceptance.segments[idx].start,
           end: acceptance.segments[idx].end, duration: acceptance.segments[idx].duration,
           audioUrl: `data:audio/wav;base64,${buffers[idx].toString('base64')}`
@@ -338,7 +324,9 @@ export async function generateGeminiDualPilotBatch(params = {}) {
         }
 
         try {
-          const saved = await saveSample({
+          const saved = await saveDualPilotSample({
+            ...dualPilotIdentity(params, 'gemini', i),
+            customMetadata: { voice_gender: i % 2 === 0 ? 'female' : 'male', segmentation_strategy: selection.engine, segmentation_confidence: selection.score },
             text: clip.text,
             speaker_name: clip.speakerName,
             dialect: targetLanguage === 'kmr' ? 'badini' : (params.dialect || 'sorani'),
@@ -354,9 +342,10 @@ export async function generateGeminiDualPilotBatch(params = {}) {
             allowDuplicateText: true
           });
           clip.savedDatasetId = saved.id;
+          if (params.runId) clip.audioUrl = saved.audioUrl || `/api/dataset/${saved.id}/audio`;
           console.log(`   💾 [Dataset Manager] Registered Gemini clip #${i + 1} as Sample #${saved.id} (Emotion: ${clipEmotion})`);
         } catch (sErr) {
-          console.warn(`   ⚠️ [Dataset Manager] Could not save Gemini clip #${i + 1}: ${sErr.message}`);
+          throw sErr;
         }
       }
     }
@@ -369,132 +358,11 @@ export async function generateGeminiDualPilotBatch(params = {}) {
       selectionScore: selection.score,
       selectionReason: selection.reason,
       clips: chosenResult.clips,
-      masterAudioUrl: `data:audio/wav;base64,${audioBuffer.toString('base64')}`,
+      masterAudioUrl: params.runId ? '' : `data:audio/wav;base64,${audioBuffer.toString('base64')}`,
       durationSeconds: wav.duration
     };
   } finally {
     fs.rmSync(directory, { recursive: true, force: true });
   }
-}
-
-/**
- * Generates an individual paragraph take via ElevenLabs with rotating key pool.
- */
-export async function generateElevenLabsDualPilotTake(params = {}) {
-  const {
-    text,
-    voiceId,
-    voiceName = 'Eleven Voice',
-    modelId = 'eleven_v4_turbo',
-    emotion = 'neutral',
-    intensity = 0.8,
-    deliveryStyle = 'normal',
-    voiceSettings: rawVoiceSettings
-  } = params;
-
-  if (!text || !text.trim()) throw new Error('Text is required for ElevenLabs take.');
-  if (!voiceId) throw new Error('Voice ID is required for ElevenLabs.');
-
-  const pool = getKeyPool();
-  if (pool.length === 0) {
-    throw new Error('No ElevenLabs API keys configured. Please add keys in the Key Pool.');
-  }
-
-  // Detect inline emotion tag, prioritizing it over auto condition emotion
-  const parsed = extractEmotionAndCleanText(text, emotion);
-  const detectedEmotion = parsed.hasInlineTag ? parsed.emotion : (emotion || 'neutral');
-  const detectedTag = parsed.hasInlineTag ? parsed.emotionTag : (detectedEmotion !== 'neutral' ? `[${detectedEmotion}]` : '');
-  const cleanSpokenText = parsed.cleanText || text.trim();
-
-  const voiceSettings = rawVoiceSettings || getElevenLabsEmotionSettings(detectedEmotion, intensity);
-
-  // Deliver clean spoken text to ElevenLabs API so it doesn't pronounce tag words
-  let promptText = cleanSpokenText;
-  if (deliveryStyle === 'whisper' && !promptText.startsWith('[whisper]')) {
-    promptText = `[whisper] ${promptText}`;
-  }
-
-  console.log(`\n🟢 [ElevenLabs v4 Turbo] Take: voice="${voiceName}" (${voiceId}) | Emotion=[${detectedEmotion}] (Intensity: ${intensity}${parsed.hasInlineTag ? ', inline tag detected' : ''})`);
-  console.log(`   ├─ Emotion Settings: Style=${voiceSettings.style}, Stability=${voiceSettings.stability}, SimBoost=${voiceSettings.similarity_boost}`);
-  console.log(`   ├─ Spoken Text (clean): "${promptText.slice(0, 65)}${promptText.length > 65 ? '...' : ''}"`);
-
-  const errors = [];
-  for (let attempt = 0; attempt < pool.length; attempt++) {
-    const { key } = getRotatedElevenLabsKey();
-    const maskedKey = `${key.slice(0, 4)}...${key.slice(-4)}`;
-    console.log(`   ├─ Attempt ${attempt + 1}/${pool.length}: Dispatching via key ${maskedKey} (pcm_24000)...`);
-
-    try {
-      const result = await callElevenLabsTTS({
-        apiKey: key,
-        text: promptText,
-        voiceId,
-        modelId,
-        voiceSettings,
-        outputFormat: 'pcm_24000'
-      });
-
-      const wavBuffer = result.audioBuffer;
-      let duration = 0;
-      try {
-        const wav = readPcmWav(wavBuffer);
-        duration = wav.duration;
-      } catch {
-        duration = Math.max(0.5, Number((wavBuffer.length / (24000 * 2)).toFixed(2)));
-      }
-
-      let savedDatasetId = null;
-      if (params.saveToDataset !== false) {
-        try {
-          const saved = await saveSample({
-            text: cleanSpokenText, // strictly clean text, never inline tag
-            speaker_name: voiceName,
-            dialect: params.dialect || 'sorani',
-            language: params.language || 'ckb',
-            emotion: detectedEmotion,
-            emotion_intensity: intensity,
-            emotionTag: detectedTag,
-            method: 'elevenlabs_api',
-            modelId: modelId,
-            voiceId,
-            voiceName,
-            audioBuffer: wavBuffer,
-            notes: `Dual Pilot V20 (ElevenLabs v4 Turbo)`,
-            allowDuplicateText: true
-          });
-          savedDatasetId = saved.id;
-          console.log(`   💾 [Dataset Manager] Registered ElevenLabs take as Sample #${saved.id} (Emotion: ${detectedEmotion})`);
-        } catch (sErr) {
-          console.warn(`   ⚠️ [Dataset Manager] Could not save ElevenLabs take: ${sErr.message}`);
-        }
-      }
-
-      console.log(`   ✓ [ElevenLabs v4 Turbo] Success! Duration: ${duration.toFixed(2)}s | ${(wavBuffer.length / 1024).toFixed(1)} KB (24kHz WAV)\n`);
-
-      return {
-        success: true,
-        provider: 'elevenlabs',
-        modelId,
-        voiceId,
-        voiceName,
-        text: cleanSpokenText,
-        rawText: text.trim(),
-        emotion: detectedEmotion,
-        emotionTag: detectedTag,
-        hasInlineTag: parsed.hasInlineTag,
-        duration,
-        keyUsedMasked: maskedKey,
-        savedDatasetId,
-        audioUrl: `data:audio/wav;base64,${wavBuffer.toString('base64')}`
-      };
-    } catch (err) {
-      console.warn(`   ⚠️ [ElevenLabs v4 Turbo] Attempt failed with key ${maskedKey}: ${err.message}`);
-      errors.push(`Key ${maskedKey}: ${err.message}`);
-      if (attempt === pool.length - 1) break;
-    }
-  }
-
-  console.error(`   ❌ [ElevenLabs v4 Turbo] All keys in pool failed.`);
-  throw new Error(`All ElevenLabs keys failed: ${errors.join(' | ')}`);
 }
 

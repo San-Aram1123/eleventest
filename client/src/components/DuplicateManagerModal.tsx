@@ -156,15 +156,15 @@ export const DuplicateManagerModal: React.FC<DuplicateManagerModalProps> = ({
               <Copy size={20} />
             </div>
             <div>
-              <h2 className="modal-title" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: '#F8FAFC' }}>
+              <h2 className="modal-title" style={{ margin: 0, fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 Dataset Duplicate Finder & Cleaner
               </h2>
-              <p className="modal-subtitle" style={{ margin: '2px 0 0', fontSize: '0.85rem', color: '#94A3B8' }}>
+              <p className="modal-subtitle" style={{ margin: '2px 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)' }}>
                 Compare multiple audio takes for the same Kurdish sentence, listen side-by-side, and prune redundant samples.
               </p>
             </div>
           </div>
-          <button className="btn-close-modal" onClick={onClose} style={{ background: 'transparent', border: 'none', color: '#94A3B8', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
+          <button className="btn-close-modal" onClick={onClose} style={{ background: 'transparent', border: 'none', color: 'var(--text-tertiary)', cursor: 'pointer', padding: '6px', borderRadius: '8px' }}>
             <X size={20} />
           </button>
         </div>
@@ -187,10 +187,10 @@ export const DuplicateManagerModal: React.FC<DuplicateManagerModalProps> = ({
               <div style={{ width: '64px', height: '64px', borderRadius: '50%', background: 'rgba(16, 185, 129, 0.15)', border: '2px solid rgba(16, 185, 129, 0.4)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#10B981', marginBottom: '1rem' }}>
                 <CheckCircle2 size={32} />
               </div>
-              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#F8FAFC', marginBottom: '0.35rem' }}>
+              <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: 'var(--text-main)', marginBottom: '0.35rem' }}>
                 No Duplicates Found!
               </h3>
-              <p style={{ color: '#94A3B8', fontSize: '0.9rem', maxWidth: '420px', lineHeight: 1.5 }}>
+              <p style={{ color: 'var(--text-secondary)', fontSize: '0.9rem', maxWidth: '420px', lineHeight: 1.5 }}>
                 {searchQuery ? 'No duplicate sentences matched your search query.' : 'Every Kurdish transcript in your dataset is unique. There are no duplicate audio records.'}
               </p>
               {searchQuery && (
@@ -215,8 +215,8 @@ export const DuplicateManagerModal: React.FC<DuplicateManagerModalProps> = ({
           )}
         </div>
 
-        <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid rgba(255, 255, 255, 0.1)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'rgba(15, 23, 42, 0.6)' }}>
-          <div style={{ fontSize: '0.8rem', color: '#64748B' }}>
+        <div style={{ padding: '0.85rem 1.25rem', borderTop: '1px solid var(--border-subtle)', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-box-subtle)' }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-tertiary)' }}>
             Deleting a sample permanently removes its `.json` and `.wav` files and synchronizes with MySQL.
           </div>
           <button className="btn btn-secondary btn-sm" onClick={onClose}>

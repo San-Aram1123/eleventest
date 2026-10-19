@@ -174,33 +174,33 @@ export const SentenceInputSection: React.FC<SentenceInputSectionProps> = ({
         onChange={(e) => onChange(e.target.value)}
         style={{
           width: '100%',
-          background: 'rgba(15, 23, 42, 0.6)',
-          border: '1px solid rgba(255, 255, 255, 0.1)',
+          background: 'var(--bg-input)',
+          border: '1px solid var(--border-subtle)',
           borderRadius: '8px',
           padding: '0.75rem',
           fontSize: '1rem',
           fontFamily: isRtl ? "'Rabar', 'Vazirmatn', sans-serif" : 'system-ui, sans-serif',
-          color: '#f8fafc',
+          color: 'var(--text-main)',
           resize: 'vertical'
         }}
       />
 
       {/* Quick preview of index numbering */}
       {sentences.length > 0 && (
-        <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: '#94a3b8' }}>
+        <div style={{ marginTop: '0.75rem', fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
             <span style={{ fontWeight: 600 }}>Family IDs:</span>
             {sentences.slice(0, 3).map((s, idx) => (
               <span
                 key={idx}
                 className="badge"
-                style={{ background: 'rgba(255, 255, 255, 0.05)', color: '#cbd5e1', direction: isRtl ? 'rtl' : 'ltr' }}
+                style={{ background: 'var(--bg-box)', border: '1px solid var(--border-subtle)', color: 'var(--text-secondary)', direction: isRtl ? 'rtl' : 'ltr' }}
               >
                 #{String(startIdx + idx).padStart(3, '0')}: {s.length > 25 ? s.slice(0, 25) + '...' : s}
               </span>
             ))}
             {sentences.length > 3 && (
-              <span style={{ color: '#64748b' }}>+{sentences.length - 3} more</span>
+              <span style={{ color: 'var(--text-muted)' }}>+{sentences.length - 3} more</span>
             )}
           </div>
         </div>

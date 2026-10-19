@@ -39,8 +39,8 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
       className="glass-card"
       style={{
         padding: '1rem',
-        background: 'rgba(15, 23, 42, 0.65)',
-        border: '1px solid rgba(168, 85, 247, 0.25)',
+        background: 'var(--bg-box)',
+        border: '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.85rem'
@@ -54,7 +54,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
         {/* Gender Selector */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Voice Gender
           </label>
           <select
@@ -71,7 +71,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
 
         {/* Specific Voice */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Specific Voice
           </label>
           <select
@@ -91,7 +91,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
 
         {/* Language Selector */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Language
           </label>
           <select
@@ -110,7 +110,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
 
         {/* Dialect Selector */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Kurdish Dialect
           </label>
           <select
@@ -127,7 +127,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
 
         {/* Emotion Selector */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Emotion
           </label>
           <select
@@ -149,7 +149,7 @@ export const ExportCustomFilters: React.FC<ExportCustomFiltersProps> = ({
 
         {/* Generation Method */}
         <div>
-          <label style={{ fontSize: '0.75rem', color: '#94a3b8', display: 'block', marginBottom: '4px' }}>
+          <label style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'block', marginBottom: '4px' }}>
             Synthesis Method
           </label>
           <select

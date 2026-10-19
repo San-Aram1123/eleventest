@@ -90,13 +90,13 @@ export const DuplicateGroupCard: React.FC<DuplicateGroupCardProps> = ({
             style={{
               fontFamily: 'Rabar, Tahoma, sans-serif',
               fontSize: '1.1rem',
-              color: '#F8FAFC',
+              color: 'var(--text-main)',
               direction: 'rtl',
               lineHeight: 1.6,
-              background: 'rgba(0, 0, 0, 0.25)',
+              background: 'var(--bg-box)',
               padding: '8px 12px',
               borderRadius: '8px',
-              border: '1px solid rgba(255, 255, 255, 0.05)'
+              border: '1px solid var(--border-subtle)'
             }}
           >
             {group.originalText}

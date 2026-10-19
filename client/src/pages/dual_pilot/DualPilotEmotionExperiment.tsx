@@ -67,16 +67,16 @@ export const DualPilotEmotionExperiment: React.FC<Props> = props => {
   const renderMethod = (item: Experiment, key: string, label: string) => {
     const boundaries = methodBoundaries(item);
     const segments = result ? proposedSegments(item, result.durationSeconds) : [];
-    return <details key={key} style={{ background: '#0B1220', padding: '.55rem .7rem', borderRadius: 6, marginTop: '.4rem' }}>
+    return <details key={key} style={{ background: 'var(--bg-box)', border: '1px solid var(--border-subtle)', padding: '.55rem .7rem', borderRadius: 6, marginTop: '.4rem' }}>
       <summary style={{ cursor: 'pointer', color: item.success ? '#6EE7B7' : '#FDA4AF' }}>{label}{item.name} · {item.status || (item.success ? 'Accepted' : 'Rejected')}{item.error ? ` — ${item.error}` : ''}</summary>
-      <p style={{ color: '#94A3B8', fontSize: '.76rem', margin: '.45rem 0' }}>These are {item.success ? 'accepted by the Gemini clip policy' : 'proposed, unverified'} cuts. Acceptance requires exactly the expected number of clips and every clip to be 6–16 seconds inclusive. Auditioning plays the corresponding range from the master; it does not create or save a clip.</p>
+      <p style={{ color: 'var(--text-secondary)', fontSize: '.76rem', margin: '.45rem 0' }}>These are {item.success ? 'accepted by the Gemini clip policy' : 'proposed, unverified'} cuts. Acceptance requires exactly the expected number of clips and every clip to be 6–16 seconds inclusive. Auditioning plays the corresponding range from the master; it does not create or save a clip.</p>
       {item.originalStrictRejection && <p style={{ color: '#FCD34D', fontSize: '.76rem', margin: '.35rem 0' }}>Passed the clip count/duration policy despite the original acoustic gate: {item.originalStrictRejection}</p>}
       {segments.length > 0 && <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(170px, 1fr))', gap: '.35rem', marginBottom: '.55rem' }}>
-        {segments.map(segment => <div key={segment.index} style={{ border: '1px solid #334155', borderRadius: 6, padding: '.45rem' }}>
+        {segments.map(segment => <div key={segment.index} style={{ border: '1px solid var(--border-subtle)', background: 'var(--bg-box-subtle)', borderRadius: 6, padding: '.45rem' }}>
           <button type="button" className="btn btn-secondary btn-xs" onClick={() => playSegment(item, segment.start, segment.end)}>
             <Play size={12}/> {auditioning === `${item.name}:${segment.start.toFixed(2)}` ? 'Playing' : `Play cut ${segment.index}`} · {segment.start.toFixed(2)}–{segment.end.toFixed(2)}s
           </button>
-          <p dir="auto" style={{ fontSize: '.8rem', color: '#E2E8F0', margin: '.4rem 0 0', lineHeight: 1.5 }}><b>Paragraph {segment.index}:</b> {props.paragraphs[segment.index - 1] || 'No matching paragraph text.'}</p>
+          <p dir="auto" style={{ fontSize: '.8rem', color: 'var(--text-main)', margin: '.4rem 0 0', lineHeight: 1.5 }}><b>Paragraph {segment.index}:</b> {props.paragraphs[segment.index - 1] || 'No matching paragraph text.'}</p>
         </div>)}
       </div>}
       {boundaries.length > 0 && <div style={{ overflowX: 'auto', marginBottom: '.55rem' }}><table style={{ width: '100%', fontSize: '.73rem', borderCollapse: 'collapse' }}>

@@ -42,7 +42,7 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
       className="card"
       style={{
         border: '1px solid rgba(56, 189, 248, 0.3)',
-        background: 'linear-gradient(180deg, rgba(15, 23, 42, 0.75) 0%, rgba(30, 41, 59, 0.6) 100%)',
+        background: 'var(--bg-card)',
         boxShadow: '0 4px 16px rgba(0, 0, 0, 0.3)'
       }}
     >
@@ -55,7 +55,7 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
           flexWrap: 'wrap',
           gap: '10px',
           padding: '12px 16px',
-          borderBottom: '1px solid rgba(255, 255, 255, 0.08)'
+          borderBottom: '1px solid var(--border-subtle)'
         }}
       >
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
@@ -71,7 +71,7 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
           }}>
             <Files size={15} />
           </div>
-          <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#F8FAFC' }}>
+          <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>
             Multi-File Batch Queue
           </span>
           <span className="badge" style={{ background: 'rgba(56, 189, 248, 0.15)', color: '#38BDF8', fontSize: '0.72rem', border: '1px solid rgba(56, 189, 248, 0.3)' }}>
@@ -89,10 +89,10 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
               fontSize: '0.78rem',
               color: autoRemoveDuplicates ? '#38BDF8' : 'var(--text-muted)',
               fontWeight: 600,
-              background: autoRemoveDuplicates ? 'rgba(56, 189, 248, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+              background: autoRemoveDuplicates ? 'rgba(56, 189, 248, 0.12)' : 'var(--bg-box-subtle)',
               padding: '4px 8px',
               borderRadius: '6px',
-              border: autoRemoveDuplicates ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+              border: autoRemoveDuplicates ? '1px solid rgba(56, 189, 248, 0.3)' : '1px solid var(--border-subtle)'
             }}
             title="Automatically eliminates duplicate paragraphs before sending packets"
           >
@@ -114,10 +114,10 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
               fontSize: '0.78rem',
               color: autoAdvanceNextFile ? '#34D399' : 'var(--text-muted)',
               fontWeight: 600,
-              background: autoAdvanceNextFile ? 'rgba(52, 211, 153, 0.12)' : 'rgba(255, 255, 255, 0.04)',
+              background: autoAdvanceNextFile ? 'rgba(52, 211, 153, 0.12)' : 'var(--bg-box-subtle)',
               padding: '4px 8px',
               borderRadius: '6px',
-              border: autoAdvanceNextFile ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid rgba(255, 255, 255, 0.1)'
+              border: autoAdvanceNextFile ? '1px solid rgba(52, 211, 153, 0.3)' : '1px solid var(--border-subtle)'
             }}
             title="Automatically begins synthesizing the next queued file upon completion"
           >
@@ -134,7 +134,7 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
             type="button"
             className="btn btn-xs btn-ghost"
             onClick={onAddFilesClick}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '4px 8px', border: '1px solid rgba(255, 255, 255, 0.12)' }}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '4px 8px', border: '1px solid var(--border-subtle)' }}
           >
             <Plus size={12} />
             <span>Add Files</span>
@@ -160,12 +160,12 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
                   ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)'
                   : isCompleted
                   ? 'rgba(16, 185, 129, 0.06)'
-                  : 'rgba(255, 255, 255, 0.03)',
+                  : 'var(--bg-box)',
                 border: isActive
                   ? '1px solid rgba(56, 189, 248, 0.45)'
                   : isCompleted
                   ? '1px solid rgba(16, 185, 129, 0.25)'
-                  : '1px solid rgba(255, 255, 255, 0.06)',
+                  : '1px solid var(--border-subtle)',
                 gap: '10px'
               }}
             >
@@ -176,7 +176,7 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
 
                 <div style={{ minWidth: 0, overflow: 'hidden' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-                    <span style={{ fontSize: '0.84rem', fontWeight: isActive ? 700 : 500, color: isActive ? '#F8FAFC' : '#CBD5E1', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '260px' }}>
+                    <span style={{ fontSize: '0.84rem', fontWeight: isActive ? 700 : 500, color: isActive ? '#F8FAFC' : 'var(--text-secondary)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: '260px' }}>
                       {item.fileName}
                     </span>
                     {isActive && (
@@ -263,8 +263,8 @@ export const SplitterFileQueueCard: React.FC<SplitterFileQueueCardProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center',
           padding: '8px 12px',
-          background: 'rgba(0, 0, 0, 0.2)',
-          borderTop: '1px solid rgba(255, 255, 255, 0.05)',
+          background: 'var(--bg-box)',
+          borderTop: '1px solid var(--border-subtle)',
           fontSize: '0.74rem'
         }}
       >

@@ -58,26 +58,26 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
   };
 
   return (
-    <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'var(--card-bg, #1e2230)', border: '1px solid var(--border-color, #2d3348)', borderRadius: '12px' }}>
+    <div className="card" style={{ padding: '1.25rem', marginBottom: '1.5rem', background: 'var(--bg-card)', border: '1px solid var(--border-subtle)', borderRadius: '12px' }}>
       {/* Header & Preset Recipes */}
       <div style={{ marginBottom: '1rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem', flexWrap: 'wrap', gap: '8px' }}>
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: '8px', color: 'var(--text-main)' }}>
             <Sliders size={18} style={{ color: '#06B6D4' }} />
             Custom Dual-Emotion Mixer & Continuous Sliders
           </h3>
-          <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>Mix any 2 emotions with independent intensity</span>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>Mix any 2 emotions with independent intensity</span>
         </div>
 
         {/* Dramatic Preset Chips */}
         <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', marginTop: '6px' }}>
-          <span style={{ fontSize: '0.75rem', color: '#64748B', alignSelf: 'center', marginRight: '4px' }}>Recipes:</span>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-muted)', alignSelf: 'center', marginRight: '4px' }}>Recipes:</span>
           {DRAMATIC_MIX_PRESETS.map(p => (
             <button
               key={p.id}
               onClick={() => handleApplyPreset(p)}
               className="btn btn-secondary btn-sm"
-              style={{ fontSize: '0.74rem', padding: '3px 8px', borderRadius: '14px', border: '1px solid rgba(255,255,255,0.08)' }}
+              style={{ fontSize: '0.74rem', padding: '3px 8px', borderRadius: '14px', border: '1px solid var(--border-subtle)' }}
               title={p.context}
             >
               <Zap size={11} style={{ color: '#F59E0B', marginRight: '4px' }} />
@@ -88,14 +88,14 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
       </div>
 
       {/* Sliders Grid */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', background: 'rgba(0,0,0,0.25)', padding: '1rem', borderRadius: '10px' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', background: 'var(--bg-box)', padding: '1rem', borderRadius: '10px', border: '1px solid var(--border-subtle)' }}>
         {/* Emotion A Control */}
         <div>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '6px' }}>
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: metaA.color }}>
               Primary Emotion (A): {metaA.kurdishName}
             </span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#F8FAFC' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
               {Math.round(intensityA * 100)}% ({intensityA.toFixed(2)})
             </span>
           </div>
@@ -103,7 +103,7 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
           <select
             value={emotionA}
             onChange={e => setEmotionA(e.target.value)}
-            style={{ width: '100%', padding: '6px 10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#F8FAFC', fontSize: '0.85rem', marginBottom: '8px' }}
+            style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.85rem', marginBottom: '8px' }}
           >
             {EXTENDED_EMOTIONS.map(e => (
               <option key={e.id} value={e.id}>{e.name} — {e.kurdishName}</option>
@@ -119,7 +119,7 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
             onChange={e => setIntensityA(parseFloat(e.target.value))}
             style={{ width: '100%', accentColor: metaA.color, cursor: 'pointer' }}
           />
-          <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px' }}>{metaA.description}</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{metaA.description}</div>
         </div>
 
         {/* Emotion B Control */}
@@ -128,7 +128,7 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
             <span style={{ fontSize: '0.82rem', fontWeight: 600, color: metaB.color }}>
               Secondary Emotion (B): {metaB.kurdishName}
             </span>
-            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: '#F8FAFC' }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 700, color: 'var(--text-main)' }}>
               {Math.round(intensityB * 100)}% ({intensityB.toFixed(2)})
             </span>
           </div>
@@ -136,7 +136,7 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
           <select
             value={emotionB}
             onChange={e => setEmotionB(e.target.value)}
-            style={{ width: '100%', padding: '6px 10px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#F8FAFC', fontSize: '0.85rem', marginBottom: '8px' }}
+            style={{ width: '100%', padding: '6px 10px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.85rem', marginBottom: '8px' }}
           >
             {EXTENDED_EMOTIONS.map(e => (
               <option key={e.id} value={e.id}>{e.name} — {e.kurdishName}</option>
@@ -152,14 +152,14 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
             onChange={e => setIntensityB(parseFloat(e.target.value))}
             style={{ width: '100%', accentColor: metaB.color, cursor: 'pointer' }}
           />
-          <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px' }}>{metaB.description}</div>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px' }}>{metaB.description}</div>
         </div>
       </div>
 
       {/* Delivery Selector & Context */}
       <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: '#94A3B8' }}>Delivery:</span>
+          <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Delivery:</span>
           {(['normal', 'whisper', 'laughing_speech'] as const).map(del => (
             <button
               key={del}
@@ -177,7 +177,7 @@ export const ExpressiveCustomMixer: React.FC<ExpressiveCustomMixerProps> = ({
           placeholder="Optional acting notes (e.g. bitterly laughing at betrayal)"
           value={customContext}
           onChange={e => setCustomContext(e.target.value)}
-          style={{ flex: 1, minWidth: '220px', padding: '6px 10px', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '6px', color: '#F8FAFC', fontSize: '0.82rem' }}
+          style={{ flex: 1, minWidth: '220px', padding: '6px 10px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.82rem' }}
         />
 
         <button

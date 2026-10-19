@@ -54,8 +54,8 @@ export const MassDeleteConfirmSection: React.FC<MassDeleteConfirmSectionProps> =
             style={{
               width: '100%',
               borderColor: confirmText.toUpperCase() === 'DELETE' ? '#22c55e' : '#ef4444',
-              background: 'rgba(0,0,0,0.4)',
-              color: '#ffffff',
+              background: 'var(--bg-input)',
+              color: 'var(--text-main)',
               fontWeight: 700
             }}
           />
@@ -68,7 +68,7 @@ export const MassDeleteConfirmSection: React.FC<MassDeleteConfirmSectionProps> =
             onChange={(e) => setConfirmChecked(e.target.checked)}
             style={{ accentColor: '#ef4444', width: '16px', height: '16px' }}
           />
-          <span style={{ fontSize: '0.8rem', color: '#f1f5f9', fontWeight: 600 }}>
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>
             I confirm I want to permanently delete these {count} sample(s).
           </span>
         </label>

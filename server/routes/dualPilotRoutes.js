@@ -1,3 +1,4 @@
+import { reserveDualPilotRun, cachedDualPilotTask } from '../shared/dualPilotRunStore.js';
 import express from 'express';
 import { generateGeminiDualPilotBatch, generateElevenLabsDualPilotTake } from '../dualPilotService.js';
 import { getAvailableGeminiVoices, getGeminiKeyPoolDetails } from '../geminiService.js';
@@ -6,6 +7,10 @@ import { runGeminiEmotionExperiment } from '../dualPilotEmotionExperiment.js';
 
 const router = express.Router();
 const activeControllers = new Set();
+
+router.post('/runs', (_req, res) => {
+  try { res.json(reserveDualPilotRun()); } catch (error) { res.status(500).json({ error: error.message }); }
+});
 
 router.get('/config', async (_req, res) => {
   try {
@@ -42,10 +47,10 @@ router.post('/gemini-chunk', async (req, res) => {
   console.log(`\n📥 [API] POST /api/dual-pilot/gemini-chunk (${pCount} paragraphs, emotion: ${req.body.emotion || 'neutral'})`);
   const controller = new AbortController();
   activeControllers.add(controller);
-  req.on('close', () => controller.abort());
+  res.on('close', () => { if (!res.writableEnded) controller.abort(); });
 
   try {
-    const result = await generateGeminiDualPilotBatch({ ...req.body, signal: controller.signal });
+    const result = await cachedDualPilotTask(req.body, 'gemini', () => generateGeminiDualPilotBatch({ ...req.body, signal: controller.signal }));
     res.json(result);
   } catch (err) {
     console.error(`❌ [API] Gemini chunk failed: ${err.message}`);
@@ -75,13 +80,16 @@ router.post('/gemini-emotion-experiment', async (req, res) => {
 
 router.post('/elevenlabs-take', async (req, res) => {
   console.log(`\n📥 [API] POST /api/dual-pilot/elevenlabs-take (voice: "${req.body.voiceName || req.body.voiceId}", emotion: ${req.body.emotion || 'neutral'})`);
+  const controller = new AbortController();
+  activeControllers.add(controller);
+  res.on('close', () => { if (!res.writableEnded) controller.abort(); });
   try {
-    const result = await generateElevenLabsDualPilotTake(req.body);
+    const result = await cachedDualPilotTask(req.body, 'elevenlabs', () => generateElevenLabsDualPilotTake({ ...req.body, signal: controller.signal }));
     res.json(result);
   } catch (err) {
     console.error(`❌ [API] ElevenLabs take failed: ${err.message}`);
     res.status(400).json({ error: err.message });
-  }
+  } finally { activeControllers.delete(controller); }
 });
 
 router.post('/abort', (_req, res) => {

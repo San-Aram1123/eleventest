@@ -22,15 +22,15 @@ export const ExportPreviewStatsCard: React.FC<ExportPreviewStatsCardProps> = ({
       className="glass-card"
       style={{
         padding: '0.9rem 1.1rem',
-        background: 'rgba(255, 255, 255, 0.02)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--bg-box)',
+        border: '1px solid var(--border-subtle)',
         display: 'flex',
         flexDirection: 'column',
         gap: '0.6rem'
       }}
     >
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', textTransform: 'uppercase' }}>
+        <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
           Real-time Export Estimate
         </div>
         <div style={{ display: 'flex', gap: '8px' }}>
@@ -44,32 +44,32 @@ export const ExportPreviewStatsCard: React.FC<ExportPreviewStatsCardProps> = ({
       </div>
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '0.75rem', textAlign: 'center' }}>
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.65rem', borderRadius: '8px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Selected Samples</div>
+        <div style={{ background: 'var(--bg-box-subtle)', padding: '0.65rem', borderRadius: '8px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Selected Samples</div>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, color: matchedStats.count > 0 ? '#38bdf8' : '#ef4444' }}>
             {matchedStats.count}
           </div>
-          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
             {percent}% of dataset
           </div>
         </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.65rem', borderRadius: '8px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Total Duration</div>
+        <div style={{ background: 'var(--bg-box-subtle)', padding: '0.65rem', borderRadius: '8px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Total Duration</div>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#10b981' }}>
             {matchedStats.durationFormatted}
           </div>
-          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
             24kHz 16-bit audio
           </div>
         </div>
 
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.65rem', borderRadius: '8px' }}>
-          <div style={{ fontSize: '0.72rem', color: '#94a3b8', textTransform: 'uppercase' }}>Approx Size</div>
+        <div style={{ background: 'var(--bg-box-subtle)', padding: '0.65rem', borderRadius: '8px' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Approx Size</div>
           <div style={{ fontSize: '1.4rem', fontWeight: 800, color: '#f59e0b' }}>
             {matchedStats.sizeMb}
           </div>
-          <div style={{ fontSize: '0.68rem', color: '#64748b' }}>
+          <div style={{ fontSize: '0.68rem', color: 'var(--text-tertiary)' }}>
             ZIP Compressed
           </div>
         </div>

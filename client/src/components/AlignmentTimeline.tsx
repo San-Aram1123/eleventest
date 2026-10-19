@@ -109,7 +109,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
 
       <style>{`
         .alignment-root {
-          background: rgba(15, 23, 42, 0.7);
+          background: var(--bg-card);
           border: 1px solid var(--border-subtle);
           border-radius: var(--radius-md);
           padding: 14px;
@@ -120,7 +120,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
 
         .alignment-empty-state {
           padding: 12px;
-          background: rgba(15, 23, 42, 0.4);
+          background: var(--bg-box);
           border-radius: var(--radius-sm);
           font-size: 0.82rem;
           color: var(--text-dim);
@@ -152,7 +152,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
           display: flex;
           align-items: center;
           gap: 4px;
-          background: rgba(30, 41, 59, 0.8);
+          background: var(--bg-box);
           padding: 2px;
           border-radius: var(--radius-sm);
         }
@@ -183,7 +183,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
           max-height: 180px;
           overflow-y: auto;
           padding: 8px;
-          background: rgba(11, 15, 23, 0.6);
+          background: var(--bg-box-subtle);
           border-radius: var(--radius-sm);
           border: 1px solid var(--border-subtle);
         }
@@ -199,7 +199,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
           height: 42px;
           padding: 2px 4px;
           border-radius: var(--radius-sm);
-          background: rgba(30, 41, 59, 0.6);
+          background: var(--bg-box);
           border: 1px solid var(--border-subtle);
           color: var(--text-main);
           cursor: pointer;
@@ -252,7 +252,7 @@ export const AlignmentTimeline: React.FC<AlignmentTimelineProps> = ({
         }
 
         .alignment-table th {
-          background: rgba(30, 41, 59, 0.9);
+          background: var(--bg-box);
           padding: 6px 10px;
           color: var(--text-muted);
           position: sticky;

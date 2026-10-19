@@ -174,29 +174,30 @@ export const BulkKeyAddModal: React.FC<BulkKeyAddModalProps> = ({
               lineHeight: 1.5,
               resize: 'vertical',
               padding: '12px',
-              background: 'rgba(15, 23, 42, 0.85)',
-              border: '1px solid rgba(56, 189, 248, 0.25)',
-              borderRadius: '8px'
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)',
+              borderRadius: '8px',
+              color: 'var(--text-main)'
             }}
           />
 
           {/* Key Detection Metrics */}
           <div style={{
-            background: 'rgba(30, 41, 59, 0.6)',
+            background: 'var(--bg-box)',
             borderRadius: '8px',
             padding: '10px 14px',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             fontSize: '0.78rem',
-            border: '1px solid rgba(255, 255, 255, 0.05)'
+            border: '1px solid var(--border-subtle)'
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
               <span className={`badge ${parsed.keys.length > 0 ? 'badge-cyan' : 'badge-ghost'}`} style={{ fontWeight: 600 }}>
                 {parsed.keys.length} {parsed.keys.length === 1 ? 'Key' : 'Keys'} Detected
               </span>
               {parsed.newKeys.length > 0 && parsed.existingCount > 0 && (
-                <span style={{ color: '#94a3b8' }}>
+                <span style={{ color: 'var(--text-secondary)' }}>
                   ({parsed.newKeys.length} new, {parsed.existingCount} already in pool)
                 </span>
               )}
@@ -207,7 +208,7 @@ export const BulkKeyAddModal: React.FC<BulkKeyAddModalProps> = ({
                 </span>
               )}
             </div>
-            <span style={{ color: '#64748b', fontSize: '0.72rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
               Minimum key length: 20 chars
             </span>
           </div>

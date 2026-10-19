@@ -46,8 +46,8 @@ export const SplitterEmotionInspector: React.FC<SplitterEmotionInspectorProps> =
             flexDirection: 'column',
             gap: '6px',
             padding: '8px',
-            background: 'rgba(0, 0, 0, 0.35)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'var(--bg-box)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '6px',
             minWidth: 0,
             maxWidth: '100%'

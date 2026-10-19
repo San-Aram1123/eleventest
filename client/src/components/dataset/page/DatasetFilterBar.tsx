@@ -36,8 +36,8 @@ interface DatasetFilterBarProps {
   onSortChange: (s: string) => void;
   pageSize: number;
   onPageSizeChange: (s: number) => void;
-  viewMode: 'cards' | 'table' | 'families' | 'expressive_families';
-  onViewModeChange: (m: 'cards' | 'table' | 'families' | 'expressive_families') => void;
+  viewMode: 'cards' | 'table' | 'families' | 'expressive_families' | 'v20_families';
+  onViewModeChange: (m: 'cards' | 'table' | 'families' | 'expressive_families' | 'v20_families') => void;
   totalSamplesCount: number;
 }
 
@@ -262,6 +262,10 @@ export const DatasetFilterBar: React.FC<DatasetFilterBarProps> = ({
         >
           <Sparkles size={13} style={{ color: '#C084FC' }} />
           <span>Expressive Families</span>
+        </button>
+        <button className={`view-btn ${viewMode === 'v20_families' ? 'active' : ''}`}
+          onClick={() => onViewModeChange('v20_families')} title="Inspect all 50 emotions per V20 family">
+          <Layers size={13}/> V20 Families (50)
         </button>
       </div>
     </div>

@@ -1,5 +1,6 @@
+import { DualPilotFailures } from './DualPilotFailures';
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { Play, Square, Layers, Download, CheckCircle2, Zap } from 'lucide-react';
+import { Play, Square, Layers, Download } from 'lucide-react';
 import { DualPilotKeyManagerCard } from './DualPilotKeyManagerCard';
 import { DualPilotConfigCard } from './DualPilotConfigCard';
 import { DualPilotInputCard } from './DualPilotInputCard';
@@ -7,7 +8,6 @@ import { DualPilotFamilyCard } from './DualPilotFamilyCard';
 import { useDualPilotRunner } from './useDualPilotRunner';
 import { fetchDualPilotConfig, DualPilotConfigResponse, FALLBACK_ELEVEN_VOICES } from './dualPilotApi';
 import { DualPilotConfig, DUAL_PILOT_LANGUAGES } from './dualPilotTypes';
-import { V20_PRESET_TIERS } from './v20Conditions';
 import { DualPilotEmotionExperiment } from './DualPilotEmotionExperiment';
 
 interface DualPilotPageProps {
@@ -15,11 +15,15 @@ interface DualPilotPageProps {
 }
 
 export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
+  const [familyPage, setFamilyPage] = useState(0);
   const [configData, setConfigData] = useState<DualPilotConfigResponse | null>(null);
   const [geminiText, setGeminiText] = useState(() => DUAL_PILOT_LANGUAGES[0].sampleSentences.join('\n\n'));
   const [elevenText, setElevenText] = useState(() => DUAL_PILOT_LANGUAGES[0].sampleSentences.join('\n\n'));
 
   const [config, setConfig] = useState<DualPilotConfig>({
+    elevenVoiceSlots: [0, 3, 1, 4, 2, 5].map(index => ({
+      voiceId: FALLBACK_ELEVEN_VOICES[index].voice_id, voiceName: FALLBACK_ELEVEN_VOICES[index].name
+    })),
     selectedPresetId: 'quick_smoke1',
     language: 'ckb',
     geminiFemaleVoice: 'Aoede',
@@ -41,7 +45,6 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
       setConfigData(data);
       const voices = data.elevenlabs.voices || FALLBACK_ELEVEN_VOICES;
 
-      // Select female and male voices (prioritize premades for free tier compatibility)
       const premades = voices.filter(v => !v.category || v.category === 'premade');
       const voicePool = premades.length > 0 ? premades : voices;
       const female = voicePool.find(v => /sarah|laura|alice/i.test(v.name)) || voicePool.find(v => /female|nicole/i.test(v.name)) || voicePool[0];
@@ -66,13 +69,8 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
     loadConfig();
   }, [loadConfig]);
 
-  const geminiParagraphs = useMemo(() => {
-    return geminiText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  }, [geminiText]);
-
-  const elevenParagraphs = useMemo(() => {
-    return elevenText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-  }, [elevenText]);
+  const geminiParagraphs = useMemo(() => geminiText.split(/\r?\n/).map(l => l.trim()).filter(Boolean), [geminiText]);
+  const elevenParagraphs = useMemo(() => elevenText.split(/\r?\n/).map(l => l.trim()).filter(Boolean), [elevenText]);
 
   const runner = useDualPilotRunner({ geminiParagraphs, elevenParagraphs, config, addToast });
 
@@ -85,8 +83,8 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
       familyId: f.familyId,
       sentenceIndex: f.paragraphIndex + 1,
       gender: f.gender,
-      language: config.language,
-      dialect: config.dialect,
+      language: f.language,
+      dialect: f.language === 'kmr' ? 'badini' : 'sorani',
       transcript: f.transcript,
       geminiTakes: Object.values(f.geminiTakes).map(t => ({
         condition: t.conditionId,
@@ -118,20 +116,18 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
     URL.revokeObjectURL(url);
   };
 
-  const selectedTier = V20_PRESET_TIERS.find(p => p.id === config.selectedPresetId) || V20_PRESET_TIERS[0];
-
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '1rem 0 3rem' }}>
-      {/* Top Banner */}
-      <div style={{ marginBottom: '1.25rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
+    <div style={{ maxWidth: '1240px', margin: '0 auto', padding: '1rem 0 3.5rem' }}>
+      {/* Apple Styled Hero Banner */}
+      <div style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
-          <h2 style={{ fontSize: '1.4rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.6rem' }}>
+          <h2 style={{ fontSize: '1.5rem', fontWeight: 800, margin: 0, display: 'flex', alignItems: 'center', gap: '0.65rem', letterSpacing: '-0.025em' }}>
             <span>Dual Provider Automated Matrix Studio</span>
-            <span className="badge" style={{ background: '#6366F122', color: '#818CF8', border: '1px solid #6366F155' }}>
+            <span className="badge" style={{ background: 'rgba(10, 132, 255, 0.12)', color: '#0A84FF', border: '1px solid rgba(10, 132, 255, 0.3)', borderRadius: '9999px', padding: '3px 10px', fontSize: '0.74rem', fontWeight: 600 }}>
               Gemini 3.8 vs. ElevenLabs v4 Turbo
             </span>
           </h2>
-          <p style={{ margin: '0.25rem 0 0', color: '#94A3B8', fontSize: '0.85rem' }}>
+          <p style={{ margin: '0.35rem 0 0', color: 'var(--text-secondary)', fontSize: '0.86rem', letterSpacing: '-0.005em' }}>
             Transposed 6-sentence master with 8 slicing engines (7 neural + silence, Gemini) • 1-by-1 with key rotation (ElevenLabs v4 Turbo) • Auto-loops through all tier conditions.
           </p>
         </div>
@@ -141,7 +137,7 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
             type="button"
             className="btn btn-secondary btn-sm"
             onClick={exportFamilyJsonl}
-            style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}
+            style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', borderRadius: '9999px', padding: '6px 14px', background: 'rgba(255, 255, 255, 0.08)', border: '1px solid var(--border-medium)', fontWeight: 600 }}
           >
             <Download size={14} /> Export Dual Manifest (JSONL)
           </button>
@@ -172,6 +168,7 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
         elevenText={elevenText}
         onChangeElevenText={setElevenText}
         language={config.language}
+        elevenVoiceSlots={config.elevenVoiceSlots}
         geminiFemaleVoice={config.geminiFemaleVoice}
         geminiMaleVoice={config.geminiMaleVoice}
         elevenFemaleVoiceName={config.elevenFemaleVoiceName}
@@ -181,36 +178,62 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
         disabled={runner.progress.isActive}
       />
 
-      {/* Run Action Controls & Live Progress */}
-      <div className="glass-card" style={{ padding: '1rem', marginBottom: '1.5rem', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+      {/* Apple Run Action Controls & Glass Progress Bar */}
+      <div
+        className="glass-card"
+        style={{
+          padding: '1.1rem 1.4rem',
+          marginBottom: '1.5rem',
+          borderRadius: '16px',
+          border: '1px solid var(--border-medium)',
+          borderTop: '1px solid var(--border-specular)',
+          backdropFilter: 'blur(20px) saturate(180%)',
+          boxShadow: '0 8px 32px rgba(0, 0, 0, 0.28)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: '1rem'
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.85rem' }}>
           {!runner.progress.isActive ? (
             <button
               type="button"
               className="btn btn-primary"
               onClick={() => runner.startBatch()}
               disabled={geminiParagraphs.length === 0 && elevenParagraphs.length === 0}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.65rem 1.4rem',
+                borderRadius: '9999px', fontWeight: 600, fontSize: '0.88rem',
+                background: 'linear-gradient(145deg, #0A84FF, #0066CC)',
+                boxShadow: '0 4px 18px rgba(10, 132, 255, 0.38)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.35)'
+              }}
             >
-              <Play size={16} /> {config.selectedPresetId === 'quick_smoke1'
-                ? `Run Quick Test: [${config.smokeEmotion || 'neutral'}]`
-                : `Run Automated Batch (${selectedTier.conditionCount} Conditions)`}
+              <Play size={16} /> Generate All 50 Emotions
             </button>
           ) : (
             <button
               type="button"
               className="btn btn-danger"
               onClick={runner.stopBatch}
-              style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', padding: '0.6rem 1.25rem' }}
+              style={{
+                display: 'flex', alignItems: 'center', gap: '0.55rem', padding: '0.65rem 1.4rem',
+                borderRadius: '9999px', fontWeight: 600, fontSize: '0.88rem',
+                background: 'linear-gradient(145deg, #FF453A, #D62B20)',
+                boxShadow: '0 4px 18px rgba(255, 69, 58, 0.38)',
+                borderTop: '1px solid rgba(255, 255, 255, 0.35)'
+              }}
             >
               <Square size={16} /> Stop Batch
             </button>
           )}
 
           {runner.progress.isActive && (
-            <div style={{ fontSize: '0.85rem', color: '#A78BFA', fontWeight: 600 }}>
+            <div style={{ fontSize: '0.85rem', color: '#BF5AF2', fontWeight: 600, letterSpacing: '-0.01em' }}>
               <span>Cond {runner.progress.currentConditionIndex}/{runner.progress.totalConditions}: {runner.progress.currentConditionLabel}</span>
-              <span style={{ color: '#34D399', marginLeft: '6px' }}>
+              <span style={{ color: '#30D158', marginLeft: '8px' }}>
                 (Gemini 3.8 + ElevenLabs in parallel ⚡)
               </span>
             </div>
@@ -218,13 +241,13 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
         </div>
 
         {runner.progress.totalExpectedTakes > 0 && (
-          <div style={{ flex: 1, maxWidth: '400px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: '#94A3B8', marginBottom: '4px' }}>
+          <div style={{ flex: 1, maxWidth: '420px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.78rem', color: 'var(--text-secondary)', marginBottom: '5px', fontWeight: 500 }}>
               <span>Progress: {runner.progress.completedTakes} / {runner.progress.totalExpectedTakes} takes</span>
-              <span>{progressPercent}%</span>
+              <span style={{ fontFamily: 'var(--font-mono)', fontWeight: 700, color: '#0A84FF' }}>{progressPercent}%</span>
             </div>
-            <div style={{ height: '6px', background: 'rgba(255,255,255,0.1)', borderRadius: '3px', overflow: 'hidden' }}>
-              <div style={{ height: '100%', width: `${progressPercent}%`, background: 'linear-gradient(90deg, #7C3AED, #10B981)', transition: 'width 0.3s ease' }} />
+            <div style={{ height: '7px', background: 'rgba(255, 255, 255, 0.08)', borderRadius: '9999px', overflow: 'hidden' }}>
+              <div style={{ height: '100%', width: `${progressPercent}%`, background: 'linear-gradient(90deg, #BF5AF2, #0A84FF, #30D158)', borderRadius: '9999px', transition: 'width 0.3s cubic-bezier(0.16, 1, 0.3, 1)' }} />
             </div>
           </div>
         )}
@@ -240,17 +263,22 @@ export const DualPilotPage: React.FC<DualPilotPageProps> = ({ addToast }) => {
         disabled={runner.progress.isActive}
       />
 
+      <DualPilotFailures failures={runner.failedTasks} active={runner.progress.isActive}
+        retry={runner.retryFailed} download={runner.downloadFailures} />
       {/* Generated Families List */}
       {runner.families.length > 0 && (
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <Layers size={18} className="text-primary" />
-            <span style={{ fontWeight: 700, fontSize: '1rem' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.85rem' }}>
+            <Layers size={18} style={{ color: '#0A84FF' }} />
+            <span style={{ fontWeight: 700, fontSize: '1.05rem', letterSpacing: '-0.015em' }}>
               Parallel Sentence Families ({runner.families.length} Families)
             </span>
           </div>
 
-          {runner.families.map(fam => (
+          <div><button disabled={familyPage === 0} onClick={() => setFamilyPage(page => page - 1)}>Previous</button>
+            <span> Page {familyPage + 1} of {Math.max(1, Math.ceil(runner.families.length / 24))} </span>
+            <button disabled={(familyPage + 1) * 24 >= runner.families.length} onClick={() => setFamilyPage(page => page + 1)}>Next</button></div>
+          {runner.families.slice(familyPage * 24, (familyPage + 1) * 24).map(fam => (
             <DualPilotFamilyCard
               key={fam.familyId}
               family={fam}

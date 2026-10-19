@@ -132,9 +132,9 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
           width: '100%',
           padding: '0.75rem',
           borderRadius: '8px',
-          border: '1px solid var(--border-color, rgba(255,255,255,0.12))',
-          background: 'var(--bg-input, rgba(0,0,0,0.25))',
-          color: 'inherit',
+          border: '1px solid var(--border-subtle)',
+          background: 'var(--bg-input)',
+          color: 'var(--text-main)',
           fontSize: '0.92rem',
           lineHeight: '1.6',
           fontFamily: 'inherit',
@@ -146,8 +146,8 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
 
       {/* Live Turn-by-Turn Speaker Preview */}
       {previewLines.length > 0 && (
-        <div style={{ background: 'rgba(255,255,255,0.02)', padding: '0.75rem', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: '0.78rem', color: '#94a3b8', fontWeight: 600, marginBottom: '0.5rem' }}>
+        <div style={{ background: 'var(--bg-box)', padding: '0.75rem', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', fontWeight: 600, marginBottom: '0.5rem' }}>
             First 6 speaker turn assignments:
           </div>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.4rem' }}>
@@ -165,7 +165,8 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
                     alignItems: 'center',
                     gap: '0.5rem',
                     padding: '0.35rem 0.55rem',
-                    background: 'rgba(0,0,0,0.2)',
+                    background: 'var(--bg-box-subtle)',
+                    border: '1px solid var(--border-subtle)',
                     borderRadius: '6px',
                     fontSize: '0.78rem'
                   }}
@@ -183,7 +184,7 @@ export const ContextLabInputCard: React.FC<ContextLabInputCardProps> = ({
                   >
                     Line {idx + 1}: {spkLabel} ({activeVoice})
                   </span>
-                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: '#94a3b8', flex: 1 }} dir="auto">
+                  <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', color: 'var(--text-secondary)', flex: 1 }} dir="auto">
                     {line}
                   </span>
                 </div>

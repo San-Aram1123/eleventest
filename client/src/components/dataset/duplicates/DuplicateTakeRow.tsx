@@ -33,9 +33,9 @@ export const DuplicateTakeRow: React.FC<DuplicateTakeRowProps> = ({
     <div
       style={{
         background: isNewest
-          ? 'linear-gradient(90deg, rgba(56, 189, 248, 0.08) 0%, rgba(15, 23, 42, 0.4) 100%)'
-          : 'rgba(15, 23, 42, 0.4)',
-        border: isNewest ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(255, 255, 255, 0.07)',
+          ? 'var(--bg-box)'
+          : 'var(--bg-box-subtle)',
+        border: isNewest ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid var(--border-subtle)',
         borderRadius: '8px',
         padding: '10px 12px',
         display: 'flex',
@@ -52,11 +52,11 @@ export const DuplicateTakeRow: React.FC<DuplicateTakeRowProps> = ({
             fontFamily: 'JetBrains Mono, monospace',
             fontWeight: 700,
             fontSize: '0.85rem',
-            color: isNewest ? '#38BDF8' : '#CBD5E1',
-            background: 'rgba(0, 0, 0, 0.3)',
+            color: isNewest ? '#38BDF8' : 'var(--text-secondary)',
+            background: 'var(--bg-box)',
             padding: '2px 8px',
             borderRadius: '6px',
-            border: '1px solid rgba(255, 255, 255, 0.08)'
+            border: '1px solid var(--border-subtle)'
           }}
         >
           #{sample.id}
@@ -83,8 +83,9 @@ export const DuplicateTakeRow: React.FC<DuplicateTakeRowProps> = ({
             style={{
               fontSize: '0.68rem',
               fontWeight: 700,
-              color: '#94A3B8',
-              background: 'rgba(255, 255, 255, 0.08)',
+              color: 'var(--text-secondary)',
+              background: 'var(--bg-box-subtle)',
+              border: '1px solid var(--border-subtle)',
               padding: '1px 6px',
               borderRadius: '4px'
             }}
@@ -94,13 +95,13 @@ export const DuplicateTakeRow: React.FC<DuplicateTakeRowProps> = ({
         )}
 
         <div style={{ display: 'flex', flexDirection: 'column' }}>
-          <div style={{ fontSize: '0.8rem', color: '#E2E8F0', fontWeight: 600 }}>
+          <div style={{ fontSize: '0.8rem', color: 'var(--text-main)', fontWeight: 600 }}>
             {sample.voice_name || sample.voice_id || 'Gemini'}
-            <span style={{ color: '#64748B', fontWeight: 400, marginLeft: '6px', fontSize: '0.75rem' }}>
+            <span style={{ color: 'var(--text-muted)', fontWeight: 400, marginLeft: '6px', fontSize: '0.75rem' }}>
               ({sample.model_id || 'Flash TTS'})
             </span>
           </div>
-          <div style={{ fontSize: '0.72rem', color: '#94A3B8', display: 'flex', gap: '8px', alignItems: 'center' }}>
+          <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span>{formattedDate} {formattedTime}</span>
             {dur ? <span>• {dur}s</span> : null}
             {sample.audio_size ? <span>• {(sample.audio_size / 1024).toFixed(0)} KB</span> : null}

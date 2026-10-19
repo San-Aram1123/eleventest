@@ -59,7 +59,7 @@ export const GeminiKeyItem: React.FC<GeminiKeyItemProps> = ({
         display: 'flex',
         flexDirection: 'column',
         gap: '8px',
-        background: !isEnabled ? 'rgba(15, 23, 42, 0.45)' : (isDaily ? 'rgba(239, 68, 68, 0.08)' : (isCooldown ? 'rgba(245, 158, 11, 0.08)' : 'rgba(0, 0, 0, 0.35)')),
+        background: !isEnabled ? 'var(--bg-box-subtle)' : (isDaily ? 'rgba(239, 68, 68, 0.08)' : (isCooldown ? 'rgba(245, 158, 11, 0.08)' : 'var(--bg-box)')),
         padding: '12px 14px',
         borderRadius: 'var(--radius-sm)',
         border: !isEnabled 
@@ -193,7 +193,7 @@ export const GeminiKeyItem: React.FC<GeminiKeyItemProps> = ({
 
       {/* Status notices */}
       {!isEnabled && (
-        <div style={{ fontSize: '0.72rem', color: '#94A3B8', background: 'rgba(15, 23, 42, 0.6)', padding: '5px 8px', borderRadius: '4px', fontStyle: 'italic' }}>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', background: 'var(--bg-box)', padding: '5px 8px', borderRadius: '4px', fontStyle: 'italic' }}>
           🛑 <strong>Turned Off:</strong> This key will not be used in speech synthesis or rotation. Toggle ON anytime to re-enable.
         </div>
       )}
@@ -205,7 +205,7 @@ export const GeminiKeyItem: React.FC<GeminiKeyItemProps> = ({
       )}
 
       {isEnabled && k.error && !isDaily && k.status !== 'ready' && (
-        <div style={{ fontSize: '0.7rem', color: isCooldown ? '#FDE047' : '#F87171', background: 'rgba(0,0,0,0.25)', padding: '5px 8px', borderRadius: '4px', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.4 }}>
+        <div style={{ fontSize: '0.7rem', color: isCooldown ? '#FDE047' : '#F87171', background: 'var(--bg-box)', padding: '5px 8px', borderRadius: '4px', wordBreak: 'break-word', fontFamily: 'monospace', lineHeight: 1.4 }}>
           🌐 <strong>Google API:</strong> {k.error}
         </div>
       )}

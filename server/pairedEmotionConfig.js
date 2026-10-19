@@ -82,7 +82,7 @@ export const SPEAKER_PRESETS = [
   { id: 'spk52', name: 'Speaker 52 (Zuri)', voice: 'Zuri', gender: 'female', description: 'Storytelling, warm tone' }
 ];
 
-import { V20_EMOTION_PROFILES, getV20EmotionProfile } from './shared/v20EmotionCatalog.js';
+import { V20_EMOTION_PROFILES, getV20EmotionProfile, normalizeEmotionIntensity } from './shared/v20EmotionCatalog.js';
 
 export const EMOTION_PROFILE_VERSION = 'gemini38-v20';
 export const SLICER_VERSION = 'gemini38-longpause-v1';
@@ -234,7 +234,7 @@ export function getEmotionPromptDirective(emotion, intensity = 0.8, languageOrDi
   }
 
   const profile = getV20EmotionProfile(emotion);
-  const numIntensity = Math.max(0.0, Math.min(1.0, parseFloat(intensity) || 0.8));
+  const numIntensity = normalizeEmotionIntensity(intensity);
 
   return `You are an expert voice actor synthesizing a high-fidelity ${langLabel} speech training clip.
 - Language / Dialect: ${languageDirective}
@@ -248,7 +248,7 @@ export function getEmotionPromptDirective(emotion, intensity = 0.8, languageOrDi
  */
 export function getEmotionSpeechStyle(emotion, intensity = 0.8, languageOrDialect = 'ckb') {
   const profile = getV20EmotionProfile(emotion);
-  const numIntensity = Math.max(0.0, Math.min(1.0, parseFloat(intensity) || 0.8));
+  const numIntensity = normalizeEmotionIntensity(intensity);
 
   const langKey = String(languageOrDialect || 'ckb').toLowerCase();
   let langHint = '';

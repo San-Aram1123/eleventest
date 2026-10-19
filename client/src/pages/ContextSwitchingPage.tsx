@@ -74,7 +74,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
             </div>
             <div>
               <h1 style={{ fontSize: '1.5rem', fontWeight: 700, margin: 0 }}>Context Switching Studio</h1>
-              <p style={{ margin: 0, color: 'var(--text-muted, #94a3b8)', fontSize: '0.875rem' }}>
+              <p style={{ margin: 0, color: 'var(--text-secondary)', fontSize: '0.875rem' }}>
                 Automated 6-in-1 multilingual code-switching batch generator with rapid language transitions.
               </p>
             </div>
@@ -85,10 +85,10 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
             style={{
               display: 'flex',
               flexWrap: 'wrap',
-              background: 'rgba(0, 0, 0, 0.25)',
+              background: 'var(--bg-box)',
               padding: '0.3rem',
               borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.1)'
+              border: '1px solid var(--border-subtle)'
             }}
           >
             <button
@@ -102,7 +102,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
                 borderRadius: '7px',
                 border: 'none',
                 background: activeSubTab === 'standard' ? 'var(--btn-primary, #3B82F6)' : 'transparent',
-                color: activeSubTab === 'standard' ? '#fff' : '#94a3b8',
+                color: activeSubTab === 'standard' ? '#fff' : 'var(--text-secondary)',
                 fontWeight: activeSubTab === 'standard' ? 600 : 500,
                 fontSize: '0.85rem',
                 cursor: 'pointer',
@@ -124,7 +124,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
                 borderRadius: '7px',
                 border: 'none',
                 background: activeSubTab === 'lab' ? 'linear-gradient(135deg, #8B5CF6 0%, #3B82F6 100%)' : 'transparent',
-                color: activeSubTab === 'lab' ? '#fff' : '#94a3b8',
+                color: activeSubTab === 'lab' ? '#fff' : 'var(--text-secondary)',
                 fontWeight: activeSubTab === 'lab' ? 600 : 500,
                 fontSize: '0.85rem',
                 cursor: 'pointer',
@@ -149,7 +149,7 @@ export const ContextSwitchingPage: React.FC<ContextSwitchingPageProps> = ({
               style={{ display: 'flex', alignItems: 'center', gap: '.45rem', padding: '.45rem .85rem',
                 borderRadius: 7, border: 'none', cursor: 'pointer', fontSize: '.85rem',
                 background: activeSubTab === 'auto' ? 'linear-gradient(135deg, #059669, #2563eb)' : 'transparent',
-                color: activeSubTab === 'auto' ? '#fff' : '#94a3b8', fontWeight: 600 }}>
+                color: activeSubTab === 'auto' ? '#fff' : 'var(--text-secondary)', fontWeight: 600 }}>
               <Workflow size={14} />Auto Batch
             </button>
           </div>

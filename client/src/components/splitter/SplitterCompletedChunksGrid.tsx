@@ -17,7 +17,7 @@ export const SplitterCompletedChunksGrid: React.FC<SplitterCompletedChunksGridPr
 
   return (
     <div style={{ minWidth: 0, maxWidth: '100%' }}>
-      <h5 style={{ margin: '8px 0', fontSize: '0.88rem', fontWeight: 600, color: '#F8FAFC' }}>
+      <h5 style={{ margin: '8px 0', fontSize: '0.88rem', fontWeight: 600, color: 'var(--text-main)' }}>
         Recently Sliced and Saved Samples ({completedChunks.length}):
       </h5>
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(min(280px, 100%), 1fr))', gap: '10px', minWidth: 0, maxWidth: '100%' }}>
@@ -25,7 +25,7 @@ export const SplitterCompletedChunksGrid: React.FC<SplitterCompletedChunksGridPr
           <div
             key={idx}
             style={{
-              background: 'rgba(15, 23, 42, 0.8)',
+              background: 'var(--bg-box)',
               border: '1px solid rgba(16, 185, 129, 0.3)',
               borderRadius: '6px',
               padding: '10px',

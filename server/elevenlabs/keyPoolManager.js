@@ -177,6 +177,14 @@ export function removeKeyFromPool(indexOrKey) {
   };
 }
 
+/** Remove exactly the exhausted key; other keys may share the same suffix. */
+export function removeExhaustedKeyFromPool(key) {
+  const pool = getKeyPool();
+  if (!pool.includes(key)) return;
+  saveKeyPool(pool.filter(item => item !== key));
+  console.warn(`[ElevenLabs] Removed exhausted key ${key.slice(0, 4)}...${key.slice(-4)} from the saved pool.`);
+}
+
 /**
  * Inspects all keys in the pool and returns their individual quota & health status.
  */

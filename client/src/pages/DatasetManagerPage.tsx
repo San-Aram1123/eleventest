@@ -1,3 +1,4 @@
+import { V20FamiliesView } from '../components/dataset/v20/V20FamiliesView';
 import { DatasetReviewSection } from '../components/dataset/page/DatasetReviewSection';
 import { getSampleReview } from '../services/sampleReview';
 import React, { useState, useRef, useMemo } from 'react';
@@ -45,7 +46,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
   const [showDurationOutlierModal, setShowDurationOutlierModal] = useState(false);
   const [showPairedValidateModal, setShowPairedValidateModal] = useState(false);
   const [showPairedExportModal, setShowPairedExportModal] = useState(false);
-  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families' | 'expressive_families'>('cards');
+  const [viewMode, setViewMode] = useState<'cards' | 'table' | 'families' | 'expressive_families' | 'v20_families'>('cards');
 
   const {
     selectedIds,
@@ -166,7 +167,9 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         onOpenMassDelete={() => setShowMassDeleteModal(true)}
       />
 
-      {viewMode === 'families' ? (
+      {viewMode === 'v20_families' ? (
+        <V20FamiliesView samples={samples} visibleSamples={filters.filteredAndSortedSamples} onInspect={setInspectingSample} />
+      ) : viewMode === 'families' ? (
         <PairedFamiliesView samples={filters.filteredAndSortedSamples} />
       ) : viewMode === 'expressive_families' ? (
         <ExpressiveDatasetFamiliesView
@@ -207,7 +210,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         />
       )}
 
-      <DatasetPaginationBar
+      {viewMode !== 'v20_families' && <DatasetPaginationBar
         startIndex={filters.startIndex}
         endIndex={filters.endIndex}
         totalItems={filters.totalItems}
@@ -218,7 +221,7 @@ export const DatasetManagerPage: React.FC<DatasetManagerProps> = ({
         jumpPageInput={filters.jumpPageInput}
         onJumpInputChange={filters.setJumpPageInput}
         onJumpSubmit={filters.handleJumpSubmit}
-      />
+      />}
 
       <DatasetModals
         samples={samples}

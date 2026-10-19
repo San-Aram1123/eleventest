@@ -111,23 +111,23 @@ export const AudarExportModal: React.FC<AudarExportModalProps> = ({ isOpen, onCl
                       style={{ 
                         padding: '0.5rem 0.6rem', 
                         borderRadius: '6px', 
-                        background: pct > 0 ? 'rgba(56, 189, 248, 0.08)' : 'rgba(255, 255, 255, 0.02)',
-                        border: pct > 0 ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid rgba(255,255,255,0.05)',
+                        background: pct > 0 ? 'rgba(56, 189, 248, 0.08)' : 'var(--bg-box-subtle)',
+                        border: pct > 0 ? '1px solid rgba(56, 189, 248, 0.25)' : '1px solid var(--border-subtle)',
                         display: 'flex', 
                         justifyContent: 'space-between', 
                         alignItems: 'center' 
                       }}
                     >
                       <span style={{ fontSize: '1.1rem', fontWeight: 700, fontFamily: 'Noto Naskh Arabic, sans-serif' }}>{char}</span>
-                      <span style={{ fontSize: '0.75rem', color: pct > 0 ? '#38bdf8' : '#64748b', fontWeight: 600 }}>{pct}%</span>
+                      <span style={{ fontSize: '0.75rem', color: pct > 0 ? '#38bdf8' : 'var(--text-tertiary)', fontWeight: 600 }}>{pct}%</span>
                     </div>
                   ))}
                 </div>
               </div>
 
               {/* Exact Canonical Structure Preview */}
-              <div className="glass-card" style={{ padding: '1rem', background: 'rgba(0,0,0,0.3)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: '#94a3b8', marginBottom: '0.5rem' }}>
+              <div className="glass-card" style={{ padding: '1rem', background: 'var(--bg-box)', border: '1px solid var(--border-subtle)' }}>
+                <div style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.5rem' }}>
                   ZIP ARCHIVE LAYOUT (Audar Canonical Schema v2.0):
                 </div>
                 <pre style={{ margin: 0, fontSize: '0.78rem', color: '#38bdf8', lineHeight: 1.45, fontFamily: 'monospace' }}>

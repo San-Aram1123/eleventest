@@ -156,8 +156,8 @@ export const ExpressiveMatrixGrid: React.FC<ExpressiveMatrixGridProps> = ({
                 padding: '0.75rem',
                 borderRadius: '8px',
                 cursor: 'pointer',
-                border: isSelected ? '2px solid #8B5CF6' : '1px solid rgba(255,255,255,0.08)',
-                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : 'rgba(255,255,255,0.02)',
+                border: isSelected ? '2px solid #8B5CF6' : '1px solid var(--border-subtle)',
+                background: isSelected ? 'rgba(139, 92, 246, 0.12)' : 'var(--bg-box)',
                 transition: 'all 0.15s ease',
                 position: 'relative'
               }}
@@ -182,7 +182,8 @@ export const ExpressiveMatrixGrid: React.FC<ExpressiveMatrixGridProps> = ({
                   fontSize: '0.7rem',
                   fontWeight: 700,
                   color: intBadge.color,
-                  background: 'rgba(0,0,0,0.3)',
+                  background: 'var(--bg-box-subtle)',
+                  border: '1px solid var(--border-subtle)',
                   padding: '2px 5px',
                   borderRadius: '3px'
                 }}>
@@ -190,11 +191,11 @@ export const ExpressiveMatrixGrid: React.FC<ExpressiveMatrixGridProps> = ({
                 </span>
               </div>
 
-              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: '#F1F5F9', marginTop: '4px' }}>
+              <div style={{ fontWeight: 600, fontSize: '0.85rem', color: 'var(--text-main)', marginTop: '4px' }}>
                 {condition.deliveryLabel}
               </div>
 
-              <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px', lineHeight: 1.3 }}>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)', marginTop: '2px', lineHeight: 1.3 }}>
                 {condition.description}
               </div>
 

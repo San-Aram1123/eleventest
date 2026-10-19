@@ -58,20 +58,20 @@ export const FamiliesPaginationBar: React.FC<FamiliesPaginationBarProps> = ({
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0.75rem 1rem',
-      background: 'rgba(15, 23, 42, 0.75)',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
+      background: 'var(--bg-box)',
+      border: '1px solid var(--border-subtle)',
       borderRadius: '8px',
       marginTop: '1rem',
       marginBottom: '1rem',
       flexWrap: 'wrap',
       gap: '0.75rem',
       fontSize: '0.82rem',
-      color: '#94A3B8'
+      color: 'var(--text-secondary)'
     }}>
       {/* Left: Summary & Page Size */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
         <span>
-          Showing <strong style={{ color: '#F8FAFC' }}>{startItem} - {endItem}</strong> of <strong style={{ color: '#F8FAFC' }}>{totalItems}</strong> {itemName}
+          Showing <strong style={{ color: 'var(--text-main)' }}>{startItem} - {endItem}</strong> of <strong style={{ color: 'var(--text-main)' }}>{totalItems}</strong> {itemName}
         </span>
         {extraSummary && <span>{extraSummary}</span>}
 
@@ -82,10 +82,10 @@ export const FamiliesPaginationBar: React.FC<FamiliesPaginationBarProps> = ({
             onChange={e => onPageSizeChange(Number(e.target.value))}
             style={{
               padding: '2px 6px',
-              background: '#0B0F19',
-              border: '1px solid #334155',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '4px',
-              color: '#F8FAFC',
+              color: 'var(--text-main)',
               fontSize: '0.75rem',
               cursor: 'pointer'
             }}
@@ -128,15 +128,15 @@ export const FamiliesPaginationBar: React.FC<FamiliesPaginationBarProps> = ({
                 height: '28px',
                 padding: '0 6px',
                 fontWeight: num === safePage ? 700 : 500,
-                background: num === safePage ? '#6366F1' : 'rgba(255, 255, 255, 0.05)',
-                color: num === safePage ? '#FFFFFF' : '#CBD5E1',
-                borderColor: num === safePage ? '#818CF8' : 'rgba(255, 255, 255, 0.1)'
+                background: num === safePage ? '#6366F1' : 'var(--bg-box-subtle)',
+                color: num === safePage ? '#FFFFFF' : 'var(--text-secondary)',
+                borderColor: num === safePage ? '#818CF8' : 'var(--border-subtle)'
               }}
             >
               {num}
             </button>
           ) : (
-            <span key={i} style={{ padding: '0 4px', color: '#64748B' }}>...</span>
+            <span key={i} style={{ padding: '0 4px', color: 'var(--text-muted)' }}>...</span>
           )
         ))}
 
@@ -173,10 +173,10 @@ export const FamiliesPaginationBar: React.FC<FamiliesPaginationBarProps> = ({
             style={{
               width: '42px',
               padding: '2px 4px',
-              background: '#0B0F19',
-              border: '1px solid #334155',
+              background: 'var(--bg-input)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '4px',
-              color: '#F8FAFC',
+              color: 'var(--text-main)',
               fontSize: '0.75rem',
               textAlign: 'center'
             }}
@@ -206,10 +206,10 @@ const btnStyle = (disabled: boolean): React.CSSProperties => ({
   alignItems: 'center',
   justifyContent: 'center',
   padding: '4px 6px',
-  background: 'rgba(255, 255, 255, 0.05)',
-  border: '1px solid rgba(255, 255, 255, 0.1)',
+  background: 'var(--bg-box-subtle)',
+  border: '1px solid var(--border-subtle)',
   borderRadius: '4px',
-  color: disabled ? '#475569' : '#CBD5E1',
+  color: disabled ? 'var(--text-muted)' : 'var(--text-secondary)',
   cursor: disabled ? 'not-allowed' : 'pointer',
   opacity: disabled ? 0.4 : 1,
   transition: 'all 0.15s ease'

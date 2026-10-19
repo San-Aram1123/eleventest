@@ -1,3 +1,4 @@
+import { RequestStatisticsPage } from './pages/RequestStatisticsPage';
 import React, { useState, useEffect } from 'react';
 import { Navbar } from './components/Navbar';
 import { ToastContainer, ToastMessage } from './components/Toast';
@@ -13,7 +14,7 @@ import { Sample, SystemConfig } from './types';
 import { fetchConfig, fetchDataset } from './services/api';
 
 export const App: React.FC = () => {
-  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot'>(() => window.location.hash === '#context-auto' ? 'context-switch' : 'gemini');
+  const [activeTab, setActiveTab] = useState<'api' | 'gemini' | 'dataset' | 'compare' | 'expressive' | 'context-switch' | 'dual-pilot' | 'statistics'>(() => window.location.hash === '#context-auto' ? 'context-switch' : 'gemini');
   const [config, setConfig] = useState<SystemConfig | null>(null);
   const [samples, setSamples] = useState<Sample[]>([]);
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
@@ -163,6 +164,9 @@ export const App: React.FC = () => {
           <DualPilotPage
             addToast={addToast}
           />
+        </div>
+        <div style={{ display: activeTab === 'statistics' ? 'block' : 'none' }}>
+          <RequestStatisticsPage active={activeTab === 'statistics'} />
         </div>
       </main>
 

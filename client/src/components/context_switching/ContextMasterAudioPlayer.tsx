@@ -134,7 +134,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: '#f8fafc' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-main)' }}>
                 Full Master Audio (Uncut)
               </span>
               <span className="badge" style={{ background: 'rgba(139, 92, 246, 0.25)', color: '#c084fc', fontSize: '0.72rem', fontWeight: 700, border: '1px solid rgba(139, 92, 246, 0.4)' }}>
@@ -144,7 +144,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
                 {speaker1Voice} ↔ {speaker2Voice}
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
               Listen to the raw uninterrupted dialogue audio before speaker diarization slicing.
             </div>
           </div>
@@ -167,10 +167,10 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
           display: 'flex',
           alignItems: 'center',
           gap: '0.75rem',
-          background: 'rgba(0, 0, 0, 0.25)',
+          background: 'var(--bg-box)',
           padding: '0.5rem 0.85rem',
           borderRadius: '8px',
-          border: '1px solid rgba(255, 255, 255, 0.08)'
+          border: '1px solid var(--border-subtle)'
         }}
       >
         <button
@@ -203,7 +203,7 @@ export const ContextMasterAudioPlayer: React.FC<ContextMasterAudioPlayerProps> =
         </button>
 
         {/* Current Time / Duration */}
-        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: '#cbd5e1', minWidth: '78px', flexShrink: 0 }}>
+        <span style={{ fontSize: '0.75rem', fontFamily: 'monospace', color: 'var(--text-secondary)', minWidth: '78px', flexShrink: 0 }}>
           {formatTime(currentTime)} / {formatTime(duration)}
         </span>
 

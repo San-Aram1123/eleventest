@@ -1,3 +1,4 @@
+import { trackedSpeechFetch } from '../shared/requestStatistics.js';
 import { GEMINI_API_BASE, GEMINI_VOICES } from './geminiConstants.js';
 import { setTimeout as delay } from 'node:timers/promises';
 import {
@@ -149,7 +150,7 @@ export async function generateGeminiSpeech({
       const url = `${GEMINI_API_BASE}/models/${candidateModel}:generateContent?key=${activeKey}`;
 
       try {
-        const response = await fetch(url, {
+        const response = await trackedSpeechFetch('gemini', activeKey, candidateModel, url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify(requestBody),

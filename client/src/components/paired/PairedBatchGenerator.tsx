@@ -32,7 +32,6 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
   const [startIdx, setStartIdx] = useState(1);
   const [mode, setMode] = useState<'sliced' | 'individual'>('individual');
   const [randomizeVoices, setRandomizeVoices] = useState(false);
-
   const [isRefreshingIndex, setIsRefreshingIndex] = useState(false);
 
   const fetchNextIndex = React.useCallback(async () => {
@@ -43,16 +42,13 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
       if (data && typeof data.nextIndex === 'number' && Number.isFinite(data.nextIndex)) {
         setStartIdx(data.nextIndex);
       }
-    } catch {
-    } finally {
+    } catch {} finally {
       setIsRefreshingIndex(false);
     }
   }, [speakerId]);
 
   React.useEffect(() => {
-    if (isOpen) {
-      fetchNextIndex();
-    }
+    if (isOpen) fetchNextIndex();
   }, [isOpen, fetchNextIndex]);
 
   const [emotions, setEmotions] = useState<Record<string, SelectedEmotion>>(() => {
@@ -63,17 +59,9 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
   });
 
   const [batchState, setBatchState] = useState<PairedBatchState>({
-    isActive: false,
-    isPaused: false,
-    currentSentenceIdx: 0,
-    totalSentences: 0,
-    currentEmotionIdx: 0,
-    totalEmotionsPerSentence: 0,
-    currentFamilyId: '',
-    currentEmotion: '',
-    completedClips: 0,
-    totalClipsToGenerate: 0,
-    errors: []
+    isActive: false, isPaused: false, currentSentenceIdx: 0, totalSentences: 0,
+    currentEmotionIdx: 0, totalEmotionsPerSentence: 0, currentFamilyId: '',
+    currentEmotion: '', completedClips: 0, totalClipsToGenerate: 0, errors: []
   });
 
   const abortControllerRef = useRef<AbortController | null>(null);
@@ -101,25 +89,15 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
     const errorsList: Array<{ familyId: string; emotion: string; error: string }> = [];
 
     setBatchState({
-      isActive: true,
-      isPaused: false,
-      currentSentenceIdx: 0,
-      totalSentences: sentences.length,
-      currentEmotionIdx: 0,
-      totalEmotionsPerSentence: enabledEmotionsList.length,
-      currentFamilyId: '',
-      currentEmotion: '',
-      completedClips: 0,
-      totalClipsToGenerate: totalClips,
-      mode,
-      errors: []
+      isActive: true, isPaused: false, currentSentenceIdx: 0, totalSentences: sentences.length,
+      currentEmotionIdx: 0, totalEmotionsPerSentence: enabledEmotionsList.length,
+      currentFamilyId: '', currentEmotion: '', completedClips: 0, totalClipsToGenerate: totalClips,
+      mode, errors: []
     });
 
     for (let sIdx = 0; sIdx < sentences.length; sIdx++) {
       if (abortControllerRef.current?.signal.aborted) break;
       const sentence = sentences[sIdx];
-
-      // Determine speaker & voice (Fixed or 50/50 Male/Female alternating)
       let curSpeaker = speakerId;
       let curVoice = voiceName;
       if (randomizeVoices) {
@@ -186,11 +164,7 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
     setBatchState(prev => ({ ...prev, isActive: false, isPaused: false }));
     if (completed > 0) {
       confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
-      addToast({
-        type: 'success',
-        title: 'Batch Complete!',
-        message: `Successfully generated ${completed} clips across ${sentences.length} families.`
-      });
+      addToast({ type: 'success', title: 'Batch Complete!', message: `Generated ${completed} clips across ${sentences.length} families.` });
     }
   };
 
@@ -202,66 +176,70 @@ export const PairedBatchGenerator: React.FC<PairedBatchGeneratorProps> = ({
 
   return (
     <div className="modal-backdrop" onClick={batchState.isActive ? undefined : onClose}>
-      <div className="modal-container paired-modal glass-card" onClick={e => e.stopPropagation()} style={{ maxWidth: '960px', maxHeight: '90vh', display: 'flex', flexDirection: 'column' }}>
+      <div
+        className="modal-container paired-modal"
+        onClick={e => e.stopPropagation()}
+        style={{
+          maxWidth: '960px',
+          maxHeight: '90vh',
+          display: 'flex',
+          flexDirection: 'column',
+          borderRadius: '22px',
+          border: '1px solid var(--border-medium)',
+          borderTop: '1px solid var(--border-specular)',
+          backdropFilter: 'blur(32px) saturate(190%)',
+          boxShadow: '0 30px 80px rgba(0, 0, 0, 0.7)'
+        }}
+      >
         <div className="modal-header">
           <div className="modal-title-group">
-            <div className="modal-icon-badge" style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)', color: '#fff' }}>
-              <Layers size={20} />
+            <div className="modal-icon-badge" style={{ width: 36, height: 36, borderRadius: '50%', background: 'linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%)', color: '#fff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Layers size={18} />
             </div>
             <div>
-              <h2 className="modal-title">Paired Emotion Batch Studio</h2>
+              <h2 className="modal-title" style={{ fontSize: '1.15rem', letterSpacing: '-0.02em' }}>Paired Emotion Batch Studio</h2>
               <p className="modal-subtitle">Generate Decoupled Kurdish Speech: Same Speaker + Same Sentence + Multiple Emotions</p>
             </div>
           </div>
-          <button className="btn-close-modal" onClick={batchState.isActive ? handleStop : onClose}><X size={18} /></button>
+          <button className="btn-close-modal" onClick={batchState.isActive ? handleStop : onClose} style={{ width: 32, height: 32, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}><X size={18} /></button>
         </div>
 
-        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', paddingRight: '0.5rem' }}>
+        <div className="modal-body" style={{ flex: 1, overflowY: 'auto', padding: '1.25rem' }}>
           <BatchStateProgressCard batchState={batchState} totalClips={totalClips} mode={mode} />
           <GenerationModeSelector mode={mode} onChange={setMode} sentenceCount={sentences.length} emotionCount={enabledEmotionsList.length} disabled={batchState.isActive} />
           <SentenceInputSection text={sentencesText} onChange={setSentencesText} language={language} onLanguageChange={setLanguage} startIdx={startIdx} />
           <SpeakerConfigSection
-            speakerId={speakerId}
-            onSpeakerIdChange={setSpeakerId}
-            voiceName={voiceName}
-            onVoiceNameChange={setVoiceName}
-            startIdx={startIdx}
-            onStartIdxChange={setStartIdx}
-            randomizeVoices={randomizeVoices}
-            onRandomizeVoicesChange={setRandomizeVoices}
-            selectedModel={selectedModel}
-            onSelectedModelChange={setSelectedModel}
-            onRefreshNextIndex={fetchNextIndex}
-            isRefreshingNextIndex={isRefreshingIndex}
+            speakerId={speakerId} onSpeakerIdChange={setSpeakerId}
+            voiceName={voiceName} onVoiceNameChange={setVoiceName}
+            startIdx={startIdx} onStartIdxChange={setStartIdx}
+            randomizeVoices={randomizeVoices} onRandomizeVoicesChange={setRandomizeVoices}
+            selectedModel={selectedModel} onSelectedModelChange={setSelectedModel}
+            onRefreshNextIndex={fetchNextIndex} isRefreshingNextIndex={isRefreshingIndex}
           />
           <EmotionSelectorSection emotions={emotions} onChange={setEmotions} />
         </div>
 
-        <div className="modal-footer" style={{ borderTop: '1px solid rgba(255,255,255,0.08)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
-            Batch: <strong style={{ color: '#f8fafc' }}>{sentences.length} sentences</strong> × <strong style={{ color: '#f8fafc' }}>{enabledEmotionsList.length} emotions</strong> = <strong style={{ color: '#38bdf8', fontSize: '1.05rem' }}>{totalClips} clips</strong>
-            <span style={{ marginLeft: '0.75rem', color: mode === 'sliced' ? '#c084fc' : '#38bdf8', fontWeight: 600 }}>
+        <div className="modal-footer" style={{ borderTop: '1px solid var(--border-subtle)', padding: '1rem 1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-box-subtle)' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            Batch: <strong style={{ color: 'var(--text-primary)' }}>{sentences.length} sentences</strong> × <strong style={{ color: 'var(--text-primary)' }}>{enabledEmotionsList.length} emotions</strong> = <strong style={{ color: '#0A84FF', fontSize: '1.02rem' }}>{totalClips} clips</strong>
+            <span style={{ marginLeft: '0.75rem', color: mode === 'sliced' ? '#BF5AF2' : '#0A84FF', fontWeight: 600 }}>
               ({mode === 'sliced' ? `${sentences.length} API Calls` : `${totalClips} API Calls`})
             </span>
-            {randomizeVoices && (
-              <span style={{ marginLeft: '0.75rem', color: '#06b6d4', fontWeight: 600 }}>
-                • 50/50 Male & Female Pool
-              </span>
-            )}
+            {randomizeVoices && <span style={{ marginLeft: '0.75rem', color: '#30D158', fontWeight: 600 }}>• 50/50 Voice Pool</span>}
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
+          <div style={{ display: 'flex', gap: '0.65rem' }}>
             {batchState.isActive ? (
               <>
-                <button type="button" className="btn btn-secondary" onClick={() => { isPausedRef.current = !isPausedRef.current; setBatchState(p => ({ ...p, isPaused: isPausedRef.current })); }}>
-                  <Pause size={16} /> {batchState.isPaused ? 'Resume' : 'Pause'}
+                <button type="button" className="btn btn-secondary" onClick={() => { isPausedRef.current = !isPausedRef.current; setBatchState(p => ({ ...p, isPaused: isPausedRef.current })); }} style={{ borderRadius: '9999px', padding: '6px 14px', fontSize: '0.82rem' }}>
+                  <Pause size={15} /> {batchState.isPaused ? 'Resume' : 'Pause'}
                 </button>
-                <button type="button" className="btn btn-danger" onClick={handleStop}><Square size={16} /> Stop Batch</button>
+                <button type="button" className="btn btn-danger" onClick={handleStop} style={{ borderRadius: '9999px', padding: '6px 14px', fontSize: '0.82rem' }}><Square size={15} /> Stop Batch</button>
               </>
             ) : (
               <>
-                <button type="button" className="btn btn-secondary" onClick={onClose}>Cancel</button>
-                <button type="button" className="btn btn-primary" onClick={handleStartBatch} disabled={totalClips === 0} style={{ background: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' }}>
-                  <Sparkles size={16} /> Start Batch ({totalClips} Clips • {mode === 'sliced' ? `${sentences.length} Requests` : `${totalClips} Requests`})
+                <button type="button" className="btn btn-secondary" onClick={onClose} style={{ borderRadius: '9999px', padding: '6px 16px', fontSize: '0.82rem' }}>Cancel</button>
+                <button type="button" className="btn btn-primary" onClick={handleStartBatch} disabled={totalClips === 0} style={{ borderRadius: '9999px', padding: '6px 18px', fontSize: '0.85rem', fontWeight: 700, background: 'linear-gradient(145deg, #0A84FF, #0066CC)', boxShadow: '0 4px 14px rgba(10, 132, 255, 0.35)' }}>
+                  <Sparkles size={15} /> Start Batch ({totalClips} Clips)
                 </button>
               </>
             )}

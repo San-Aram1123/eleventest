@@ -76,10 +76,10 @@ export const ExpressiveFamiliesView: React.FC<ExpressiveFamiliesViewProps> = ({
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem', flexWrap: 'wrap', gap: '8px' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Layers size={18} style={{ color: '#8B5CF6' }} />
-          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: '#F8FAFC' }}>
+          <h3 style={{ margin: 0, fontSize: '1.1rem', fontWeight: 700, color: 'var(--text-main)' }}>
             Generated Families ({families.length})
           </h3>
-          <span style={{ fontSize: '0.78rem', color: '#94A3B8' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
             • {totalClips} Total Clips
           </span>
         </div>
@@ -91,14 +91,14 @@ export const ExpressiveFamiliesView: React.FC<ExpressiveFamiliesViewProps> = ({
             placeholder="Search families or IDs..."
             value={searchQuery}
             onChange={e => setSearchQuery(e.target.value)}
-            style={{ padding: '4px 8px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#F8FAFC', fontSize: '0.78rem', width: '150px' }}
+            style={{ padding: '4px 8px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem', width: '150px' }}
           />
 
           {/* Language Filter */}
           <select
             value={filterLang}
             onChange={e => setFilterLang(e.target.value)}
-            style={{ padding: '4px 8px', background: '#0F172A', border: '1px solid #334155', borderRadius: '6px', color: '#F8FAFC', fontSize: '0.78rem' }}
+            style={{ padding: '4px 8px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', fontSize: '0.78rem' }}
           >
             <option value="all">All Languages</option>
             <option value="ckb">Sorani (ckb)</option>
@@ -133,7 +133,7 @@ export const ExpressiveFamiliesView: React.FC<ExpressiveFamiliesViewProps> = ({
 
       {/* Families List */}
       {filtered.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '2.5rem', color: '#64748B', background: 'rgba(255,255,255,0.02)', borderRadius: '8px' }}>
+        <div style={{ textAlign: 'center', padding: '2.5rem', color: 'var(--text-muted)', background: 'var(--bg-box)', border: '1px dashed var(--border-subtle)', borderRadius: '8px' }}>
           {families.length === 0
             ? 'No families generated yet. Enter sentences above and start the automated batch!'
             : 'No families match the selected filters or search criteria.'}

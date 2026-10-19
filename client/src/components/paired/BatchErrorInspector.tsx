@@ -116,7 +116,7 @@ export const BatchErrorInspector: React.FC<BatchErrorInspectorProps> = ({
 
       {/* Error Details List */}
       {isExpanded && errors.length > 0 && (
-        <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'rgba(0, 0, 0, 0.3)', borderRadius: '6px', padding: '0.5rem' }}>
+        <div style={{ maxHeight: '180px', overflowY: 'auto', background: 'var(--bg-box)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '0.5rem' }}>
           {errors.map((item, idx) => (
             <div
               key={idx}
@@ -125,12 +125,12 @@ export const BatchErrorInspector: React.FC<BatchErrorInspectorProps> = ({
                 justifyContent: 'space-between',
                 alignItems: 'center',
                 padding: '0.4rem 0.6rem',
-                borderBottom: idx < errors.length - 1 ? '1px solid rgba(255,255,255,0.05)' : 'none',
+                borderBottom: idx < errors.length - 1 ? '1px solid var(--border-subtle)' : 'none',
                 fontSize: '0.78rem'
               }}
             >
               <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-                <span style={{ color: '#64748b' }}>{item.timestamp}</span>
+                <span style={{ color: 'var(--text-muted)' }}>{item.timestamp}</span>
                 <code style={{ color: '#38bdf8' }}>{item.familyId}</code>
                 <span style={{ color: '#c084fc' }}>[{item.emotion}]</span>
                 <span style={{ color: '#f87171' }}>{item.error}</span>

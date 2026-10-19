@@ -71,12 +71,12 @@ export const ContextParagraphCard: React.FC<ContextParagraphCardProps> = ({
           ? '1px solid rgba(16, 185, 129, 0.4)' 
           : item.status === 'error'
           ? '1px solid #EF4444'
-          : '1px solid var(--border-color, rgba(255,255,255,0.08))',
+          : '1px solid var(--border-subtle)',
         background: item.status === 'generating' 
           ? 'rgba(59, 130, 246, 0.05)' 
           : item.status === 'completed'
           ? 'rgba(16, 185, 129, 0.03)'
-          : 'rgba(255,255,255,0.02)'
+          : 'var(--bg-box)'
       }}
     >
       {/* Top Meta Header */}
@@ -101,7 +101,7 @@ export const ContextParagraphCard: React.FC<ContextParagraphCardProps> = ({
         {/* Status indicator */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
           {item.status === 'idle' && (
-            <span style={{ fontSize: '0.75rem', color: '#94a3b8' }}>Queued</span>
+            <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>Queued</span>
           )}
           {item.status === 'generating' && (
             <span style={{ fontSize: '0.75rem', color: '#3B82F6', display: 'flex', alignItems: 'center', gap: '0.3rem', fontWeight: 600 }}>
@@ -132,7 +132,9 @@ export const ContextParagraphCard: React.FC<ContextParagraphCardProps> = ({
           marginBottom: '0.75rem', 
           padding: '0.5rem 0.65rem',
           borderRadius: '6px',
-          background: 'var(--bg-input, rgba(0,0,0,0.2))',
+          background: 'var(--bg-box-subtle)',
+          border: '1px solid var(--border-subtle)',
+          color: 'var(--text-main)',
           wordBreak: 'break-word'
         }}
         dir="auto"

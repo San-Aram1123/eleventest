@@ -204,8 +204,8 @@ export function validateDetectorResult(raw, expectedCount, mode, options, durati
     if (Object.keys(engines).length === 0) return validateEngineResult(raw, expectedCount, options, totalDuration);
     const successful = Object.values(engines).some(engine => engine.success);
     const result = { ...raw, totalDuration, engines, success: successful, segments: [] };
-    if (mode === 'emotion_experiments') return result;
-    if (mode !== 'all' && mode !== 'emotion_experiments') {
+    if (mode === 'emotion_experiments') return { ...result, success: successful, engines };
+    if (mode !== 'all') {
       const selected = engines[mode];
       if (!selected) return failure(result, `Local detector did not return the requested ${mode} engine.`);
       return { ...result, ...selected, engines };

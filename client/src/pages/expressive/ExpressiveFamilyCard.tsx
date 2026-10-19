@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Play, Pause, ChevronDown, ChevronUp, User, Globe2, Layers, Code, Download } from 'lucide-react';
+import { Play, Pause, ChevronDown, ChevronUp, User, Code, Download } from 'lucide-react';
 import { ExpressiveFamily } from './expressiveFamilyTypes';
 import { ExpressiveTake, buildAudarRecord } from './expressiveConstants';
 import { parseUniversalEmotions, matchesEmotionFilter } from '../../utils/expressiveEmotionUtils';
@@ -49,53 +49,61 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
   };
 
   return (
-    <div style={{
-      background: 'rgba(30, 34, 48, 0.75)',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '10px',
-      marginBottom: '1rem',
-      overflow: 'hidden',
-      transition: 'all 0.2s ease'
-    }}>
+    <div
+      style={{
+        background: 'var(--bg-card)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        border: '1px solid var(--border-medium)',
+        borderTop: '1px solid var(--border-specular)',
+        borderRadius: '16px',
+        marginBottom: '1rem',
+        overflow: 'hidden',
+        boxShadow: '0 4px 24px rgba(0, 0, 0, 0.22)',
+        transition: 'all 150ms ease'
+      }}
+    >
       {/* Family Header */}
       <div style={{
         padding: '0.85rem 1.25rem',
-        background: 'rgba(0, 0, 0, 0.25)',
+        background: 'var(--bg-box)',
+        borderBottom: '1px solid var(--border-subtle)',
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
         flexWrap: 'wrap',
         gap: '8px'
       }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           <span style={{
-            fontSize: '0.78rem',
+            fontSize: '0.76rem',
             fontWeight: 800,
-            background: 'linear-gradient(135deg, #6366F1 0%, #A855F7 100%)',
+            background: 'linear-gradient(135deg, #0A84FF 0%, #BF5AF2 100%)',
             color: '#fff',
-            padding: '2px 8px',
-            borderRadius: '6px'
+            padding: '3px 9px',
+            borderRadius: '9999px',
+            letterSpacing: '-0.01em'
           }}>
             {family.familyId}
           </span>
 
           <span style={{
-            fontSize: '0.72rem',
-            background: 'rgba(56, 189, 248, 0.15)',
-            color: '#38BDF8',
-            padding: '2px 6px',
-            borderRadius: '4px',
-            fontWeight: 600,
+            fontSize: '0.7rem',
+            background: 'rgba(10, 132, 255, 0.12)',
+            color: '#0A84FF',
+            padding: '2px 8px',
+            borderRadius: '9999px',
+            fontWeight: 700,
+            border: '1px solid rgba(10, 132, 255, 0.25)',
             textTransform: 'uppercase'
           }}>
             {family.language}
           </span>
 
-          <span style={{ fontSize: '0.8rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px' }}>
             <User size={13} /> {family.speaker.name} ({family.speaker.gender})
           </span>
 
-          <span style={{ fontSize: '0.75rem', color: visibleTakes.length !== family.takes.length ? '#C084FC' : '#64748B' }}>
+          <span style={{ fontSize: '0.75rem', color: 'var(--text-tertiary)' }}>
             • {visibleTakes.length !== family.takes.length
                 ? `Showing ${visibleTakes.length} of ${family.takes.length} Takes`
                 : `${family.takes.length} Takes (${totalDuration.toFixed(1)}s total)`}
@@ -106,7 +114,7 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
           <button
             onClick={downloadFamilyJsonl}
             className="btn btn-secondary btn-sm"
-            style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+            style={{ fontSize: '0.74rem', padding: '4px 10px', borderRadius: '9999px', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)', fontWeight: 600 }}
             title="Download JSONL for this family"
           >
             <Download size={12} /> JSONL
@@ -115,7 +123,7 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
           <button
             onClick={() => setShowJson(!showJson)}
             className="btn btn-secondary btn-sm"
-            style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+            style={{ fontSize: '0.74rem', padding: '4px 9px', borderRadius: '9999px', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)' }}
             title="Inspect Family JSON"
           >
             <Code size={12} />
@@ -124,7 +132,7 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
           <button
             onClick={() => setIsExpanded(!isExpanded)}
             className="btn btn-secondary btn-sm"
-            style={{ fontSize: '0.74rem', padding: '3px 8px' }}
+            style={{ fontSize: '0.74rem', padding: '4px 9px', borderRadius: '9999px', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)' }}
           >
             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
@@ -133,13 +141,13 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
 
       {/* Sentence Transcript */}
       <div style={{
-        padding: '0.75rem 1.25rem',
+        padding: '0.85rem 1.25rem',
         direction: isRtl ? 'rtl' : 'ltr',
         fontFamily: isRtl ? 'Noto Naskh Arabic, Tahoma, sans-serif' : 'inherit',
-        fontSize: '0.98rem',
-        color: '#F8FAFC',
+        fontSize: '0.96rem',
+        color: 'var(--text-primary)',
         lineHeight: 1.6,
-        borderBottom: isExpanded ? '1px solid rgba(255, 255, 255, 0.05)' : 'none'
+        borderBottom: isExpanded ? '1px solid var(--border-subtle)' : 'none'
       }}>
         {family.transcript}
       </div>
@@ -147,13 +155,15 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
       {/* JSON Inspection */}
       {showJson && (
         <pre style={{
-          background: '#0B0F19',
-          color: '#38BDF8',
-          padding: '0.75rem 1.25rem',
+          background: 'var(--bg-box-subtle)',
+          color: 'var(--text-main)',
+          padding: '0.85rem 1.25rem',
           margin: 0,
           fontSize: '0.72rem',
           overflowX: 'auto',
-          maxHeight: '180px'
+          maxHeight: '180px',
+          fontFamily: 'var(--font-mono)',
+          borderBottom: isExpanded ? '1px solid var(--border-subtle)' : 'none'
         }}>
           {JSON.stringify(family.takes.map(buildAudarRecord), null, 2)}
         </pre>
@@ -168,7 +178,7 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
           gap: '0.65rem'
         }}>
           {visibleTakes.length === 0 ? (
-            <div style={{ color: '#64748B', fontSize: '0.78rem', padding: '0.5rem 0' }}>
+            <div style={{ color: 'var(--text-tertiary)', fontSize: '0.78rem', padding: '0.5rem 0' }}>
               No takes match the selected emotion filter in this family.
             </div>
           ) : (
@@ -179,31 +189,33 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
                 <div
                   key={take.id}
                   style={{
-                    background: 'rgba(0, 0, 0, 0.25)',
-                    border: isPlaying ? '1px solid #8B5CF6' : '1px solid rgba(255, 255, 255, 0.06)',
-                    borderRadius: '6px',
-                    padding: '0.6rem 0.75rem',
+                    background: 'var(--bg-box)',
+                    border: isPlaying ? '1.5px solid #0A84FF' : '1px solid var(--border-subtle)',
+                    borderRadius: '10px',
+                    padding: '0.65rem 0.8rem',
                     display: 'flex',
                     justifyContent: 'space-between',
                     alignItems: 'center',
-                    gap: '8px'
+                    gap: '8px',
+                    boxShadow: isPlaying ? '0 0 12px rgba(10, 132, 255, 0.3)' : 'none',
+                    transition: 'all 120ms ease'
                   }}
                 >
                   <div style={{ overflow: 'hidden' }}>
-                    <div style={{ fontWeight: 600, fontSize: '0.8rem', color: '#F1F5F9', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={take.conditionId}>
+                    <div style={{ fontWeight: 700, fontSize: '0.8rem', color: 'var(--text-primary)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden', letterSpacing: '-0.01em' }} title={take.conditionId}>
                       {take.conditionId}
                     </div>
-                    <div style={{ fontSize: '0.72rem', color: '#94A3B8', marginTop: '2px', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
-                      <span style={{ textTransform: 'capitalize', color: '#C084FC', fontWeight: 600 }}>{take.emotion}</span>
-                      <span style={{ background: 'rgba(245, 158, 11, 0.15)', color: '#FDE68A', padding: '0 4px', borderRadius: '3px', fontSize: '0.68rem' }}>
+                    <div style={{ fontSize: '0.72rem', color: 'var(--text-tertiary)', marginTop: '2px', display: 'flex', gap: '4px', alignItems: 'center', flexWrap: 'wrap' }}>
+                      <span style={{ textTransform: 'capitalize', color: '#BF5AF2', fontWeight: 600 }}>{take.emotion}</span>
+                      <span style={{ background: 'rgba(255, 159, 10, 0.12)', color: '#FF9F0A', padding: '1px 5px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 600 }}>
                         Int: {take.intensityLabel?.toUpperCase()} ({take.emotionIntensity?.toFixed(2)})
                       </span>
                       {take.delivery && take.delivery !== 'normal' && (
-                        <span style={{ background: 'rgba(168, 85, 247, 0.15)', color: '#D8B4FE', padding: '0 4px', borderRadius: '3px', fontSize: '0.68rem' }}>
+                        <span style={{ background: 'rgba(191, 90, 242, 0.12)', color: '#BF5AF2', padding: '1px 5px', borderRadius: '4px', fontSize: '0.68rem', fontWeight: 600 }}>
                           {take.delivery}
                         </span>
                       )}
-                      <span>({take.duration.toFixed(1)}s)</span>
+                      <span style={{ fontFamily: 'var(--font-mono)' }}>({take.duration.toFixed(1)}s)</span>
                     </div>
                   </div>
 
@@ -214,13 +226,15 @@ export const ExpressiveFamilyCard: React.FC<ExpressiveFamilyCardProps> = ({
                       height: '32px',
                       minWidth: '32px',
                       borderRadius: '50%',
-                      background: isPlaying ? '#EF4444' : '#6366F1',
-                      border: 'none',
+                      background: isPlaying ? 'linear-gradient(145deg, #FF453A, #D62B20)' : 'linear-gradient(145deg, #0A84FF, #0066CC)',
+                      border: '1px solid rgba(255, 255, 255, 0.25)',
                       color: '#fff',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      cursor: 'pointer'
+                      cursor: 'pointer',
+                      boxShadow: isPlaying ? '0 2px 10px rgba(255, 69, 58, 0.4)' : '0 2px 10px rgba(10, 132, 255, 0.4)',
+                      transition: 'transform 100ms ease'
                     }}
                     title={isPlaying ? 'Pause Take' : 'Play Take'}
                   >

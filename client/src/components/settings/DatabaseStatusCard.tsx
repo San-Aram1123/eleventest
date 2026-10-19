@@ -48,23 +48,23 @@ export const DatabaseStatusCard: React.FC<DatabaseStatusCardProps> = ({ database
           gap: '10px',
           fontSize: '0.8rem',
           color: 'var(--text-muted)',
-          background: 'rgba(0,0,0,0.25)',
+          background: 'var(--bg-box)',
           padding: '12px',
           borderRadius: 'var(--radius-sm)',
-          border: '1px solid rgba(255,255,255,0.05)'
+          border: '1px solid var(--border-subtle)'
         }}
       >
         <div>
           <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.72rem' }}>HOST &amp; PORT</span>
-          <strong style={{ color: '#E2E8F0' }}>{database?.host || 'localhost'}:{database?.port || 3306}</strong>
+          <strong style={{ color: 'var(--text-main)' }}>{database?.host || 'localhost'}:{database?.port || 3306}</strong>
         </div>
         <div>
           <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.72rem' }}>DATABASE</span>
-          <strong style={{ color: '#38BDF8' }}>{database?.database || 'kurdish_tts_db'}</strong>
+          <strong style={{ color: 'var(--primary)' }}>{database?.database || 'kurdish_tts_db'}</strong>
         </div>
         <div>
           <span style={{ color: 'var(--text-dim)', display: 'block', fontSize: '0.72rem' }}>STORED SAMPLES</span>
-          <strong style={{ color: '#A78BFA' }}>{database?.sampleCount ?? 0} samples</strong>
+          <strong style={{ color: 'var(--accent-purple)' }}>{database?.sampleCount ?? 0} samples</strong>
         </div>
       </div>
 

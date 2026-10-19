@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Play, Pause, Download, Trash2, Code, ShieldCheck, CheckCircle2, Volume2, User } from 'lucide-react';
+import { Play, Pause, Download, Trash2, Code, ShieldCheck, User } from 'lucide-react';
 import { ExpressiveTake, buildAudarRecord } from './expressiveConstants';
 
 interface ExpressiveAudioCardProps {
@@ -48,15 +48,20 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
   const audarJson = JSON.stringify(buildAudarRecord(take), null, 2);
 
   return (
-    <div style={{
-      background: 'rgba(255, 255, 255, 0.03)',
-      border: '1px solid rgba(255, 255, 255, 0.08)',
-      borderRadius: '10px',
-      padding: '1rem',
-      marginBottom: '0.75rem',
-      transition: 'border-color 0.2s ease'
-    }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.5rem' }}>
+    <div
+      style={{
+        background: 'var(--bg-card)',
+        backdropFilter: 'blur(20px) saturate(180%)',
+        border: '1px solid var(--border-medium)',
+        borderTop: '1px solid var(--border-specular)',
+        borderRadius: '14px',
+        padding: '1rem',
+        marginBottom: '0.75rem',
+        boxShadow: '0 4px 20px rgba(0, 0, 0, 0.2)',
+        transition: 'border-color 150ms ease, box-shadow 150ms ease'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.65rem' }}>
         {/* Play & Info */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <button
@@ -65,14 +70,16 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
               width: '42px',
               height: '42px',
               borderRadius: '50%',
-              background: isPlaying ? '#EF4444' : '#6366F1',
-              border: 'none',
+              background: isPlaying ? 'linear-gradient(145deg, #FF453A, #D62B20)' : 'linear-gradient(145deg, #0A84FF, #0066CC)',
+              border: '1px solid rgba(255, 255, 255, 0.25)',
+              borderTop: '1px solid rgba(255, 255, 255, 0.4)',
               color: '#fff',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               cursor: 'pointer',
-              boxShadow: '0 2px 8px rgba(99, 102, 241, 0.35)'
+              boxShadow: isPlaying ? '0 4px 14px rgba(255, 69, 58, 0.35)' : '0 4px 14px rgba(10, 132, 255, 0.35)',
+              transition: 'transform 120ms cubic-bezier(0.16, 1, 0.3, 1)'
             }}
             title={isPlaying ? 'Pause' : 'Play Take'}
           >
@@ -81,27 +88,27 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 600, fontSize: '0.88rem', color: '#F8FAFC' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.88rem', letterSpacing: '-0.01em', color: 'var(--text-primary)' }}>
                 {take.id}
               </span>
-              <span style={{ fontSize: '0.72rem', background: 'rgba(99, 102, 241, 0.2)', color: '#818CF8', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+              <span style={{ fontSize: '0.7rem', background: 'rgba(10, 132, 255, 0.12)', color: '#0A84FF', padding: '2px 8px', borderRadius: '9999px', fontWeight: 600, border: '1px solid rgba(10, 132, 255, 0.25)' }}>
                 {take.scriptId}
               </span>
-              <span style={{ fontSize: '0.72rem', background: 'rgba(255, 255, 255, 0.08)', color: '#94A3B8', padding: '1px 6px', borderRadius: '4px' }}>
+              <span style={{ fontSize: '0.7rem', background: 'rgba(255, 255, 255, 0.06)', color: 'var(--text-secondary)', padding: '2px 8px', borderRadius: '9999px', fontFamily: 'var(--font-mono)' }}>
                 {take.duration.toFixed(2)}s
               </span>
             </div>
 
-            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '0.78rem', color: '#94A3B8' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '4px', fontSize: '0.76rem', color: 'var(--text-tertiary)' }}>
               <span style={{ display: 'flex', alignItems: 'center', gap: '3px' }}>
                 <User size={13} /> {take.speakerName} ({take.speakerGender})
               </span>
               <span>•</span>
-              <span style={{ textTransform: 'capitalize', color: '#F1F5F9', fontWeight: 500 }}>
+              <span style={{ textTransform: 'capitalize', color: 'var(--text-primary)', fontWeight: 600 }}>
                 {take.emotion} ({take.intensityLabel})
               </span>
               <span>•</span>
-              <span style={{ color: '#38BDF8', fontWeight: 500 }}>
+              <span style={{ color: '#0A84FF', fontWeight: 600 }}>
                 {take.delivery === 'laughing_speech' ? 'Laughing' : take.delivery}
               </span>
             </div>
@@ -113,7 +120,7 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
           <button
             onClick={() => setShowJson(!showJson)}
             className="btn btn-secondary btn-sm"
-            style={{ fontSize: '0.75rem', padding: '4px 8px', display: 'flex', alignItems: 'center', gap: '4px' }}
+            style={{ fontSize: '0.74rem', padding: '5px 11px', borderRadius: '9999px', display: 'flex', alignItems: 'center', gap: '4px', fontWeight: 600, background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)' }}
             title="Inspect Audar JSONL record"
           >
             <Code size={13} />
@@ -123,7 +130,7 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
           <button
             onClick={downloadWav}
             className="btn btn-secondary btn-sm"
-            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+            style={{ fontSize: '0.74rem', padding: '5px 10px', borderRadius: '9999px', background: 'rgba(255, 255, 255, 0.06)', border: '1px solid var(--border-subtle)' }}
             title="Download 24kHz Mono WAV"
           >
             <Download size={13} />
@@ -132,7 +139,7 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
           <button
             onClick={() => onDelete(take.id)}
             className="btn btn-danger btn-sm"
-            style={{ fontSize: '0.75rem', padding: '4px 8px' }}
+            style={{ fontSize: '0.74rem', padding: '5px 10px', borderRadius: '9999px' }}
             title="Remove take"
           >
             <Trash2 size={13} />
@@ -143,13 +150,14 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
       {/* Transcript Text */}
       <div style={{
         marginTop: '0.75rem',
-        padding: '0.6rem 0.85rem',
-        background: 'rgba(0, 0, 0, 0.25)',
-        borderRadius: '6px',
+        padding: '0.65rem 0.95rem',
+        background: 'var(--bg-box)',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: '10px',
         fontSize: '0.92rem',
         direction: 'rtl',
         fontFamily: 'Noto Naskh Arabic, Tahoma, sans-serif',
-        color: '#E2E8F0',
+        color: 'var(--text-primary)',
         lineHeight: 1.6
       }}>
         {take.transcript}
@@ -160,20 +168,20 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
         display: 'flex',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginTop: '0.6rem',
+        marginTop: '0.65rem',
         fontSize: '0.74rem',
-        color: '#94A3B8',
+        color: 'var(--text-tertiary)',
         flexWrap: 'wrap',
         gap: '6px'
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '5px' }}>
-          <ShieldCheck size={14} style={{ color: '#10B981' }} />
+          <ShieldCheck size={14} style={{ color: '#30D158' }} />
           <span>Audar Review:</span>
-          <span style={{ color: '#10B981', fontWeight: 600 }}>
+          <span style={{ color: '#30D158', fontWeight: 600 }}>
             Emotion ✓ | Delivery ✓ | Int: {take.review.intensity_level} | Naturalness: {take.review.naturalness}/5
           </span>
         </div>
-        <div style={{ color: '#64748B' }}>
+        <div style={{ color: 'var(--text-tertiary)' }}>
           Format: 24kHz Lossless WAV (ckb)
         </div>
       </div>
@@ -181,18 +189,20 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
       {/* JSON Schema Inspection View */}
       {showJson && (
         <div style={{ marginTop: '0.75rem' }}>
-          <div style={{ fontSize: '0.72rem', color: '#818CF8', fontWeight: 600, marginBottom: '4px' }}>
+          <div style={{ fontSize: '0.72rem', color: '#BF5AF2', fontWeight: 600, marginBottom: '4px' }}>
             Audar Canonical data.jsonl Record:
           </div>
           <pre style={{
-            background: '#0F172A',
-            color: '#38BDF8',
-            padding: '0.75rem',
-            borderRadius: '6px',
+            background: 'var(--bg-box-subtle)',
+            color: 'var(--text-main)',
+            padding: '0.85rem',
+            borderRadius: '10px',
+            border: '1px solid var(--border-subtle)',
             fontSize: '0.72rem',
             overflowX: 'auto',
             maxHeight: '220px',
-            margin: 0
+            margin: 0,
+            fontFamily: 'var(--font-mono)'
           }}>
             {audarJson}
           </pre>
@@ -201,4 +211,3 @@ export const ExpressiveAudioCard: React.FC<ExpressiveAudioCardProps> = ({
     </div>
   );
 };
-

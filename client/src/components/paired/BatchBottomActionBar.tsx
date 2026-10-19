@@ -54,15 +54,15 @@ export const BatchBottomActionBar: React.FC<BatchBottomActionBarProps> = ({
         justifyContent: 'space-between',
         alignItems: 'center',
         border: '1.5px solid rgba(168, 85, 247, 0.4)',
-        background: 'rgba(15, 23, 42, 0.95)',
+        background: 'var(--bg-card)',
         backdropFilter: 'blur(12px)',
         borderRadius: '12px',
         boxShadow: '0 8px 30px rgba(0,0,0,0.5)',
         zIndex: 10
       }}
     >
-      <div style={{ fontSize: '0.88rem', color: '#94a3b8' }}>
-        Total Batch: <strong style={{ color: '#f8fafc' }}>{sentenceCount} sentences</strong> × <strong style={{ color: '#f8fafc' }}>{emotionCount} emotions</strong> = <strong style={{ color: '#38bdf8', fontSize: '1.1rem' }}>{totalClips} audio clips</strong>
+      <div style={{ fontSize: '0.88rem', color: 'var(--text-secondary)' }}>
+        Total Batch: <strong style={{ color: 'var(--text-main)' }}>{sentenceCount} sentences</strong> × <strong style={{ color: 'var(--text-main)' }}>{emotionCount} emotions</strong> = <strong style={{ color: '#38bdf8', fontSize: '1.1rem' }}>{totalClips} audio clips</strong>
         <span style={{ marginLeft: '0.75rem', color: mode === 'sliced' ? '#c084fc' : '#38bdf8', fontWeight: 600 }}>
           ({totalCalls} API Calls)
         </span>

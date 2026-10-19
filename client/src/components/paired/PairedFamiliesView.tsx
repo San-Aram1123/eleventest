@@ -164,7 +164,7 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
             />
           </div>
 
-          <div style={{ display: 'flex', background: 'rgba(255,255,255,0.06)', borderRadius: '6px', padding: '2px' }}>
+          <div style={{ display: 'flex', background: 'var(--bg-box-subtle)', border: '1px solid var(--border-subtle)', borderRadius: '6px', padding: '2px' }}>
             <button className={`btn btn-sm ${filterStatus === 'all' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setFilterStatus('all')} style={{ fontSize: '0.75rem', padding: '0.2rem 0.6rem' }}>
               All ({families.length})
             </button>
@@ -177,8 +177,8 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           </div>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-            <ArrowUpDown size={14} style={{ color: '#94a3b8' }} />
-            <select className="select-control" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', color: '#e2e8f0', cursor: 'pointer' }}>
+            <ArrowUpDown size={14} style={{ color: 'var(--text-secondary)' }} />
+            <select className="select-control" value={sortOrder} onChange={(e) => setSortOrder(e.target.value as any)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', cursor: 'pointer' }}>
               <option value="newest">🕒 Newest First</option>
               <option value="oldest">🕒 Oldest First</option>
               <option value="id_desc">🔤 Family ID (Z → A)</option>
@@ -187,8 +187,8 @@ export const PairedFamiliesView: React.FC<PairedFamiliesViewProps> = ({
           </div>
 
           <div style={{ display: 'inline-flex', alignItems: 'center', gap: '5px' }}>
-            <Globe size={13} style={{ color: '#94a3b8' }} />
-            <select className="select-control" value={timeZone} onChange={(e) => handleTimezoneChange(e.target.value)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'rgba(15, 23, 42, 0.6)', border: '1px solid rgba(255, 255, 255, 0.12)', borderRadius: '6px', color: '#e2e8f0', cursor: 'pointer' }}>
+            <Globe size={13} style={{ color: 'var(--text-secondary)' }} />
+            <select className="select-control" value={timeZone} onChange={(e) => handleTimezoneChange(e.target.value)} style={{ fontSize: '0.75rem', padding: '0.25rem 0.5rem', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', borderRadius: '6px', color: 'var(--text-main)', cursor: 'pointer' }}>
               <option value="Asia/Baghdad">GMT+3 (Baghdad / Kurdistan)</option>
               <option value="local">Browser Local</option>
               <option value="UTC">UTC (GMT+0)</option>

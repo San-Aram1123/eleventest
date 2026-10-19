@@ -131,7 +131,7 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
               {f.gender === 'female' ? '♀ Female' : '♂ Male'}
             </span>
           )}
-          <span className="badge" style={{ background: 'rgba(255,255,255,0.05)', color: '#94a3b8' }}>
+          <span className="badge" style={{ background: 'var(--bg-box-subtle)', color: 'var(--text-secondary)' }}>
             {f.language === 'en' ? 'English (en)' : f.language === 'ar' ? 'Arabic (ar)' : f.language === 'kmr' ? 'Badini (kmr)' : 'Sorani (ckb)'}
           </span>
           {hasRecentlyAddedClip && (
@@ -161,13 +161,13 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
       </div>
 
       {/* Transcript */}
-      <div dir={isRtl ? 'rtl' : 'ltr'} style={{ fontSize: '1rem', fontWeight: 500, color: '#f8fafc', fontFamily: isRtl ? "'Noto Naskh Arabic', 'Rabar', sans-serif" : 'inherit', marginBottom: '0.85rem', lineHeight: 1.6 }}>
+      <div dir={isRtl ? 'rtl' : 'ltr'} style={{ fontSize: '1rem', fontWeight: 500, color: 'var(--text-main)', fontFamily: isRtl ? "'Noto Naskh Arabic', 'Rabar', sans-serif" : 'inherit', marginBottom: '0.85rem', lineHeight: 1.6 }}>
         {f.text}
       </div>
 
       {/* JSON Inspector */}
       {showJson && (
-        <pre style={{ background: '#0B0F19', color: '#38BDF8', padding: '0.75rem 1rem', borderRadius: '6px', margin: '0 0 0.85rem 0', fontSize: '0.72rem', overflowX: 'auto', maxHeight: '160px' }}>
+        <pre style={{ background: 'var(--bg-box-subtle)', color: '#38BDF8', border: '1px solid var(--border-subtle)', padding: '0.75rem 1rem', borderRadius: '6px', margin: '0 0 0.85rem 0', fontSize: '0.72rem', overflowX: 'auto', maxHeight: '160px' }}>
           {JSON.stringify(f.takes, null, 2)}
         </pre>
       )}
@@ -176,7 +176,7 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
       {isExpanded && (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))', gap: '0.65rem' }}>
           {visibleTakes.length === 0 ? (
-            <div style={{ color: '#64748B', fontSize: '0.78rem', padding: '0.5rem 0' }}>
+            <div style={{ color: 'var(--text-muted)', fontSize: '0.78rem', padding: '0.5rem 0' }}>
               No takes match the active emotion filter in this family.
             </div>
           ) : (
@@ -189,8 +189,8 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
                 <div
                   key={sample.id}
                   style={{
-                    background: 'rgba(0, 0, 0, 0.35)',
-                    border: isPlaying ? `2px solid ${info.color}` : '1px solid rgba(255, 255, 255, 0.08)',
+                    background: 'var(--bg-box)',
+                    border: isPlaying ? `2px solid ${info.color}` : '1px solid var(--border-subtle)',
                     borderRadius: '8px',
                     padding: '0.65rem 0.85rem',
                     display: 'flex',
@@ -201,7 +201,7 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
                   }}
                 >
                   <div style={{ overflow: 'hidden', flex: 1 }}>
-                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: '#F8FAFC', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={info.title}>
+                    <div style={{ fontWeight: 700, fontSize: '0.82rem', color: 'var(--text-main)', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={info.title}>
                       {info.title}
                     </div>
 
@@ -218,14 +218,14 @@ export const ExpressiveDatasetFamilyCard: React.FC<ExpressiveDatasetFamilyCardPr
                         </span>
                       )}
                       {duration > 0 && (
-                        <span style={{ fontSize: '0.68rem', color: '#64748B' }}>
+                        <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                           {Number(duration).toFixed(1)}s
                         </span>
                       )}
                     </div>
 
                     {info.components && (
-                      <div style={{ fontSize: '0.68rem', color: '#94A3B8', marginTop: '3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={info.components}>
+                      <div style={{ fontSize: '0.68rem', color: 'var(--text-secondary)', marginTop: '3px', whiteSpace: 'nowrap', textOverflow: 'ellipsis', overflow: 'hidden' }} title={info.components}>
                         {info.components}
                       </div>
                     )}

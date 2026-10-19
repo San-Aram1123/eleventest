@@ -44,6 +44,9 @@ export async function fetchDualPilotConfig(): Promise<DualPilotConfigResponse> {
 
 export async function generateGeminiDualPilotChunk(payload: {
   paragraphs: string[];
+  runId?: string;
+  startIndex?: number;
+  voices?: string[];
   femaleVoice: string;
   maleVoice: string;
   emotion: string;
@@ -88,6 +91,9 @@ export async function generateGeminiDualPilotChunk(payload: {
 
 export async function generateElevenLabsDualPilotTake(payload: {
   text: string;
+  runId?: string;
+  startIndex?: number;
+  gender?: string;
   voiceId: string;
   voiceName: string;
   modelId: string;
@@ -150,4 +156,15 @@ export async function deleteElevenLabsKey(index: number): Promise<any> {
     throw new Error(err.error || 'Failed to delete ElevenLabs key');
   }
   return res.json();
+}
+
+export async function reserveDualPilotRun(): Promise<{ runId: string }> {
+  const response = await fetch(`${API_BASE}/dual-pilot/runs`, { method: 'POST' });
+  if (!response.ok) {
+    const details = await response.json().catch(() => ({}));
+    throw new Error(response.status === 404
+      ? 'The backend has not loaded the batch reservation endpoint. Restart the backend server and try again.'
+      : details.error || `Could not reserve unique batch indexes (HTTP ${response.status}).`);
+  }
+  return response.json();
 }

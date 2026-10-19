@@ -96,7 +96,7 @@ export const DualPilotKeyManagerCard: React.FC<DualPilotKeyManagerCardProps> = (
             ElevenLabs synthesis automatically rotates through this key pool in round-robin order, failing over instantly if a key hits rate limits or quota caps.
           </p>
 
-          <form onSubmit={handleAdd} style={{ display: 'flex', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          <form onSubmit={handleAdd} style={{ display: 'flex', gap: '0.6rem', marginBottom: '0.85rem' }}>
             <input
               type="password"
               placeholder="Paste new ElevenLabs API Key (e.g. sk_...)"
@@ -105,12 +105,13 @@ export const DualPilotKeyManagerCard: React.FC<DualPilotKeyManagerCardProps> = (
               disabled={disabled || isAdding}
               style={{
                 flex: 1,
-                padding: '0.45rem 0.75rem',
-                borderRadius: '6px',
+                padding: '0.55rem 1rem',
+                borderRadius: '9999px',
                 border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(0,0,0,0.3)',
+                background: 'rgba(255,255,255,0.05)',
                 color: 'inherit',
-                fontSize: '0.85rem'
+                fontSize: '0.85rem',
+                outline: 'none'
               }}
             />
             <button
@@ -124,12 +125,12 @@ export const DualPilotKeyManagerCard: React.FC<DualPilotKeyManagerCardProps> = (
           </form>
 
           {error && (
-            <div style={{ color: '#F87171', fontSize: '0.78rem', marginBottom: '0.5rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
+            <div style={{ color: 'var(--accent-red)', fontSize: '0.78rem', marginBottom: '0.6rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
               <AlertCircle size={13} /> {error}
             </div>
           )}
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(240px, 1fr))', gap: '0.6rem' }}>
             {elevenKeys.map((k, idx) => (
               <div
                 key={idx}
@@ -137,16 +138,16 @@ export const DualPilotKeyManagerCard: React.FC<DualPilotKeyManagerCardProps> = (
                   display: 'flex',
                   justifyContent: 'space-between',
                   alignItems: 'center',
-                  padding: '0.45rem 0.75rem',
-                  background: 'rgba(0,0,0,0.25)',
-                  borderRadius: '6px',
-                  border: '1px solid rgba(255,255,255,0.06)',
-                  fontSize: '0.8rem'
+                  padding: '0.6rem 0.9rem',
+                  background: 'rgba(255,255,255,0.04)',
+                  borderRadius: '12px',
+                  border: '1px solid rgba(255,255,255,0.08)',
+                  fontSize: '0.82rem'
                 }}
               >
                 <div>
-                  <div style={{ fontWeight: 600, fontFamily: 'monospace', color: '#E2E8F0' }}>{k.maskedKey}</div>
-                  <div style={{ fontSize: '0.7rem', color: k.status === 'exhausted' ? '#F87171' : '#34D399' }}>
+                  <div style={{ fontWeight: 600, fontFamily: 'monospace', color: 'var(--text-main)' }}>{k.maskedKey}</div>
+                  <div style={{ fontSize: '0.7rem', color: k.status === 'exhausted' ? 'var(--accent-red)' : 'var(--accent-emerald)', marginTop: '2px' }}>
                     {k.status === 'exhausted' ? 'Quota Exhausted' : 'Ready (Active)'}
                     {k.remainingCharacters !== undefined ? ` • ${k.remainingCharacters.toLocaleString()} chars left` : ''}
                   </div>
@@ -157,7 +158,7 @@ export const DualPilotKeyManagerCard: React.FC<DualPilotKeyManagerCardProps> = (
                   onClick={() => handleDelete(k.index)}
                   disabled={disabled}
                   title="Remove Key from Pool"
-                  style={{ color: '#EF4444' }}
+                  style={{ color: 'var(--accent-red)', width: '28px', height: '28px', minWidth: '28px' }}
                 >
                   <Trash2 size={13} />
                 </button>

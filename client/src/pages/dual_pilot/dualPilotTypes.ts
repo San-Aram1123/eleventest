@@ -120,6 +120,8 @@ export const DUAL_PILOT_LANGUAGES: LanguageOption[] = [
 
 export interface DualPilotConfig {
   selectedPresetId: string;
+  elevenVoiceSlots?: Array<{ voiceId: string; voiceName: string }>;
+
   language: DualPilotLanguage;
   geminiFemaleVoice: string;
   geminiMaleVoice: string;

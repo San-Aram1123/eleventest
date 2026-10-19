@@ -31,27 +31,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(30, 41, 59, 0.6);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  padding: 6px 12px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-medium);
+  border-radius: 9999px;
+  padding: 6px 14px;
   cursor: pointer;
   transition: all var(--transition-fast);
   white-space: nowrap;
 }
 
 .pair-select-btn:hover {
-  background: rgba(56, 189, 248, 0.15);
-  border-color: #38BDF8;
+  background: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-specular);
+}
+
+.pair-select-btn:active {
+  transform: scale(0.96);
 }
 
 .pair-count-badge {
-  background: rgba(56, 189, 248, 0.2);
-  color: #38BDF8;
+  background: rgba(10, 132, 255, 0.2);
+  color: #0A84FF;
   font-size: 0.7rem;
   font-weight: 700;
-  padding: 2px 6px;
-  border-radius: var(--radius-full);
+  padding: 2px 7px;
+  border-radius: 9999px;
 }
 
 .pair-text {

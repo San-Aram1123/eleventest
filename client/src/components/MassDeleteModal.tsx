@@ -157,17 +157,17 @@ export const MassDeleteModal: React.FC<MassDeleteModalProps> = ({
               display: 'grid',
               gridTemplateColumns: selectedSampleIds.size > 0 ? 'repeat(4, 1fr)' : 'repeat(3, 1fr)',
               gap: '6px',
-              background: 'rgba(15, 23, 42, 0.6)',
+              background: 'var(--bg-box-subtle)',
               padding: '5px',
               borderRadius: '10px',
-              border: '1px solid rgba(255, 255, 255, 0.07)'
+              border: '1px solid var(--border-subtle)'
             }}
           >
             <button
               type="button"
               onClick={() => setActiveTab('date')}
               className={`btn btn-sm ${activeTab === 'date' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'date' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'date' ? '#ffffff' : '#94a3b8', border: 'none' }}
+              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'date' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'date' ? '#ffffff' : 'var(--text-secondary)', border: 'none' }}
             >
               <Calendar size={14} />
               <span>Date Presets</span>
@@ -176,7 +176,7 @@ export const MassDeleteModal: React.FC<MassDeleteModalProps> = ({
               type="button"
               onClick={() => setActiveTab('active_filter')}
               className={`btn btn-sm ${activeTab === 'active_filter' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'active_filter' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'active_filter' ? '#ffffff' : '#94a3b8', border: 'none' }}
+              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'active_filter' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'active_filter' ? '#ffffff' : 'var(--text-secondary)', border: 'none' }}
             >
               <Filter size={14} />
               <span>Active View ({currentFilteredSamples.length})</span>
@@ -185,7 +185,7 @@ export const MassDeleteModal: React.FC<MassDeleteModalProps> = ({
               type="button"
               onClick={() => setActiveTab('metadata')}
               className={`btn btn-sm ${activeTab === 'metadata' ? 'btn-primary' : 'btn-ghost'}`}
-              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'metadata' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'metadata' ? '#ffffff' : '#94a3b8', border: 'none' }}
+              style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'metadata' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'metadata' ? '#ffffff' : 'var(--text-secondary)', border: 'none' }}
             >
               <ListFilter size={14} />
               <span>Metadata Rule</span>
@@ -195,7 +195,7 @@ export const MassDeleteModal: React.FC<MassDeleteModalProps> = ({
                 type="button"
                 onClick={() => setActiveTab('selected')}
                 className={`btn btn-sm ${activeTab === 'selected' ? 'btn-primary' : 'btn-ghost'}`}
-                style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'selected' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'selected' ? '#ffffff' : '#94a3b8', border: 'none' }}
+                style={{ fontSize: '0.82rem', fontWeight: 600, display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', borderRadius: '8px', background: activeTab === 'selected' ? 'linear-gradient(135deg, #ef4444 0%, #b91c1c 100%)' : 'transparent', color: activeTab === 'selected' ? '#ffffff' : 'var(--text-secondary)', border: 'none' }}
               >
                 <CheckCircle2 size={14} />
                 <span>Selected ({selectedSampleIds.size})</span>
@@ -223,10 +223,10 @@ export const MassDeleteModal: React.FC<MassDeleteModalProps> = ({
                 <Filter size={16} color="#f87171" />
                 <span style={{ fontWeight: 700, color: '#f87171', fontSize: '0.92rem' }}>Delete Current Filtered View</span>
               </div>
-              <p style={{ fontSize: '0.8rem', color: '#94a3b8', margin: '0 0 10px 0' }}>
+              <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', margin: '0 0 10px 0' }}>
                 Purge all samples currently matching your active filters and search terms on the Dataset Manager page.
               </p>
-              <div style={{ fontSize: '0.85rem', color: '#f1f5f9' }}>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-main)' }}>
                 Matching Visible Items: <strong>{currentFilteredSamples.length.toLocaleString()}</strong> of {samples.length.toLocaleString()} total samples.
               </div>
             </div>

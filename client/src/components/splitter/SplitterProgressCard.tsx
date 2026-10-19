@@ -70,7 +70,7 @@ export const SplitterProgressCard: React.FC<SplitterProgressCardProps> = ({
 
       <div className="card-body" style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
         {/* Progress Bar */}
-        <div style={{ width: '100%', background: 'rgba(0,0,0,0.3)', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
+        <div style={{ width: '100%', background: 'var(--bg-box)', height: '10px', borderRadius: '5px', overflow: 'hidden' }}>
           <div
             style={{
               width: `${progressPercent}%`,
@@ -119,8 +119,8 @@ export const SplitterProgressCard: React.FC<SplitterProgressCardProps> = ({
         {/* Live Terminal Log */}
         <div
           style={{
-            background: 'rgba(0, 0, 0, 0.5)',
-            border: '1px solid rgba(255, 255, 255, 0.08)',
+            background: 'var(--bg-box)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '6px',
             padding: '10px 14px',
             fontFamily: 'var(--font-mono)',

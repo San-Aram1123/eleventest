@@ -28,8 +28,8 @@ export const ExpressiveBatchWorkloadCard: React.FC<ExpressiveBatchWorkloadCardPr
   return (
     <div
       style={{
-        background: 'rgba(0, 0, 0, 0.35)',
-        border: '1px solid rgba(255, 255, 255, 0.08)',
+        background: 'var(--bg-box)',
+        border: '1px solid var(--border-subtle)',
         borderRadius: '8px',
         padding: '0.85rem 1rem',
         marginBottom: '1rem',
@@ -39,10 +39,10 @@ export const ExpressiveBatchWorkloadCard: React.FC<ExpressiveBatchWorkloadCardPr
       }}
     >
       <div>
-        <div style={{ fontSize: '0.74rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
           <Cpu size={13} style={{ color: '#38BDF8' }} /> Planned Output & Requests:
         </div>
-        <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#F8FAFC', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.94rem', fontWeight: 700, color: 'var(--text-main)', marginTop: '2px' }}>
           {totalClips} Total Clips ({sentenceCount} fam × {conditionCount} cond)
         </div>
         <div style={{ fontSize: '0.76rem', color: batchMode === 'sliced' ? '#10B981' : '#F59E0B', marginTop: '2px', fontWeight: 600 }}>
@@ -53,13 +53,13 @@ export const ExpressiveBatchWorkloadCard: React.FC<ExpressiveBatchWorkloadCardPr
       </div>
 
       <div>
-        <div style={{ fontSize: '0.74rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '5px' }}>
+        <div style={{ fontSize: '0.74rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
           <KeyRound size={13} style={{ color: '#10B981' }} /> Multi-Key Pool Distribution:
         </div>
         <div style={{ fontSize: '0.94rem', fontWeight: 700, color: '#10B981', marginTop: '2px' }}>
           {activeKeysCount} Active Keys → ≈ {requestsPerKey} calls / key
         </div>
-        <div style={{ fontSize: '0.72rem', color: '#64748B', marginTop: '2px' }}>
+        <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginTop: '2px' }}>
           Model: <code>gemini-3.8-flash-tts</code> with automatic failover
         </div>
       </div>

@@ -52,8 +52,8 @@ export const SplitterManualReviewCard: React.FC<SplitterManualReviewCardProps> =
           <div
             key={chunk.id}
             style={{
-              background: 'rgba(15, 23, 42, 0.7)',
-              border: '1px solid rgba(255, 255, 255, 0.08)',
+              background: 'var(--bg-box)',
+              border: '1px solid var(--border-subtle)',
               borderRadius: '6px',
               padding: '12px',
               display: 'flex',

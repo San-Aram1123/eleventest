@@ -55,14 +55,14 @@ export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = (
         {/* Search and Page Size */}
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
           <div style={{ position: 'relative' }}>
-            <Search size={13} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }} />
+            <Search size={13} style={{ position: 'absolute', left: '0.5rem', top: '50%', transform: 'translateY(-50%)', color: 'var(--text-secondary)' }} />
             <input
               type="text"
               placeholder="Search transcript..."
               value={search}
               onChange={(e) => { setSearch(e.target.value); setCurrentPage(1); }}
               className="form-control"
-              style={{ padding: '0.35rem 0.5rem 0.35rem 1.6rem', fontSize: '0.8rem', borderRadius: '6px', background: 'var(--bg-input, rgba(0,0,0,0.25))', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
+              style={{ padding: '0.35rem 0.5rem 0.35rem 1.6rem', fontSize: '0.8rem', borderRadius: '6px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)' }}
             />
           </div>
 
@@ -70,7 +70,7 @@ export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = (
             value={pageSize}
             onChange={(e) => { setPageSize(Number(e.target.value)); setCurrentPage(1); }}
             className="form-select"
-            style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', background: 'var(--bg-input, rgba(0,0,0,0.25))', border: '1px solid rgba(255,255,255,0.12)', color: 'inherit' }}
+            style={{ padding: '0.35rem 0.5rem', fontSize: '0.8rem', borderRadius: '6px', background: 'var(--bg-input)', border: '1px solid var(--border-subtle)', color: 'var(--text-main)' }}
           >
             <option value={5}>5 / page</option>
             <option value={10}>10 / page</option>
@@ -115,8 +115,8 @@ export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = (
 
       {/* Pagination Bar */}
       {totalPages > 1 && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.65rem 1rem', background: 'rgba(255,255,255,0.02)', borderRadius: '8px', border: '1px solid rgba(255,255,255,0.06)' }}>
-          <div style={{ fontSize: '0.82rem', color: '#94a3b8' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '1rem', padding: '0.65rem 1rem', background: 'var(--bg-box)', borderRadius: '8px', border: '1px solid var(--border-subtle)' }}>
+          <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
             Showing {startIndex + 1}–{Math.min(startIndex + pageSize, filteredSamples.length)} of {filteredSamples.length}
           </div>
 
@@ -129,7 +129,7 @@ export const ContextBatchResultsView: React.FC<ContextBatchResultsViewProps> = (
             >
               <ChevronLeft size={14} />
             </button>
-            <span style={{ fontSize: '0.82rem', fontWeight: 600 }}>
+            <span style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-main)' }}>
               Page {safePage} of {totalPages}
             </span>
             <button

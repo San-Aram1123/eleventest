@@ -79,18 +79,18 @@ export const ExpressiveExportModal: React.FC<ExpressiveExportModalProps> = ({
       zIndex: 1000
     }}>
       <div className="modal-content" onClick={e => e.stopPropagation()} style={{
-        background: '#1E2230',
+        background: 'var(--bg-card)',
         borderRadius: '12px',
         width: '520px',
         maxWidth: '90%',
         padding: '1.5rem',
-        border: '1px solid #334155',
+        border: '1px solid var(--border-subtle)',
         boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.5)'
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <Package size={20} style={{ color: '#8B5CF6' }} />
-            <h3 style={{ margin: 0, fontSize: '1.15rem', color: '#F8FAFC' }}>
+            <h3 style={{ margin: 0, fontSize: '1.15rem', color: 'var(--text-main)' }}>
               Export Audar Expressive Package
             </h3>
           </div>
@@ -104,31 +104,32 @@ export const ExpressiveExportModal: React.FC<ExpressiveExportModalProps> = ({
           display: 'grid',
           gridTemplateColumns: '1fr 1fr',
           gap: '0.75rem',
-          background: 'rgba(0,0,0,0.3)',
+          background: 'var(--bg-box)',
+          border: '1px solid var(--border-subtle)',
           padding: '1rem',
           borderRadius: '8px',
           marginBottom: '1.25rem',
           fontSize: '0.85rem'
         }}>
           <div>
-            <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>Total Accepted Takes</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Total Accepted Takes</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#38BDF8' }}>{takes.length}</div>
           </div>
           <div>
-            <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>Total Duration</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Total Duration</div>
             <div style={{ fontSize: '1.2rem', fontWeight: 700, color: '#10B981' }}>{totalDuration.toFixed(1)}s</div>
           </div>
           <div>
-            <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>Speakers Tested</div>
-            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#F1F5F9' }}>{uniqueSpeakers}</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Speakers Tested</div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600, color: 'var(--text-main)' }}>{uniqueSpeakers}</div>
           </div>
           <div>
-            <div style={{ color: '#94A3B8', fontSize: '0.75rem' }}>Condition Matrix Coverage</div>
+            <div style={{ color: 'var(--text-secondary)', fontSize: '0.75rem' }}>Condition Matrix Coverage</div>
             <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#A855F7' }}>{uniqueConditions} / 27</div>
           </div>
         </div>
 
-        <div style={{ fontSize: '0.82rem', color: '#94A3B8', marginBottom: '1.25rem', lineHeight: 1.5 }}>
+        <div style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: 1.5 }}>
           Exports strictly into the format requested in <code>TTS_EXPRESSIVE_DATASET_PROMPT.md</code>, including <code>data.jsonl</code> with all <code>x_reviewer_*</code> fields and <code>manifest.json</code>.
         </div>
 

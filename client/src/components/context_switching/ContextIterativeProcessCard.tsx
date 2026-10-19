@@ -21,7 +21,7 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
         borderRadius: '8px',
         marginBottom: '1rem',
         border: '1px solid rgba(56, 189, 248, 0.25)',
-        background: 'linear-gradient(180deg, rgba(56, 189, 248, 0.04) 0%, rgba(15, 23, 42, 0.4) 100%)'
+        background: 'var(--bg-box)'
       }}
     >
       {/* Header */}
@@ -53,7 +53,7 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
 
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: '#f0f9ff' }}>
+              <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--text-main)' }}>
                 Try-Try-Try Iterative Process Log
               </span>
               <span
@@ -70,7 +70,7 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
                 {attempts.length} {attempts.length === 1 ? 'Attempt' : 'Attempts'} Evaluated
               </span>
             </div>
-            <div style={{ fontSize: '0.72rem', color: '#94a3b8' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>
               Duration-Targeted Optimization • Converged at Attempt {successfulAttempt.attemptNumber} (Score: {successfulAttempt.score}%)
             </div>
           </div>
@@ -102,8 +102,8 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
                 style={{
                   padding: '0.6rem 0.75rem',
                   borderRadius: '6px',
-                  background: isSuccess ? 'rgba(16, 185, 129, 0.06)' : 'rgba(255, 255, 255, 0.02)',
-                  border: `1px solid ${isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'rgba(255, 255, 255, 0.06)'}`
+                  background: isSuccess ? 'rgba(16, 185, 129, 0.08)' : 'var(--bg-box-subtle)',
+                  border: `1px solid ${isSuccess ? 'rgba(16, 185, 129, 0.3)' : 'var(--border-subtle)'}`
                 }}
               >
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.25rem', flexWrap: 'wrap', gap: '0.35rem' }}>
@@ -121,7 +121,7 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
                     >
                       Attempt #{att.attemptNumber}
                     </span>
-                    <span style={{ fontSize: '0.76rem', fontWeight: 600, color: '#e2e8f0' }}>
+                    <span style={{ fontSize: '0.76rem', fontWeight: 600, color: 'var(--text-main)' }}>
                       {att.strategy}
                     </span>
                   </div>
@@ -138,7 +138,7 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
                   </div>
                 </div>
 
-                <div style={{ fontSize: '0.72rem', color: isSuccess ? '#a7f3d0' : '#cbd5e1', marginBottom: '0.35rem' }}>
+                <div style={{ fontSize: '0.72rem', color: isSuccess ? '#10B981' : 'var(--text-secondary)', marginBottom: '0.35rem' }}>
                   {att.reason}
                 </div>
 
@@ -152,12 +152,12 @@ export const ContextIterativeProcessCard: React.FC<ContextIterativeProcessCardPr
                           fontSize: '0.67rem',
                           padding: '0.1rem 0.35rem',
                           borderRadius: '3px',
-                          background: 'rgba(0,0,0,0.3)',
-                          border: '1px solid rgba(255,255,255,0.06)',
-                          color: '#94a3b8'
+                          background: 'var(--bg-box)',
+                          border: '1px solid var(--border-subtle)',
+                          color: 'var(--text-secondary)'
                         }}
                       >
-                        L{seg.index}: <strong style={{ color: '#e2e8f0' }}>{seg.duration.toFixed(2)}s</strong>
+                        L{seg.index}: <strong style={{ color: 'var(--text-main)' }}>{seg.duration.toFixed(2)}s</strong>
                       </span>
                     ))}
                   </div>

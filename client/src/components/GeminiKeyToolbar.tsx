@@ -26,8 +26,8 @@ export const GeminiKeyToolbar: React.FC<GeminiKeyToolbarProps> = ({
     <div style={{
       marginTop: '14px',
       padding: '8px 14px',
-      background: 'rgba(15, 23, 42, 0.7)',
-      border: '1px solid rgba(56, 189, 248, 0.2)',
+      background: 'var(--bg-box)',
+      border: '1px solid var(--border-subtle)',
       borderRadius: 'var(--radius-sm)',
       display: 'flex',
       alignItems: 'center',
@@ -35,7 +35,7 @@ export const GeminiKeyToolbar: React.FC<GeminiKeyToolbarProps> = ({
       flexWrap: 'wrap',
       gap: '10px'
     }}>
-      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', userSelect: 'none', color: '#E2E8F0' }}>
+      <label style={{ display: 'inline-flex', alignItems: 'center', gap: '8px', cursor: 'pointer', fontSize: '0.8rem', userSelect: 'none', color: 'var(--text-main)' }}>
         <input
           type="checkbox"
           checked={allSelected}

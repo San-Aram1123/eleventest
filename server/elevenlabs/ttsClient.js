@@ -1,3 +1,5 @@
+import { elevenLabsFailure } from './quotaError.js';
+import { trackedSpeechFetch } from '../shared/requestStatistics.js';
 import { ensureWavBuffer } from '../wavUtils.js';
 import { ELEVENLABS_BASE_URL } from './keyPoolManager.js';
 
@@ -10,7 +12,8 @@ export async function callElevenLabsTTS({
   voiceId,
   modelId,
   voiceSettings,
-  outputFormat
+  outputFormat,
+  signal
 }) {
   const urlWithTimestamps = `${ELEVENLABS_BASE_URL}/text-to-speech/${encodeURIComponent(voiceId)}/with-timestamps?output_format=${encodeURIComponent(outputFormat)}`;
 
@@ -25,13 +28,14 @@ export async function callElevenLabsTTS({
     }
   };
 
-  const response = await fetch(urlWithTimestamps, {
+  const response = await trackedSpeechFetch('elevenlabs', apiKey, modelId, urlWithTimestamps, {
     method: 'POST',
     headers: {
       'xi-api-key': apiKey,
       'Content-Type': 'application/json'
     },
-    body: JSON.stringify(requestBody)
+    body: JSON.stringify(requestBody),
+    signal
   });
 
   const generationId = response.headers.get('history-item-id') || 
@@ -61,51 +65,25 @@ export async function callElevenLabsTTS({
 
   // Handle fallback to binary stream
   const errorText = await response.text();
-  let isQuotaError = response.status === 401 || response.status === 402 || response.status === 429;
-  let parsedMsg = errorText;
-  try {
-    const errJson = JSON.parse(errorText);
-    parsedMsg = errJson.detail?.message || errJson.message || errorText;
-    if (errJson.detail?.status === 'quota_exceeded' || parsedMsg.toLowerCase().includes('quota') || parsedMsg.toLowerCase().includes('credit') || parsedMsg.toLowerCase().includes('character limit')) {
-      isQuotaError = true;
-    }
-  } catch {}
-
-  // If quota / auth error, throw immediately with quota flag
-  if (isQuotaError) {
-    const quotaErr = new Error(`Key quota exhausted / auth error (${response.status}): ${parsedMsg}`);
-    quotaErr.isQuotaError = true;
-    quotaErr.statusCode = response.status;
-    throw quotaErr;
-  }
+  const firstError = elevenLabsFailure(response.status, errorText, apiKey);
+  if (firstError.isQuotaError) throw firstError;
 
   // Try standard endpoint fallback
   const fallbackUrl = `${ELEVENLABS_BASE_URL}/text-to-speech/${encodeURIComponent(voiceId)}?output_format=${encodeURIComponent(outputFormat)}`;
-  const fallbackResponse = await fetch(fallbackUrl, {
+  const fallbackResponse = await trackedSpeechFetch('elevenlabs', apiKey, modelId, fallbackUrl, {
     method: 'POST',
     headers: {
       'xi-api-key': apiKey,
       'Content-Type': 'application/json',
       'Accept': 'audio/*'
     },
-    body: JSON.stringify(requestBody)
+    body: JSON.stringify(requestBody),
+    signal
   });
 
   if (!fallbackResponse.ok) {
     const fallbackErr = await fallbackResponse.text();
-    let fbMsg = fallbackErr;
-    let fbIsQuota = fallbackResponse.status === 401 || fallbackResponse.status === 402 || fallbackResponse.status === 429;
-    try {
-      const errJson = JSON.parse(fallbackErr);
-      fbMsg = errJson.detail?.message || errJson.message || fallbackErr;
-      if (errJson.detail?.status === 'quota_exceeded' || fbMsg.toLowerCase().includes('quota')) {
-        fbIsQuota = true;
-      }
-    } catch {}
-    const err = new Error(`ElevenLabs API generation failed (${fallbackResponse.status}): ${fbMsg}`);
-    err.isQuotaError = fbIsQuota;
-    err.statusCode = fallbackResponse.status;
-    throw err;
+    throw elevenLabsFailure(fallbackResponse.status, fallbackErr, apiKey);
   }
 
   const rawArrayBuffer = await fallbackResponse.arrayBuffer();

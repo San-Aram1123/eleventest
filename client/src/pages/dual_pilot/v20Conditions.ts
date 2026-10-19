@@ -1,3 +1,4 @@
+import emotions from '../../../../shared/v20Emotions.json';
 export interface V20BatchCondition {
   id: string;
   name: string;
@@ -18,58 +19,7 @@ export interface V20PresetTier {
   conditions: V20BatchCondition[];
 }
 
-export const V20_ALL_50_EMOTIONS: Array<{ key: string; name: string; sorani: string; defaultIntensity: number }> = [
-  { key: 'neutral', name: 'Neutral', sorani: 'ئاسایی', defaultIntensity: 0.0 },
-  { key: 'happy', name: 'Happy', sorani: 'دڵخۆش', defaultIntensity: 0.8 },
-  { key: 'sad', name: 'Sad', sorani: 'خەمبار', defaultIntensity: 0.8 },
-  { key: 'angry', name: 'Angry', sorani: 'تووڕە', defaultIntensity: 0.9 },
-  { key: 'excited', name: 'Excited', sorani: 'پڕ جۆش', defaultIntensity: 0.85 },
-  { key: 'tender', name: 'Tender', sorani: 'دڵسۆز', defaultIntensity: 0.75 },
-  { key: 'curious', name: 'Curious', sorani: 'کنجکاو', defaultIntensity: 0.7 },
-  { key: 'sarcastic', name: 'Sarcastic', sorani: 'تانەئامێز', defaultIntensity: 0.8 },
-  { key: 'fearful', name: 'Fearful', sorani: 'ترساو', defaultIntensity: 0.85 },
-  { key: 'disgusted', name: 'Disgusted', sorani: 'بێزار', defaultIntensity: 0.8 },
-  { key: 'surprised', name: 'Surprised', sorani: 'سەرسام', defaultIntensity: 0.8 },
-  { key: 'confused', name: 'Confused', sorani: 'سەری لێ شێواو', defaultIntensity: 0.7 },
-  { key: 'frustrated', name: 'Frustrated', sorani: 'بێتاقەت', defaultIntensity: 0.85 },
-  { key: 'disappointed', name: 'Disappointed', sorani: 'دڵشکاو', defaultIntensity: 0.8 },
-  { key: 'anxious', name: 'Anxious', sorani: 'دڵەڕاوکێ', defaultIntensity: 0.85 },
-  { key: 'nervous', name: 'Nervous', sorani: 'شڵەژاو', defaultIntensity: 0.75 },
-  { key: 'relieved', name: 'Relieved', sorani: 'ئاسوودە', defaultIntensity: 0.7 },
-  { key: 'hopeful', name: 'Hopeful', sorani: 'بەهیوا', defaultIntensity: 0.75 },
-  { key: 'proud', name: 'Proud', sorani: 'شانازی', defaultIntensity: 0.8 },
-  { key: 'ashamed', name: 'Ashamed', sorani: 'شەرمەزار', defaultIntensity: 0.8 },
-  { key: 'guilty', name: 'Guilty', sorani: 'هەست بە گوناهـ', defaultIntensity: 0.8 },
-  { key: 'jealous', name: 'Jealous', sorani: 'بەحەسوودی', defaultIntensity: 0.8 },
-  { key: 'envious', name: 'Envious', sorani: 'چاوپێهەڵنەهاتوو', defaultIntensity: 0.8 },
-  { key: 'contemptuous', name: 'Contemptuous', sorani: 'سووکڕوانین', defaultIntensity: 0.85 },
-  { key: 'resentful', name: 'Resentful', sorani: 'بوغزدار', defaultIntensity: 0.85 },
-  { key: 'despairing', name: 'Despairing', sorani: 'بێ هیوا', defaultIntensity: 0.9 },
-  { key: 'grieving', name: 'Grieving', sorani: 'ماتەمبار', defaultIntensity: 0.9 },
-  { key: 'lonely', name: 'Lonely', sorani: 'تەنیایی', defaultIntensity: 0.75 },
-  { key: 'nostalgic', name: 'Nostalgic', sorani: 'تامەزرۆی ڕابردوو', defaultIntensity: 0.7 },
-  { key: 'affectionate', name: 'Affectionate', sorani: 'خۆشەویستانە', defaultIntensity: 0.75 },
-  { key: 'loving', name: 'Loving', sorani: 'دڵدارانە', defaultIntensity: 0.8 },
-  { key: 'grateful', name: 'Grateful', sorani: 'سوپاسگوزار', defaultIntensity: 0.75 },
-  { key: 'admiring', name: 'Admiring', sorani: 'سەرسام بە باشی', defaultIntensity: 0.8 },
-  { key: 'awed', name: 'Awed', sorani: 'حەپەساو', defaultIntensity: 0.85 },
-  { key: 'amazed', name: 'Amazed', sorani: 'شۆکبووی چاکە', defaultIntensity: 0.85 },
-  { key: 'joyful', name: 'Joyful', sorani: 'شادیبەخش', defaultIntensity: 0.9 },
-  { key: 'amused', name: 'Amused', sorani: 'بەپێکەنینەوە', defaultIntensity: 0.75 },
-  { key: 'embarrassed', name: 'Embarrassed', sorani: 'شەرم', defaultIntensity: 0.75 },
-  { key: 'bored', name: 'Bored', sorani: 'بێزار لە کات', defaultIntensity: 0.65 },
-  { key: 'exhausted', name: 'Exhausted', sorani: 'ماندوو', defaultIntensity: 0.85 },
-  { key: 'determined', name: 'Determined', sorani: 'سوور', defaultIntensity: 0.85 },
-  { key: 'confident', name: 'Confident', sorani: 'بڕوابەخۆ', defaultIntensity: 0.8 },
-  { key: 'suspicious', name: 'Suspicious', sorani: 'گوماناوی', defaultIntensity: 0.8 },
-  { key: 'skeptical', name: 'Skeptical', sorani: 'بەگومان', defaultIntensity: 0.75 },
-  { key: 'anticipating', name: 'Anticipating', sorani: 'چاوەڕوانکار', defaultIntensity: 0.8 },
-  { key: 'panicked', name: 'Panicked', sorani: 'تۆقیو', defaultIntensity: 0.95 },
-  { key: 'terrified', name: 'Terrified', sorani: 'زەندەقچوو', defaultIntensity: 0.95 },
-  { key: 'defiant', name: 'Defiant', sorani: 'یاخی', defaultIntensity: 0.9 },
-  { key: 'bitter', name: 'Bitter', sorani: 'تاڵ', defaultIntensity: 0.85 },
-  { key: 'serene', name: 'Serene', sorani: 'هێمن', defaultIntensity: 0.7 }
-];
+export const V20_ALL_50_EMOTIONS = emotions;
 
 export const V20_PRESET_TIERS: V20PresetTier[] = [
   {

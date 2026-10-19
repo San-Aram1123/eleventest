@@ -91,7 +91,7 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
           </div>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: '#f8fafc' }}>
+              <span style={{ fontWeight: 700, fontSize: '0.95rem', color: 'var(--text-main)' }}>
                 Master Audio Takes
               </span>
               <span className="badge" style={{ background: 'rgba(168, 85, 247, 0.2)', color: '#c084fc', fontSize: '0.72rem', fontWeight: 700 }}>
@@ -104,7 +104,7 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
                 Not in Dataset
               </span>
             </div>
-            <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginTop: '2px' }}>
+            <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', marginTop: '2px' }}>
               Direct Gemini master takes stacked newest-on-top. Each take plays full unsliced audio for inspection.
             </div>
           </div>
@@ -148,8 +148,8 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
               key={item.id}
               style={{
                 borderRadius: '9px',
-                border: isLatest ? '1.5px solid rgba(168, 85, 247, 0.45)' : '1px solid rgba(255, 255, 255, 0.08)',
-                background: isLatest ? 'rgba(38, 29, 78, 0.7)' : 'rgba(20, 18, 42, 0.55)',
+                border: isLatest ? '1.5px solid rgba(168, 85, 247, 0.45)' : '1px solid var(--border-subtle)',
+                background: isLatest ? 'var(--bg-box)' : 'var(--bg-box-subtle)',
                 padding: '0.65rem 0.85rem',
                 boxShadow: isLatest ? '0 2px 12px rgba(168, 85, 247, 0.15)' : 'none',
                 transition: 'all 0.2s ease'
@@ -174,28 +174,28 @@ export const MasterAudioPreviewPlayer: React.FC<MasterAudioPreviewPlayerProps> =
                   >
                     [{item.emotion}]
                   </span>
-                  <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: '#cbd5e1', fontSize: '0.72rem' }}>
+                  <span className="badge" style={{ background: 'var(--bg-box-subtle)', color: 'var(--text-main)', fontSize: '0.72rem' }}>
                     {item.speakerId} ({item.voiceName})
                   </span>
-                  <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: '#94a3b8', fontSize: '0.72rem' }}>
+                  <span className="badge" style={{ background: 'var(--bg-box-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
                     {item.sentenceCount} sentences
                   </span>
                   {sizeKb > 0 && (
-                    <span className="badge" style={{ background: 'rgba(255,255,255,0.06)', color: '#94a3b8', fontSize: '0.72rem' }}>
+                    <span className="badge" style={{ background: 'var(--bg-box-subtle)', color: 'var(--text-secondary)', fontSize: '0.72rem' }}>
                       {sizeKb} KB
                     </span>
                   )}
                 </div>
 
                 {timeStr && (
-                  <div style={{ fontSize: '0.7rem', color: '#64748b' }}>
+                  <div style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
                     {timeStr}
                   </div>
                 )}
               </div>
 
               {/* Native Audio Player */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'rgba(0,0,0,0.3)', padding: '0.35rem 0.6rem', borderRadius: '7px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.6rem', background: 'var(--bg-box)', border: '1px solid var(--border-subtle)', padding: '0.35rem 0.6rem', borderRadius: '7px' }}>
                 <Volume2 size={15} color={emColor.text} />
                 <audio
                   controls

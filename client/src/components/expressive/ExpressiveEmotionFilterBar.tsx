@@ -29,8 +29,8 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
       alignItems: 'center',
       justifyContent: 'space-between',
       padding: '0.65rem 0.9rem',
-      background: 'rgba(15, 23, 42, 0.65)',
-      border: '1px solid rgba(255, 255, 255, 0.07)',
+      background: 'var(--bg-box)',
+      border: '1px solid var(--border-subtle)',
       borderRadius: '8px',
       marginBottom: '0.85rem',
       flexWrap: 'wrap',
@@ -38,7 +38,7 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
     }}>
       {/* Emotion Badges */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.78rem', color: '#94A3B8', display: 'flex', alignItems: 'center', gap: '4px', marginRight: '2px' }}>
+        <span style={{ fontSize: '0.78rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: '4px', marginRight: '2px' }}>
           <Filter size={13} /> Filter Emotions:
         </span>
 
@@ -54,9 +54,9 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
                 fontWeight: isSelected ? 700 : 500,
                 padding: '3px 8px',
                 borderRadius: '5px',
-                border: isSelected ? `1px solid ${em.color}` : '1px solid rgba(255, 255, 255, 0.08)',
-                background: isSelected ? `${em.color}28` : 'rgba(255, 255, 255, 0.03)',
-                color: isSelected ? '#FFFFFF' : '#94A3B8',
+                border: isSelected ? `1px solid ${em.color}` : '1px solid var(--border-subtle)',
+                background: isSelected ? `${em.color}28` : 'var(--bg-box-subtle)',
+                color: isSelected ? '#FFFFFF' : 'var(--text-secondary)',
                 cursor: 'pointer',
                 transition: 'all 0.15s ease',
                 display: 'inline-flex',
@@ -104,8 +104,8 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
           <div style={{
             display: 'flex',
             alignItems: 'center',
-            background: 'rgba(0, 0, 0, 0.4)',
-            border: '1px solid rgba(255, 255, 255, 0.1)',
+            background: 'var(--bg-box)',
+            border: '1px solid var(--border-subtle)',
             borderRadius: '5px',
             padding: '2px',
             fontSize: '0.72rem'
@@ -117,7 +117,7 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
                 borderRadius: '4px',
                 border: 'none',
                 background: matchMode === 'all' ? '#8B5CF6' : 'transparent',
-                color: matchMode === 'all' ? '#FFFFFF' : '#94A3B8',
+                color: matchMode === 'all' ? '#FFFFFF' : 'var(--text-secondary)',
                 fontWeight: matchMode === 'all' ? 700 : 500,
                 cursor: 'pointer',
                 display: 'flex',
@@ -135,7 +135,7 @@ export const ExpressiveEmotionFilterBar: React.FC<ExpressiveEmotionFilterBarProp
                 borderRadius: '4px',
                 border: 'none',
                 background: matchMode === 'any' ? '#3B82F6' : 'transparent',
-                color: matchMode === 'any' ? '#FFFFFF' : '#94A3B8',
+                color: matchMode === 'any' ? '#FFFFFF' : 'var(--text-secondary)',
                 fontWeight: matchMode === 'any' ? 700 : 500,
                 cursor: 'pointer',
                 display: 'flex',
